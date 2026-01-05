@@ -1,0 +1,112 @@
+# QuestionForge
+
+## Overview
+
+QuestionForge is a teacher-led, AI-assisted framework for creating high-quality assessment questions that export to QTI format for Inspera LMS. It consists of two focused MCPs: one for pedagogical scaffolding (methodology guidance) and one for the technical pipeline (validation and export).
+
+**Core workflow:** Instructional Materials → Pedagogical Scaffolding (M1-M4) → Markdown Questions → Pipeline (Build/Validate/Export) → QTI Package
+
+## Quick Start
+
+```bash
+# Project structure
+cd /Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge
+
+# MCPs (to be implemented)
+packages/qf-scaffolding/   # TypeScript - methodology guidance
+packages/qf-pipeline/      # Python - validation & export
+```
+
+## Project Status
+
+- **Phase:** DISCOVER/SHAPE Complete → Ready for DECIDE
+- **Created:** 2026-01-02
+- **Method:** ACDM v1.0
+- **Name Origin:** "Forge" implies craftsmanship in creating questions
+
+## Architecture (Two MCPs)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  MCP 1: qf-scaffolding (TypeScript)                         │
+│  ├── M1: Content Analysis (what was taught?)                │
+│  ├── M2: Assessment Planning (types, distribution, labels)  │
+│  ├── M3: Question Generation (create questions)             │
+│  └── M4: Quality Assurance (pedagogical validation)         │
+│  PATTERN: Non-linear, flexible entry points                 │
+│  OUTPUT: Markdown questions                                 │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  MCP 2: qf-pipeline (Python)                                │
+│  ├── Step 1: Guided Build (question-by-question)            │
+│  ├── Step 2: Validator (batch validation)                   │
+│  ├── Step 3: Decision (QTI questions vs Question Set)       │
+│  └── Step 4: Export (generate QTI package)                  │
+│  PATTERN: Linear with validation loops                      │
+│  OUTPUT: QTI package for Inspera                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Structure
+
+```
+QuestionForge/
+├── packages/
+│   ├── qf-scaffolding/     # TypeScript MCP (methodology)
+│   └── qf-pipeline/        # Python MCP (validation/export)
+├── qf-specifications/      # Shared specs (both MCPs use)
+│   ├── question-types/     # Per-type specifications
+│   ├── modules/            # M1-M4 methodology docs
+│   └── question-format.md  # Format specification
+├── docs/
+│   ├── DISCOVERY_BRIEF.md  # Problem analysis (complete)
+│   ├── adr/                # Architecture decisions
+│   ├── specs/              # Implementation specs
+│   └── rfcs/               # Proposals
+└── .claude/commands/       # ACDM workflow commands
+```
+
+## Key Decisions (Pending ADRs)
+
+| Decision | Choice |
+|----------|--------|
+| Number of MCPs | 2 (scaffolding + pipeline) |
+| MCP 1 language | TypeScript |
+| MCP 2 language | Python (wraps existing QTI code) |
+| Module naming | M1-M4 (not BB1-BB6) |
+| M2+M3 merge | Yes (Assessment Planning) |
+
+## Key Commands
+
+See `.claude/commands/README.md` for ACDM workflow commands.
+
+## Question Types Supported (15)
+
+```
+multiple_choice_single    text_entry              match
+multiple_response         text_entry_math         hotspot
+true_false                text_entry_numeric      graphicgapmatch_v2
+inline_choice             text_area               text_entry_graphic
+essay                     audio_record            composite_editor
+nativehtml
+```
+
+## Related Documents
+
+- [Discovery Brief](docs/DISCOVERY_BRIEF.md) - Problem analysis ✅
+- [ADRs](docs/adr/) - Architecture decisions (pending)
+- [Specs](docs/specs/) - Implementation specs (pending)
+
+## Origins
+
+Consolidates and replaces:
+- QTI-Generator-for-Inspera_MPC (18 tools)
+- MPC_MQG_v3 (5 tools)
+- Modular QGen Framework (methodology docs)
+
+---
+
+*Created with ACDM v1.0*
+*QuestionForge - Forging Quality Questions*
