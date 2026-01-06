@@ -29,7 +29,10 @@ from .wrappers import (
     validate_markdown,
     validate_file,
     get_supported_types,
+    validate_resources,
+    copy_resources,
     WrapperError,
+    ResourceError,
 )
 from .tools import (
     start_session_tool,
@@ -37,6 +40,7 @@ from .tools import (
     load_session_tool,
     get_current_session,
 )
+from .utils.logger import log_action
 
 # Create server instance
 server = Server("qf-pipeline")
@@ -122,6 +126,27 @@ async def list_tools() -> List[Tool]:
                 "required": ["content"],
             },
         ),
+        Tool(
+            name="step2_read",
+            description=(
+                "Read the working file content for inspection/fixing. "
+                "Use when validation fails and you need to see the file. "
+                "Requires active session."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "max_lines": {
+                        "type": "integer",
+                        "description": "Maximum lines to return (default: all)",
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": "Start from this line (1-indexed, default: 1)",
+                    },
+                },
+            },
+        ),
         # Step 4: Export
         Tool(
             name="step4_export",
@@ -154,6 +179,20 @@ async def list_tools() -> List[Tool]:
                 "properties": {},
             },
         ),
+        Tool(
+            name="list_projects",
+            description="List configured MQG folders with status. Shows available projects for quick selection.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "include_files": {
+                        "type": "boolean",
+                        "description": "Also count markdown files in each folder",
+                        "default": False
+                    }
+                }
+            },
+        ),
     ]
 
 
@@ -171,10 +210,14 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_step2_validate(arguments)
         elif name == "step2_validate_content":
             return await handle_step2_validate_content(arguments)
+        elif name == "step2_read":
+            return await handle_step2_read(arguments)
         elif name == "step4_export":
             return await handle_step4_export(arguments)
         elif name == "list_types":
             return await handle_list_types()
+        elif name == "list_projects":
+            return await handle_list_projects(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except WrapperError as e:
@@ -210,6 +253,11 @@ async def handle_init() -> List[TextContent]:
    - step0_start -> step2_validate -> step4_export
    - Validera ALLTID innan export!
 
+5. **OM VALIDERING MISSLYCKAS:**
+   - Anvand step2_read for att lasa filen
+   - Hjalp anvandaren forsta och fixa felen
+   - Validera igen efter fix
+
 ## STANDARD WORKFLOW
 
 1. User: "Anvand qf-pipeline" / "Exportera till QTI"
@@ -220,7 +268,7 @@ async def handle_init() -> List[TextContent]:
 6. Claude: [step0_start] -> Skapar session
 7. Claude: [step2_validate] -> Validerar
 8. Om valid: [step4_export] -> Exporterar
-   Om invalid: Visa fel, hjalp anvandaren fixa
+   Om invalid: [step2_read] -> Visa fel, hjalp fixa
 
 ## TILLGANGLIGA VERKTYG
 
@@ -229,8 +277,10 @@ async def handle_init() -> List[TextContent]:
 - step0_status: Visa sessionstatus
 - step2_validate: Validera markdown-fil
 - step2_validate_content: Validera markdown-innehall
+- step2_read: Las arbetsfilen for felsokning
 - step4_export: Exportera till QTI-paket
 - list_types: Lista stodda fragetyper (16 st)
+- list_projects: Lista konfigurerade projekt/MQG-mappar
 """
     return [TextContent(type="text", text=instructions)]
 
@@ -246,6 +296,16 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
     if arguments.get("project_path"):
         result = await load_session_tool(arguments["project_path"])
         if result.get("success"):
+            log_action(
+                Path(result['project_path']),
+                "step0_start",
+                f"Session loaded: {result['session_id']}",
+                data={
+                    "session_id": result['session_id'],
+                    "project_path": result['project_path'],
+                    "action": "load",
+                }
+            )
             return [TextContent(
                 type="text",
                 text=f"Session laddad!\n"
@@ -276,6 +336,17 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
         )
 
         if result.get("success"):
+            log_action(
+                Path(result['project_path']),
+                "step0_start",
+                f"Session created: {result['session_id']}",
+                data={
+                    "session_id": result['session_id'],
+                    "source_file": arguments["source_file"],
+                    "project_path": result['project_path'],
+                    "action": "create",
+                }
+            )
             return [TextContent(
                 type="text",
                 text=f"Session startad!\n"
@@ -359,9 +430,24 @@ async def handle_step2_validate(arguments: dict) -> List[TextContent]:
     except Exception:
         question_count = 0
 
+    # Count errors and warnings
+    error_count = sum(1 for i in result.get("issues", []) if i.get("level") == "error")
+    warning_count = sum(1 for i in result.get("issues", []) if i.get("level") == "warning")
+
     # Update session if active
     if session:
         session.update_validation(result["valid"], question_count)
+        log_action(
+            session.project_path,
+            "step2_validate",
+            f"Validated: {question_count} questions, {error_count} errors",
+            data={
+                "question_count": question_count,
+                "error_count": error_count,
+                "warning_count": warning_count,
+                "valid": result["valid"],
+            }
+        )
 
     if result["valid"]:
         return [TextContent(
@@ -394,6 +480,67 @@ async def handle_step2_validate_content(arguments: dict) -> List[TextContent]:
         f"  [{i['level']}] {i['message']}" for i in result["issues"]
     )
     return [TextContent(type="text", text=f"Ogiltigt innehall:\n{issues_text}")]
+
+
+async def handle_step2_read(arguments: dict) -> List[TextContent]:
+    """Handle step2_read - read working file content."""
+    session = get_current_session()
+
+    if not session or not session.working_file:
+        return [TextContent(
+            type="text",
+            text="Error: Ingen aktiv session. Kor step0_start forst."
+        )]
+
+    working_file = Path(session.working_file)
+
+    if not working_file.exists():
+        return [TextContent(
+            type="text",
+            text=f"Error: Arbetsfilen finns inte: {working_file}"
+        )]
+
+    try:
+        with open(working_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+
+        start_line = arguments.get('start_line', 1) - 1
+        max_lines = arguments.get('max_lines')
+
+        if start_line < 0:
+            start_line = 0
+
+        if max_lines:
+            selected_lines = lines[start_line:start_line + max_lines]
+        else:
+            selected_lines = lines[start_line:]
+
+        content = ''.join(selected_lines)
+        line_count = len(selected_lines)
+        total_lines = len(lines)
+
+        header = f"Fil: {working_file.name}\n"
+        header += f"Visar rad {start_line + 1}-{start_line + line_count} av {total_lines}\n"
+        header += "-" * 40 + "\n"
+
+        log_action(
+            session.project_path,
+            "step2_read",
+            f"Read lines {start_line + 1}-{start_line + line_count}",
+            data={
+                "start_line": start_line + 1,
+                "lines_read": line_count,
+                "total_lines": total_lines,
+            }
+        )
+
+        return [TextContent(type="text", text=header + content)]
+
+    except Exception as e:
+        return [TextContent(
+            type="text",
+            text=f"Error: Kunde inte lasa filen: {e}"
+        )]
 
 
 # =============================================================================
@@ -444,6 +591,52 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
     if not questions:
         return [TextContent(type="text", text="Inga fragor hittades i filen")]
 
+    # === Resource handling ===
+    resource_count = 0
+    try:
+        # 1. Validate resources exist
+        resource_result = validate_resources(
+            input_file=file_path,
+            questions=questions,
+            media_dir=None,  # Auto-detect
+            strict=False
+        )
+
+        # Log warnings but continue
+        if resource_result.get("warning_count", 0) > 0:
+            for issue in resource_result.get("issues", []):
+                if issue.get("level") == "WARNING":
+                    if session:
+                        log_action(session.project_path, "step4_export",
+                                   f"Resource warning: {issue.get('message')}")
+
+        # Fail on errors
+        if resource_result.get("error_count", 0) > 0:
+            error_msgs = [i.get("message") for i in resource_result.get("issues", [])
+                         if i.get("level") == "ERROR"]
+            return [TextContent(
+                type="text",
+                text=f"Resource-fel:\n" + "\n".join(f"  - {m}" for m in error_msgs) +
+                     "\n\nFixa bilderna och kor igen."
+            )]
+
+        # 2. Determine output folder for resources
+        output_folder = session.output_folder if session else Path(output_path).parent
+
+        # 3. Copy resources to output
+        copy_result = copy_resources(
+            input_file=file_path,
+            output_dir=str(output_folder),
+            questions=questions
+        )
+        resource_count = copy_result.get("count", 0)
+
+    except ResourceError as e:
+        # Log but don't fail - resources might not exist
+        if session:
+            log_action(session.project_path, "step4_export",
+                       f"Resource handling skipped: {e}")
+
     # Generate XML
     xml_list = generate_all_xml(questions, language)
 
@@ -458,12 +651,26 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
             relative_output = output_path
         session.log_export(relative_output, len(questions))
 
+        zip_path = Path(result.get('zip_path', output_path))
+        log_action(
+            session.project_path,
+            "step4_export",
+            f"Exported {len(questions)} questions, {resource_count} resources to {zip_path.name}",
+            data={
+                "question_count": len(questions),
+                "resource_count": resource_count,
+                "output_file": str(zip_path),
+                "file_size_bytes": zip_path.stat().st_size if zip_path.exists() else 0,
+            }
+        )
+
     return [TextContent(
         type="text",
         text=f"QTI-paket skapat!\n"
              f"  ZIP: {result.get('zip_path')}\n"
              f"  Mapp: {result.get('folder_path')}\n"
-             f"  Fragor: {len(questions)}"
+             f"  Fragor: {len(questions)}\n"
+             f"  Resurser: {resource_count} filer kopierade"
     )]
 
 
@@ -478,6 +685,38 @@ async def handle_list_types() -> List[TextContent]:
         type="text",
         text=f"Fragetyper ({len(types)}):\n" + "\n".join(f"  - {t}" for t in types)
     )]
+
+
+async def handle_list_projects(arguments: dict) -> List[TextContent]:
+    """Handle list_projects - list configured MQG folders."""
+    from .utils.config import list_projects, ConfigError
+
+    include_files = arguments.get("include_files", False)
+
+    try:
+        result = list_projects(include_files=include_files)
+    except ConfigError as e:
+        return [TextContent(type="text", text=f"Konfigurationsfel: {e}")]
+
+    lines = [f"MQG Projekt ({result['count']} st):\n"]
+
+    for p in result['projects']:
+        status = "+" if p['exists'] else "-"
+        lines.append(f"  {p['index']}. [{status}] {p['name']}")
+        lines.append(f"     Path: {p['path']}")
+        if p['description']:
+            lines.append(f"     {p['description']}")
+        if include_files and p.get('md_file_count') is not None:
+            lines.append(f"     Filer: {p['md_file_count']} markdown")
+        lines.append("")
+
+    if result['default_output_dir']:
+        lines.append(f"Default output: {result['default_output_dir']}")
+
+    lines.append(f"\nConfig: {result['config_path']}")
+    lines.append("\nTips: Anvand step0_start med source_file fran onskad mapp.")
+
+    return [TextContent(type="text", text="\n".join(lines))]
 
 
 # =============================================================================
