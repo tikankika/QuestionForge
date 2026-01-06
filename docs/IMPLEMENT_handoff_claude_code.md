@@ -1,199 +1,199 @@
-# QuestionForge qf-pipeline - Implementation Handoff
+# QuestionForge qf-pipeline - Implementation Handoff v5
 
-**Datum:** 2026-01-05  
-**Syfte:** Handoff till Claude Code för implementation  
-**ACDM Status:** EXPLORE ✅ → IMPLEMENT ⬜
-
----
-
-## Vad som är klart (EXPLORE)
-
-Alla specifikationer finns i `QuestionForge/docs/specs/`:
-
-| Fil | Innehåll |
-|-----|----------|
-| `qf-pipeline-spec.md` | MCP-verktyg, 4-stegs pipeline |
-| `qf-pipeline-wrapper-spec.md` | Hur wrappers kopplar till QTI-Generator |
-| `qf-logging-specification.md` | PostgreSQL schema, events, loops |
-| `qf-specifications-structure.md` | Delad specs-mapp struktur |
-| `mqg-to-questionforge-migration.md` | MQG → QuestionForge mappning |
+**Datum:** 2026-01-06  
+**Syfte:** Handoff till Claude Code för implementation av `init`-verktyg  
+**ACDM Status:** IMPLEMENT pågår
 
 ---
 
-## Implementation Prioritering
+## KRITISK UPPGIFT: Lägg till `init`-verktyg
 
-### Fas 1: Step 4 Export (BÖRJA HÄR)
+### Problem som upptäcktes
 
-**Varför först?** Enklast, wrappar direkt befintlig kod, ger omedelbart värde.
+Vid testning hoppade Claude över att fråga användaren om fil och mapp innan `step0_start` kördes. Detta bröt hela workflow:en.
 
-**Att implementera:**
+### Lösning
 
-1. **Projektstruktur**
-   ```
-   qf-pipeline/
-   ├── pyproject.toml
-   ├── src/
-   │   └── qf_pipeline/
-   │       ├── __init__.py
-   │       ├── server.py          # MCP server
-   │       ├── wrappers/
-   │       │   ├── __init__.py    # Python path config
-   │       │   ├── parser.py      # Wrap MarkdownQuizParser
-   │       │   ├── generator.py   # Wrap XMLGenerator
-   │       │   ├── packager.py    # Wrap QTIPackager
-   │       │   └── validator.py   # Wrap validate_content
-   │       └── tools/
-   │           └── export.py      # MCP tool: export_questions
-   └── tests/
-   ```
+Samma mönster som Assessment_suite: ett `init`-verktyg som Claude MÅSTE kalla först och som returnerar instruktioner.
 
-2. **Wrappers** (se `qf-pipeline-wrapper-spec.md` för detaljer)
-   - `parser.py`: `parse_markdown(content) -> dict`
-   - `generator.py`: `generate_xml(question, language) -> str`
-   - `packager.py`: `create_qti_package(xml_list, metadata, output) -> dict`
-
-3. **MCP Tool: export_questions**
-   ```python
-   # Input: markdown_path, output_path, language
-   # Output: {zip_path, folder_path, question_count}
-   ```
-
-### Fas 2: PostgreSQL + Loggning
-
-**Att implementera:**
-
-1. **Schema setup** (se `qf-logging-specification.md`)
-   - `sessions` tabell
-   - `questions` tabell
-   - `events` tabell
-   - `snapshots` tabell
-
-2. **Loggningsfunktioner**
-   - `log_event(question_id, event_type, actor, ...)`
-   - `create_snapshot(question_id, content)`
-   - `get_question_history(question_id)`
-
-### Fas 3: Step 2 Validator
-
-**Att implementera:**
-
-1. **Wrapper** för `validate_mqg_format.py`
-2. **MCP Tools:**
-   - `validate_file(path) -> {valid, issues}`
-   - `validate_question(content) -> {valid, issues}`
-3. **Loggning:** `validation_started`, `validation_passed`, `validation_failed`
-
-### Fas 4: Step 1 Guided Build (SIST - mest komplex)
-
-**Att implementera:**
-
-1. **Session-hantering**
-2. **Interaktiv loop**
-3. **AI-förslag integration**
-4. **Full loggning med alla event-typer**
+**Referens:** `/Users/niklaskarlsson/AIED_EdTech_projects/Assessment_suite/packages/assessment-mcp/src/tools/init.ts`
 
 ---
 
-## Beroenden
+## Init-verktyg specifikation
 
-### QTI-Generator-for-Inspera
+### Tool Definition (server.py)
 
-**Plats:** `/Users/niklaskarlsson/QTI-Generator-for-Inspera`
-
-**Klasser att wrappa:**
-- `src/parser/markdown_parser.py` → `MarkdownQuizParser`
-- `src/generator/xml_generator.py` → `XMLGenerator`
-- `src/packager/qti_packager.py` → `QTIPackager`
-- `validate_mqg_format.py` → `validate_content()`
-
-**Python path setup:**
 ```python
-import sys
-from pathlib import Path
-QTI_GENERATOR_PATH = '/Users/niklaskarlsson/QTI-Generator-for-Inspera'
-if QTI_GENERATOR_PATH not in sys.path:
-    sys.path.insert(0, QTI_GENERATOR_PATH)
+Tool(
+    name="init",
+    description=(
+        "CALL THIS FIRST! Returns critical instructions for using qf-pipeline. "
+        "You MUST follow these instructions. "
+        "ALWAYS ask user for source_file and output_folder BEFORE calling step0_start. "
+        "NEVER use bash/cat/ls - MCP has full file access."
+    ),
+    inputSchema={
+        "type": "object",
+        "properties": {},
+        "required": [],
+    },
+)
 ```
 
-### PostgreSQL
+### Handler (server.py)
 
-**Lokal installation krävs.**
+```python
+async def handle_init() -> List[TextContent]:
+    """Handle init tool call - return critical instructions."""
+    
+    instructions = """# QF-Pipeline - Kritiska Instruktioner
+
+## REGLER (MÅSTE FÖLJAS)
+
+1. **FRÅGA ALLTID användaren INNAN du kör step0_start:**
+   - "Vilken markdown-fil vill du arbeta med?" (source_file)
+   - "Var ska projektet sparas?" (output_folder)
+   - Vänta på svar innan du fortsätter!
+
+2. **ANVÄND INTE bash/cat/ls** - qf-pipeline har full filåtkomst
+
+3. **SÄG ALDRIG "ladda upp filen"** - MCP kan läsa filer direkt
+
+4. **FÖLJ PIPELINE-ORDNINGEN:**
+   - step0_start → step2_validate → step4_export
+   - Validera ALLTID innan export!
+
+## STANDARD WORKFLOW
+
+1. User: "Använd qf-pipeline" / "Exportera till QTI"
+2. Claude: "Vilken markdown-fil vill du arbeta med?"
+3. User: anger sökväg
+4. Claude: "Var ska projektet sparas?"
+5. User: anger output-mapp
+6. Claude: [step0_start] → Skapar session
+7. Claude: [step2_validate] → Validerar
+8. Om valid: [step4_export] → Exporterar
+   Om invalid: Visa fel, hjälp användaren fixa
+
+## TILLGÄNGLIGA VERKTYG
+
+- init: CALL THIS FIRST (denna instruktion)
+- step0_start: Starta ny session eller ladda befintlig
+- step0_status: Visa sessionstatus
+- step2_validate: Validera markdown-fil
+- step2_validate_content: Validera markdown-innehåll
+- step4_export: Exportera till QTI-paket
+- list_types: Lista stödda frågetyper (16 st)
+"""
+    
+    return [TextContent(
+        type="text",
+        text=instructions
+    )]
+```
+
+### Registrera i call_tool
+
+```python
+@server.call_tool()
+async def call_tool(name: str, arguments: dict) -> List[TextContent]:
+    try:
+        if name == "init":
+            return await handle_init()
+        elif name == "step0_start":
+            # ... existing code
+```
+
+---
+
+## Komplett verktygslista efter implementation
+
+```
+System:
+  init                    # CALL THIS FIRST!
+
+Step 0 (Session):
+  step0_start             # Ny eller ladda session
+  step0_status            # Visa status
+
+Step 2 (Validator):
+  step2_validate          # Validera fil
+  step2_validate_content  # Validera innehåll
+
+Step 4 (Export):
+  step4_export            # Skapa QTI-paket
+
+Cross-Step:
+  list_types              # Frågetyper
+```
+
+**Totalt:** 8 verktyg
+
+---
+
+## Implementation steg
+
+### 1. Lägg till init i tool-lista (list_tools)
+
+```python
+Tool(
+    name="init",
+    description="CALL THIS FIRST! Returns critical instructions...",
+    inputSchema={"type": "object", "properties": {}, "required": []},
+),
+```
+
+### 2. Lägg till handler
+
+```python
+async def handle_init() -> List[TextContent]:
+    # Se ovan för full implementation
+```
+
+### 3. Registrera i call_tool
+
+```python
+if name == "init":
+    return await handle_init()
+```
+
+### 4. Testa
 
 ```bash
-# macOS
-brew install postgresql
-brew services start postgresql
-createdb questionforge
+# Starta MCP-server och verifiera att init returnerar instruktioner
 ```
 
 ---
 
-## Beslutade konfigurationer
+## Förväntat beteende efter implementation
 
-| Parameter | Värde |
-|-----------|-------|
-| Session timeout | 30 minuter |
-| Snapshot frekvens | Vid VARJE event |
-| Default language | `sv` |
-| Database | PostgreSQL (lokal) |
+```
+User: "Använd qf-pipeline"
 
----
+Claude: [init] → Läser instruktioner
 
-## Testa implementation
+Claude: "Vilken markdown-fil vill du arbeta med?"
 
-### Minimal test för Fas 1
+User: "/Users/.../BIOG001X_Fys_v65_5.md"
 
-```python
-# test_export.py
-from qf_pipeline.wrappers.parser import parse_markdown
-from qf_pipeline.wrappers.generator import generate_all_xml
-from qf_pipeline.wrappers.packager import create_qti_package
+Claude: "Var ska projektet sparas?"
 
-# 1. Parse
-with open('test_quiz.md') as f:
-    data = parse_markdown(f.read())
+User: "/Users/.../test_projects/"
 
-# 2. Generate
-xml_list = generate_all_xml(data['questions'], language='sv')
+Claude: [step0_start] → "Session startad!"
 
-# 3. Package
-result = create_qti_package(xml_list, data['metadata'], 'test_output.zip')
-print(f"Created: {result['zip_path']}")
+Claude: [step2_validate] → "27 frågor, 2 fel..."
 ```
 
 ---
 
-## Filer att skapa i Claude Code
+## Relaterade dokument
 
-### Första sessionen (Fas 1)
-
-1. `qf-pipeline/pyproject.toml`
-2. `qf-pipeline/src/qf_pipeline/__init__.py`
-3. `qf-pipeline/src/qf_pipeline/wrappers/__init__.py`
-4. `qf-pipeline/src/qf_pipeline/wrappers/parser.py`
-5. `qf-pipeline/src/qf_pipeline/wrappers/generator.py`
-6. `qf-pipeline/src/qf_pipeline/wrappers/packager.py`
-7. `qf-pipeline/src/qf_pipeline/server.py` (MCP server stub)
-8. `qf-pipeline/tests/test_wrappers.py`
-
-### Andra sessionen (Fas 2)
-
-1. `qf-pipeline/db/schema.sql`
-2. `qf-pipeline/src/qf_pipeline/db/__init__.py`
-3. `qf-pipeline/src/qf_pipeline/db/models.py`
-4. `qf-pipeline/src/qf_pipeline/db/logging.py`
+- `docs/adr/ADR-007-tool-naming-convention.md` - Init-specifikation tillagd
+- Assessment_suite referens: `/Assessment_suite/packages/assessment-mcp/src/tools/init.ts`
 
 ---
 
-## Relaterade dokument (läs vid behov)
-
-| Dokument | Läs för |
-|----------|---------|
-| `qf-pipeline-wrapper-spec.md` | Detaljerad wrapper-design |
-| `qf-logging-specification.md` | PostgreSQL schema + events |
-| `PARKED_assessment_mcp_logging.md` | Assessment MCP (framtida) |
-
----
-
-*Handoff skapad 2026-01-05*  
-*Klar för Claude Code implementation*
+*Handoff v5 - 2026-01-06*  
+*Fokus: Init-verktyg för att säkerställa korrekt workflow*

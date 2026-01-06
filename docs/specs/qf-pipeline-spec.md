@@ -69,6 +69,98 @@ qf-pipeline is a technical pipeline MCP that builds, validates, and exports ques
 
 ## Step Details
 
+### Step 0: Session Management (ADR-006)
+
+**NEW - Required before any other step**
+
+Initialize a working session with file copying and project structure:
+
+```
+User: "Start session with /path/to/questions.md in /output/folder"
+  │
+  ▼
+start_session(source_file, output_folder, project_name)
+  │
+  ├── Validate source_file exists
+  ├── Create project structure:
+  │     project_name/
+  │     ├── 01_source/       ← Original (never modified)
+  │     ├── 02_working/      ← Working copy (editable)
+  │     ├── 03_output/       ← Exports go here
+  │     └── session.yaml     ← Metadata
+  ├── Copy source to 01_source/
+  ├── Copy source to 02_working/
+  └── Return working_file path
+  │
+  ▼
+User can now use validate_file, export_questions, etc.
+```
+
+**Tools:**
+
+```python
+def start_session(
+    source_file: str,      # Absolute path to markdown file
+    output_folder: str,    # Where to create project
+    project_name: str = None  # Optional, auto-generates from filename
+) -> SessionResult:
+    """Initialize a new working session."""
+    return {
+        "success": bool,
+        "session_id": str,
+        "project_path": str,
+        "working_file": str,  # Path to 02_working/ copy
+        "source_file": str,   # Path to 01_source/ copy
+        "message": str
+    }
+
+def get_session_status(session_id: str = None) -> SessionStatus:
+    """Get current session status."""
+    return {
+        "active": bool,
+        "session_id": str,
+        "project_path": str,
+        "working_file": str,
+        "validation_status": str,
+        "last_export": str | None
+    }
+
+def end_session(session_id: str) -> EndResult:
+    """End session (optional cleanup)."""
+    return {
+        "success": bool,
+        "exports_created": list[str],
+        "project_path": str
+    }
+```
+
+**session.yaml schema:**
+
+```yaml
+session:
+  id: "uuid"
+  created: "2026-01-05T23:30:00Z"
+  updated: "2026-01-05T23:45:00Z"
+  
+source:
+  original_path: "/Users/.../questions.md"
+  filename: "questions.md"
+  copied_to: "01_source/questions.md"
+  
+working:
+  path: "02_working/questions.md"
+  last_validated: "2026-01-05T23:35:00Z"
+  validation_status: "valid"
+  question_count: 27
+  
+exports:
+  - timestamp: "2026-01-05T23:45:00Z"
+    output_file: "03_output/questions_QTI.zip"
+    questions_exported: 27
+```
+
+---
+
 ### Step 1: Guided Build
 
 Interactive, question-by-question format checking:
@@ -306,10 +398,15 @@ packages/qf-pipeline/
 │       ├── server.py              # MCP server entry
 │       ├── tools/
 │       │   ├── __init__.py
+│       │   ├── session.py         # Step 0 tools (ADR-006)
 │       │   ├── build_session.py   # Step 1 tools
 │       │   ├── validator.py       # Step 2 tools
 │       │   ├── decision.py        # Step 3 tools
 │       │   └── exporter.py        # Step 4 tools
+│       ├── utils/
+│       │   ├── parser.py          # Question file parsing
+│       │   ├── spec_loader.py     # Load specifications
+│       │   └── session_manager.py # Session state management (ADR-006)
 │       ├── wrappers/
 │       │   └── qti_generator/     # Wrapped existing code
 │       │       ├── __init__.py
@@ -329,6 +426,9 @@ packages/qf-pipeline/
 
 | Tool | Step | Purpose |
 |------|------|---------|
+| `start_session` | 0 | Initialize working session |
+| `get_session_status` | 0 | Check session state |
+| `end_session` | 0 | End session (optional) |
 | `start_build_session` | 1 | Initialize guided build |
 | `get_question` | 1 | Read specific question |
 | `get_question_spec` | 1 | Load type specification |
