@@ -18,6 +18,11 @@ All notable changes to QuestionForge will be documented in this file.
 - Fixed metadata flow: questions now passed to packager for label generation
 - Labels appear in imsmanifest.xml as `<imsmd:taxon>` entries
 
+#### Validator: Accept ^tags as alternative to ^labels
+- **Feature:** Validator (Step 2) now accepts `^tags` as valid alternative to `^labels`
+- Teachers can use either `^tags` or `^labels` in markdown - both pass validation
+- Aligns validation rules with export behavior (tags → labels mapping)
+
 ### Fixed - 2026-01-07
 
 #### qf-pipeline: Validation Output Improvement (ADR-012)
