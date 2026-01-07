@@ -4,6 +4,24 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-07
+
+#### qti-core: Local package (standalone)
+- Copied QTI-Generator-for-Inspera as `packages/qti-core/`
+- 114 files (excluding .git, .venv, __pycache__, output)
+- Updated wrapper path from absolute to relative
+- QuestionForge is now fully standalone
+
+### Fixed - 2026-01-07
+
+#### qf-pipeline: Validation Output Improvement (ADR-012)
+- **BUG FIX:** Fixed case mismatch bug where error count was always 0 (`"error"` → `"ERROR"`)
+- **Enhancement:** Added `format_validation_output()` function with Terminal-style output
+- **Enhancement:** Errors now grouped by question with question ID
+- **Enhancement:** Added summary section with Total/Valid/Errors/Warnings counts
+- **Enhancement:** Clear status message: "READY" or "NOT READY"
+- **Feature:** Validation report saved to `validation_report.txt` in session folder
+
 ### Added - 2026-01-02
 
 #### ACDM DISCOVER Phase
