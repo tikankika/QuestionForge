@@ -12,6 +12,12 @@ All notable changes to QuestionForge will be documented in this file.
 - Updated wrapper path from absolute to relative
 - QuestionForge is now fully standalone
 
+#### Tags to Labels Export
+- **Feature:** `^tags` now exported as labels in Inspera
+- Added `^tags` parsing in markdown_parser.py (maps to `labels` if no `^labels` field)
+- Fixed metadata flow: questions now passed to packager for label generation
+- Labels appear in imsmanifest.xml as `<imsmd:taxon>` entries
+
 ### Fixed - 2026-01-07
 
 #### qf-pipeline: Validation Output Improvement (ADR-012)

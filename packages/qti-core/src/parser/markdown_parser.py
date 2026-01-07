@@ -333,6 +333,18 @@ class MarkdownQuizParser:
             # Space-separated: "#label1 #label2 #label3"
             fields['labels'] = [label.strip().lstrip('#') for label in label_value.split() if label.strip()]
 
+        # Extract ^tags and use as labels if ^labels not present
+        # ^tags format: "#BIOG001X #topic1 #topic2 #Remember #Easy"
+        tags_match = re.search(r'^\^tags\s+(.+)$', header_text, re.MULTILINE)
+        if tags_match:
+            tags_value = tags_match.group(1).strip()
+            # Parse space-separated hashtags
+            tags_list = [tag.strip().lstrip('#') for tag in tags_value.split() if tag.strip()]
+            fields['tags'] = tags_list
+            # If no ^labels field, use ^tags as labels for Inspera export
+            if 'labels' not in fields:
+                fields['labels'] = tags_list
+
         # Extract ^custom_metadata (v6.5 format)
         # Format: ^custom_metadata Field name: value OR ^custom_metadata Field name: v1, v2, v3
         custom_metadata_matches = re.findall(r'^\^custom_metadata\s+(.+)$', header_text, re.MULTILINE)

@@ -702,6 +702,9 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
     # Generate XML
     xml_list = generate_all_xml(questions, language)
 
+    # Add questions to metadata for packager (needed for labels export)
+    metadata['questions'] = questions
+
     # Create package
     result = create_qti_package(xml_list, metadata, output_path)
 
