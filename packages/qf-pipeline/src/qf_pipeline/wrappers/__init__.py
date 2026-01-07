@@ -7,8 +7,8 @@ and exposes clean wrapper functions for the MCP tools.
 import sys
 from pathlib import Path
 
-# QTI-Generator-for-Inspera location
-QTI_GENERATOR_PATH = Path("/Users/niklaskarlsson/QTI-Generator-for-Inspera")
+# QTI-Generator-for-Inspera location (now local as qti-core)
+QTI_GENERATOR_PATH = Path(__file__).parent.parent.parent.parent.parent / "qti-core"
 
 # Add to Python path if not already present
 if str(QTI_GENERATOR_PATH) not in sys.path:
