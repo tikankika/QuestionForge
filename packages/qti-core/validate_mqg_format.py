@@ -330,6 +330,13 @@ def validate_question_block(block: str, q_num: int, identifiers: Set[str], verbo
     # Extract ^labels (v6.5 format) - Inspera "Labels"
     labels_match = re.search(r'^\^labels\s+(.+)$', header_section, re.MULTILINE)
 
+    # Extract ^tags (alternative to ^labels) - use as fallback
+    tags_match = re.search(r'^\^tags\s+(.+)$', header_section, re.MULTILINE)
+
+    # Use ^tags as labels if ^labels not present
+    if not labels_match and tags_match:
+        labels_match = tags_match
+
     # Extract ^custom_metadata (v6.5 format) - optional
     custom_metadata_matches = re.findall(r'^\^custom_metadata\s+(.+)$', header_section, re.MULTILINE)
 
