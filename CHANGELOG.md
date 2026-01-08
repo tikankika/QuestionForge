@@ -6,6 +6,12 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-08
 
+#### Step 2: Validation Complete Signal
+- **Bug fix:** Step 2 now logs `step2_complete` when validation passes for the first time
+- **Enhancement:** Added "NEXT STEP" section in validation output with clear instructions
+- **Enhancement:** Added "STOP: Do not run step2_validate again" message when file is ready
+- Prevents Claude from running validation repeatedly after file is valid
+
 #### Step 1: Interactive Guided Build (Rebuild)
 - **Feature:** Rebuilt Step 1 to be interactive with teacher involvement
 - **New tools:**

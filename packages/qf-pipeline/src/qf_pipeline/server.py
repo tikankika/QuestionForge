@@ -691,7 +691,18 @@ def format_validation_output(result: dict, file_path: str, question_count: int) 
     ])
 
     if result["valid"]:
-        lines.append("STATUS: ✅ READY FOR QTI GENERATION")
+        lines.extend([
+            "STATUS: ✅ READY FOR QTI GENERATION",
+            "",
+            "=" * 60,
+            "NEXT STEP",
+            "=" * 60,
+            "Validation complete! Proceed to Step 3:",
+            "  → Use step3_decide to choose export type",
+            "  → Or use step4_export to export directly",
+            "",
+            "STOP: Do not run step2_validate again - file is ready.",
+        ])
     else:
         lines.append(f"STATUS: ❌ NOT READY - Fix {error_count} error(s) before QTI generation")
 
@@ -735,6 +746,9 @@ async def handle_step2_validate(arguments: dict) -> List[TextContent]:
 
     # Update session if active
     if session:
+        # Check if this is the first time validation passes
+        was_valid_before = session.get_status().get("validation_status") == "valid"
+
         session.update_validation(result["valid"], question_count)
         log_action(
             session.project_path,
@@ -747,6 +761,18 @@ async def handle_step2_validate(arguments: dict) -> List[TextContent]:
                 "valid": result["valid"],
             }
         )
+
+        # Log step2_complete when validation passes for the first time
+        if result["valid"] and not was_valid_before:
+            log_action(
+                session.project_path,
+                "step2_complete",
+                f"Step 2 complete: {question_count} questions validated successfully",
+                data={
+                    "question_count": question_count,
+                    "next_step": "step3_decide or step4_export",
+                }
+            )
 
     # Format output like Terminal QTI-Generator
     formatted_output = format_validation_output(result, file_path, question_count)
