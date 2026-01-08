@@ -39,6 +39,20 @@ from .tools import (
     get_session_status_tool,
     load_session_tool,
     get_current_session,
+    # Step 1 tools
+    step1_start,
+    step1_status,
+    step1_analyze,
+    step1_fix_auto,
+    step1_fix_manual,
+    step1_suggest,
+    step1_batch_preview,
+    step1_batch_apply,
+    step1_skip,
+    step1_transform,
+    step1_next,
+    step1_preview,
+    step1_finish,
 )
 from .utils.logger import log_action
 
@@ -54,10 +68,12 @@ async def list_tools() -> List[Tool]:
         Tool(
             name="init",
             description=(
-                "CALL THIS FIRST! Returns critical instructions for using qf-pipeline. "
-                "You MUST follow these instructions. "
-                "ALWAYS ask user for source_file and output_folder BEFORE calling step0_start. "
-                "NEVER use bash/cat/ls - MCP has full file access."
+                "CALL THIS FIRST! Returns critical instructions. "
+                "After calling init, you MUST ASK the user for: "
+                "(1) source_file - which markdown file? "
+                "(2) output_folder - where to save? "
+                "(3) project_name - what to call it? (optional) "
+                "WAIT for user response. Do NOT guess paths!"
             ),
             inputSchema={
                 "type": "object",
@@ -170,6 +186,195 @@ async def list_tools() -> List[Tool]:
                 },
             },
         ),
+        # Step 1: Guided Build (v6.3 → v6.5)
+        Tool(
+            name="step1_start",
+            description="Start Step 1 Guided Build session. Uses Step 0 session if active, otherwise requires source_file and output_folder.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "source_file": {
+                        "type": "string",
+                        "description": "Path to v6.3 markdown file (optional if Step 0 session exists)",
+                    },
+                    "output_folder": {
+                        "type": "string",
+                        "description": "Directory for output files (optional if Step 0 session exists)",
+                    },
+                    "project_name": {
+                        "type": "string",
+                        "description": "Optional project name",
+                    },
+                },
+                "required": [],
+            },
+        ),
+        Tool(
+            name="step1_status",
+            description="Get Step 1 session status and progress",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        Tool(
+            name="step1_analyze",
+            description="Analyze a question. Returns auto_fixable and needs_input categories.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question ID to analyze (default: current)",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="step1_fix_auto",
+            description="Apply ONLY auto-fixable transforms. Returns remaining issues that need user input.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question ID (default: current)",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="step1_fix_manual",
+            description="Apply a single manual fix based on user input.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question ID",
+                    },
+                    "field": {
+                        "type": "string",
+                        "description": "Field to update (bloom, difficulty, partial_feedback, etc.)",
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Value from user",
+                    },
+                },
+                "required": ["question_id", "field", "value"],
+            },
+        ),
+        Tool(
+            name="step1_suggest",
+            description="Generate a suggestion for a field. User can accept/modify.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question ID",
+                    },
+                    "field": {
+                        "type": "string",
+                        "description": "Field to suggest for",
+                    },
+                },
+                "required": ["question_id", "field"],
+            },
+        ),
+        Tool(
+            name="step1_batch_preview",
+            description="Show all questions with the same issue type.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "issue_type": {
+                        "type": "string",
+                        "description": "E.g. missing_partial_feedback, missing_bloom",
+                    },
+                },
+                "required": ["issue_type"],
+            },
+        ),
+        Tool(
+            name="step1_batch_apply",
+            description="Apply the same fix to multiple questions.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "issue_type": {
+                        "type": "string",
+                        "description": "Issue type",
+                    },
+                    "fix_type": {
+                        "type": "string",
+                        "description": "How to fix (copy_from_correct, add_bloom_remember, etc.)",
+                    },
+                    "question_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Question IDs (optional, None = all affected)",
+                    },
+                },
+                "required": ["issue_type", "fix_type"],
+            },
+        ),
+        Tool(
+            name="step1_skip",
+            description="Skip an issue or entire question.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question ID (default: current)",
+                    },
+                    "issue_field": {
+                        "type": "string",
+                        "description": "Specific field to skip, or None for whole question",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Reason for skipping",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="step1_transform",
+            description="[LEGACY] Apply ALL transforms at once. Use step1_fix_auto for interactive flow.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question ID (default: all questions)",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="step1_preview",
+            description="Preview the working file content",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "lines": {
+                        "type": "integer",
+                        "description": "Number of lines to show (default: 50)",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="step1_finish",
+            description="Finish Step 1 and generate summary report",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
         # Cross-step utility
         Tool(
             name="list_types",
@@ -218,6 +423,31 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_list_types()
         elif name == "list_projects":
             return await handle_list_projects(arguments)
+        # Step 1: Guided Build
+        elif name == "step1_start":
+            return await handle_step1_start(arguments)
+        elif name == "step1_status":
+            return await handle_step1_status()
+        elif name == "step1_analyze":
+            return await handle_step1_analyze(arguments)
+        elif name == "step1_fix_auto":
+            return await handle_step1_fix_auto(arguments)
+        elif name == "step1_fix_manual":
+            return await handle_step1_fix_manual(arguments)
+        elif name == "step1_suggest":
+            return await handle_step1_suggest(arguments)
+        elif name == "step1_batch_preview":
+            return await handle_step1_batch_preview(arguments)
+        elif name == "step1_batch_apply":
+            return await handle_step1_batch_apply(arguments)
+        elif name == "step1_skip":
+            return await handle_step1_skip(arguments)
+        elif name == "step1_transform":
+            return await handle_step1_transform(arguments)
+        elif name == "step1_preview":
+            return await handle_step1_preview(arguments)
+        elif name == "step1_finish":
+            return await handle_step1_finish()
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except WrapperError as e:
@@ -243,17 +473,19 @@ async def handle_init() -> List[TextContent]:
 1. **FRAGA ALLTID anvandaren INNAN du kor step0_start:**
    - "Vilken markdown-fil vill du arbeta med?" (source_file)
    - "Var ska projektet sparas?" (output_folder)
-   - Vanta pa svar innan du fortsatter!
+   - "Vad ska projektet heta?" (project_name) - VALFRITT
+   - **VANTA PA SVAR** innan du fortsatter! Gissa INTE!
 
 2. **ANVAND INTE bash/cat/ls** - qf-pipeline har full filatkomst
 
 3. **SAG ALDRIG "ladda upp filen"** - MCP kan lasa filer direkt
 
 4. **FOLJ PIPELINE-ORDNINGEN:**
-   - step0_start -> step2_validate -> step4_export
+   - step0_start -> step1_start (om v6.3) -> step2_validate -> step4_export
    - Validera ALLTID innan export!
 
 5. **OM VALIDERING MISSLYCKAS:**
+   - Om format-fel: Anvand step1_transform for att fixa
    - Anvand step2_read for att lasa filen
    - Hjalp anvandaren forsta och fixa felen
    - Validera igen efter fix
@@ -261,11 +493,14 @@ async def handle_init() -> List[TextContent]:
 ## STANDARD WORKFLOW
 
 1. User: "Anvand qf-pipeline" / "Exportera till QTI"
-2. Claude: "Vilken markdown-fil vill du arbeta med?"
-3. User: anger sokvag
-4. Claude: "Var ska projektet sparas?"
-5. User: anger output-mapp
-6. Claude: [step0_start] -> Skapar session
+2. Claude: FRAGA ANVANDAREN:
+   - "Vilken markdown-fil vill du arbeta med?"
+   - "Var ska projektet sparas?"
+   - "Vad ska projektet heta? (valfritt)"
+3. User: anger sokvagar
+4. Claude: [step0_start] -> Skapar session
+5. Claude: [step1_start] -> Om v6.3 format, annars hoppa till 6
+6. Claude: [step1_transform] -> Transformerar v6.3 -> v6.5
 7. Claude: [step2_validate] -> Validerar
 8. Om valid: [step4_export] -> Exporterar
    Om invalid: [step2_read] -> Visa fel, hjalp fixa
@@ -273,8 +508,11 @@ async def handle_init() -> List[TextContent]:
 ## TILLGANGLIGA VERKTYG
 
 - init: CALL THIS FIRST (denna instruktion)
-- step0_start: Starta ny session eller ladda befintlig
+- step0_start: Starta ny session (FRAGA ANVANDAREN FORST!)
 - step0_status: Visa sessionstatus
+- step1_start: Starta Guided Build (v6.3 -> v6.5)
+- step1_transform: Transformera till v6.5 format
+- step1_status: Visa Step 1 progress
 - step2_validate: Validera markdown-fil
 - step2_validate_content: Validera markdown-innehall
 - step2_read: Las arbetsfilen for felsokning
@@ -782,6 +1020,386 @@ async def handle_list_projects(arguments: dict) -> List[TextContent]:
     lines.append("\nTips: Anvand step0_start med source_file fran onskad mapp.")
 
     return [TextContent(type="text", text="\n".join(lines))]
+
+
+# =============================================================================
+# Step 1: Guided Build (v6.3 → v6.5)
+# =============================================================================
+
+async def handle_step1_start(arguments: dict) -> List[TextContent]:
+    """Handle step1_start - start guided build session.
+
+    Uses Step 0 session if active, otherwise requires source_file and output_folder.
+    """
+    result = await step1_start(
+        source_file=arguments.get("source_file"),
+        output_folder=arguments.get("output_folder"),
+        project_name=arguments.get("project_name")
+    )
+
+    if result.get("error"):
+        return [TextContent(
+            type="text",
+            text=f"Error: {result['error']}\n"
+                 f"Recommendation: {result.get('recommendation', '')}"
+        )]
+
+    if result.get("message") and "redan" in result.get("message", ""):
+        return [TextContent(
+            type="text",
+            text=f"{result['message']}\n{result.get('recommendation', '')}"
+        )]
+
+    # Log to pipeline
+    session = get_current_session()
+    if session:
+        log_action(
+            session.project_path,
+            "step1_start",
+            f"Started guided build: {result['total_questions']} questions in {result['format']} format",
+            data={
+                "session_id": result['session_id'],
+                "format": result['format'],
+                "total_questions": result['total_questions'],
+                "auto_fixable": result.get("first_question", {}).get("auto_fixable", 0),
+            }
+        )
+
+    first_q = result.get("first_question", {})
+    return [TextContent(
+        type="text",
+        text=f"Step 1 Session startad!\n"
+             f"  Session ID: {result['session_id']}\n"
+             f"  Format: {result['format']} ({result['format_description']})\n"
+             f"  Frågor: {result['total_questions']}\n"
+             f"  Working file: {result['working_file']}\n\n"
+             f"Första fråga: {first_q.get('id')} - {first_q.get('title')}\n"
+             f"  Typ: {first_q.get('type')}\n"
+             f"  Problem: {first_q.get('issues_count')} ({first_q.get('auto_fixable')} auto-fixbara)\n\n"
+             f"{first_q.get('issues_summary', '')}\n\n"
+             f"{result.get('message', '')}"
+    )]
+
+
+async def handle_step1_status() -> List[TextContent]:
+    """Handle step1_status - get session status."""
+    result = await step1_status()
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    return [TextContent(
+        type="text",
+        text=f"Step 1 Status\n"
+             f"  Session: {result['session_id']}\n"
+             f"  Format: {result['format']}\n"
+             f"  Ändringar: {result['changes_made']}\n\n"
+             f"{result['progress_display']}\n\n"
+             f"Working file: {result['working_file']}"
+    )]
+
+
+async def handle_step1_analyze(arguments: dict) -> List[TextContent]:
+    """Handle step1_analyze - analyze question."""
+    result = await step1_analyze(arguments.get("question_id"))
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    return [TextContent(
+        type="text",
+        text=f"Analys: {result['question_id']} ({result['question_type']})\n\n"
+             f"Problem: {result['total_issues']} "
+             f"(kritiska: {result['by_severity']['critical']}, "
+             f"varningar: {result['by_severity']['warning']})\n"
+             f"Auto-fixbara: {result['auto_fixable']}\n\n"
+             f"{result['issues_summary']}"
+    )]
+
+
+async def handle_step1_transform(arguments: dict) -> List[TextContent]:
+    """Handle step1_transform - apply transformations."""
+    result = await step1_transform(arguments.get("question_id"))
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    changes = result.get("changes", [])
+
+    # Log to pipeline
+    session = get_current_session()
+    if session:
+        log_action(
+            session.project_path,
+            "step1_transform",
+            f"Transformed: {len(changes)} changes applied",
+            data={
+                "question_id": arguments.get("question_id", "ALL"),
+                "changes_count": len(changes),
+                "changes": changes[:10],  # Log first 10 changes
+                "questions_processed": result.get("questions_processed", 1),
+            }
+        )
+
+    if not changes:
+        return [TextContent(type="text", text=result.get("message", "Inga ändringar"))]
+
+    changes_text = "\n".join(f"  - {c}" for c in changes)
+    return [TextContent(
+        type="text",
+        text=f"Transformationer applicerade!\n\n"
+             f"Ändringar ({len(changes)}):\n{changes_text}\n\n"
+             f"{result.get('message', '')}\n"
+             f"{result.get('next_step', '')}"
+    )]
+
+
+async def handle_step1_preview(arguments: dict) -> List[TextContent]:
+    """Handle step1_preview - preview working file."""
+    result = await step1_preview(arguments.get("lines", 50))
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    return [TextContent(
+        type="text",
+        text=f"Fil: {result['file']}\n"
+             f"Visar {result['showing']} av {result['total_lines']} rader\n"
+             f"{'=' * 50}\n"
+             f"{result['content']}"
+    )]
+
+
+async def handle_step1_finish() -> List[TextContent]:
+    """Handle step1_finish - finish and generate report."""
+    result = await step1_finish()
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    summary = result.get("summary", {})
+    changes = result.get("changes", [])
+
+    # Log to pipeline
+    session = get_current_session()
+    if session:
+        log_action(
+            session.project_path,
+            "step1_finish",
+            f"Finished: {summary['completed']}/{summary['total_questions']} questions, {summary['total_changes']} changes",
+            data={
+                "total_questions": summary['total_questions'],
+                "completed": summary['completed'],
+                "skipped": summary['skipped'],
+                "total_changes": summary['total_changes'],
+                "ready_for_step2": result['ready_for_step2'],
+            }
+        )
+
+    changes_text = "\n".join(
+        f"  - {c['question']}: {c['description']}" for c in changes[:5]
+    )
+    if len(changes) > 5:
+        changes_text += f"\n  ... och {len(changes) - 5} fler"
+
+    status = "REDO för Step 2" if result['ready_for_step2'] else "EJ REDO"
+
+    return [TextContent(
+        type="text",
+        text=f"Step 1 Avslutad!\n"
+             f"{'=' * 50}\n\n"
+             f"Session: {result['session_id']}\n"
+             f"Working file: {result['working_file']}\n\n"
+             f"Sammanfattning:\n"
+             f"  Totalt: {summary['total_questions']} frågor\n"
+             f"  Klara: {summary['completed']}\n"
+             f"  Hoppade: {summary['skipped']}\n"
+             f"  Ändringar: {summary['total_changes']}\n\n"
+             f"Ändringar:\n{changes_text}\n\n"
+             f"Status: {status}\n"
+             f"Nästa steg: {result['next_action']}"
+    )]
+
+
+# =============================================================================
+# Step 1: Interactive Tools (NEW)
+# =============================================================================
+
+async def handle_step1_fix_auto(arguments: dict) -> List[TextContent]:
+    """Handle step1_fix_auto - apply only auto transforms."""
+    result = await step1_fix_auto(arguments.get("question_id"))
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    # Log to pipeline
+    session = get_current_session()
+    if session and result.get("fixed"):
+        log_action(
+            session.project_path,
+            "step1_fix_auto",
+            f"Auto-fixed {result['fixed_count']} issues on {result['question_id']}",
+            data={
+                "question_id": result['question_id'],
+                "fixed_count": result['fixed_count'],
+                "remaining_count": result['remaining_count'],
+            }
+        )
+
+    fixed_text = "\n".join(f"  - {c}" for c in result.get("fixed", []))
+    remaining = result.get("remaining", [])
+    remaining_text = "\n".join(f"  - {r['message']}" for r in remaining)
+
+    return [TextContent(
+        type="text",
+        text=f"Auto-fix på {result['question_id']}\n\n"
+             f"Fixat ({result['fixed_count']}):\n{fixed_text or '  (inga)'}\n\n"
+             f"Kvar ({result['remaining_count']}):\n{remaining_text or '  (inga)'}\n\n"
+             f"{result.get('instruction', '')}"
+    )]
+
+
+async def handle_step1_fix_manual(arguments: dict) -> List[TextContent]:
+    """Handle step1_fix_manual - apply single manual fix."""
+    question_id = arguments.get("question_id")
+    field = arguments.get("field")
+    value = arguments.get("value")
+
+    if not question_id or not field or not value:
+        return [TextContent(type="text", text="Error: question_id, field och value krävs")]
+
+    result = await step1_fix_manual(question_id, field, value)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    # Log to pipeline
+    session = get_current_session()
+    if session and result.get("success"):
+        log_action(
+            session.project_path,
+            "step1_fix_manual",
+            f"Manual fix: {field}={value} on {question_id}",
+            data={
+                "question_id": question_id,
+                "field": field,
+                "value": value[:50] if len(value) > 50 else value,
+            }
+        )
+
+    return [TextContent(
+        type="text",
+        text=result.get("message", "")
+    )]
+
+
+async def handle_step1_suggest(arguments: dict) -> List[TextContent]:
+    """Handle step1_suggest - generate suggestion."""
+    question_id = arguments.get("question_id")
+    field = arguments.get("field")
+
+    if not question_id or not field:
+        return [TextContent(type="text", text="Error: question_id och field krävs")]
+
+    result = await step1_suggest(question_id, field)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    options_text = ""
+    if result.get("options"):
+        options_text = f"\nAlternativ: {', '.join(result['options'])}"
+
+    return [TextContent(
+        type="text",
+        text=f"Förslag för {field} på {question_id}:\n\n"
+             f"  Förslag: {result.get('suggestion', '(inget)')}\n"
+             f"{options_text}\n\n"
+             f"{result.get('instruction', '')}"
+    )]
+
+
+async def handle_step1_batch_preview(arguments: dict) -> List[TextContent]:
+    """Handle step1_batch_preview - show questions with same issue."""
+    issue_type = arguments.get("issue_type")
+
+    if not issue_type:
+        return [TextContent(type="text", text="Error: issue_type krävs")]
+
+    result = await step1_batch_preview(issue_type)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    questions = result.get("questions", [])
+    questions_text = "\n".join(
+        f"  - {q['question_id']}: {q.get('title', '(no title)')}"
+        for q in questions
+    )
+
+    return [TextContent(
+        type="text",
+        text=f"Frågor med {issue_type}:\n\n"
+             f"Totalt: {result['count']}\n"
+             f"Förhandsgranskning:\n{questions_text or '  (inga)'}\n\n"
+             f"{result.get('instruction', '')}"
+    )]
+
+
+async def handle_step1_batch_apply(arguments: dict) -> List[TextContent]:
+    """Handle step1_batch_apply - apply fix to multiple questions."""
+    issue_type = arguments.get("issue_type")
+    fix_type = arguments.get("fix_type")
+    question_ids = arguments.get("question_ids")
+
+    if not issue_type or not fix_type:
+        return [TextContent(type="text", text="Error: issue_type och fix_type krävs")]
+
+    result = await step1_batch_apply(issue_type, fix_type, question_ids)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    # Log to pipeline
+    session = get_current_session()
+    if session:
+        log_action(
+            session.project_path,
+            "step1_batch_apply",
+            f"Batch fixed {result['success_count']} questions for {issue_type}",
+            data={
+                "issue_type": issue_type,
+                "fix_type": fix_type,
+                "success_count": result['success_count'],
+                "failed_count": result['failed_count'],
+            }
+        )
+
+    return [TextContent(
+        type="text",
+        text=f"Batch-fix: {issue_type}\n\n"
+             f"Fix-typ: {fix_type}\n"
+             f"Lyckades: {result['success_count']}\n"
+             f"Misslyckades: {result['failed_count']}\n\n"
+             f"{result.get('message', '')}"
+    )]
+
+
+async def handle_step1_skip(arguments: dict) -> List[TextContent]:
+    """Handle step1_skip - skip issue or question."""
+    result = await step1_skip(
+        question_id=arguments.get("question_id"),
+        issue_field=arguments.get("issue_field"),
+        reason=arguments.get("reason")
+    )
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    return [TextContent(
+        type="text",
+        text=result.get("message", "Hoppade över")
+    )]
 
 
 # =============================================================================

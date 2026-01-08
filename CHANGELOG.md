@@ -4,6 +4,23 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-08
+
+#### Step 1: Interactive Guided Build (Rebuild)
+- **Feature:** Rebuilt Step 1 to be interactive with teacher involvement
+- **New tools:**
+  - `step1_fix_auto` - Apply only auto-fixable transforms, return remaining issues
+  - `step1_fix_manual` - Apply single manual fix from user input
+  - `step1_suggest` - Generate suggestions for fields based on context
+  - `step1_batch_preview` - Show all questions with same type of issue
+  - `step1_batch_apply` - Apply same fix to multiple questions at once
+  - `step1_skip` - Skip an issue or entire question
+- **Enhancement:** `step1_analyze` now returns categorized issues (auto_fixable, needs_input, other)
+- **Enhancement:** Step 1 now uses Step 0 session automatically (no need to re-enter paths)
+- **Enhancement:** Added logging for all Step 1 actions to pipeline.jsonl/pipeline.log
+- **Legacy:** Marked `step1_transform` as [LEGACY] - kept for backwards compatibility
+- **Spec:** Created `docs/specs/STEP1_REBUILD_INSTRUCTIONS.md`
+
 ### Added - 2026-01-07
 
 #### qti-core: Local package (standalone)
