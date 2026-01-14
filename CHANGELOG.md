@@ -17,6 +17,7 @@ All notable changes to QuestionForge will be documented in this file.
 - **Enhancement:** Auto-generated README in `00_materials/`
 - **Enhancement:** `methodology` section in session.yaml for M1-M4 tracking
 - **Enhancement:** `step0_start` returns routing guidance based on entry_point
+- **Enhancement:** `init` tool now returns full A/B/C/D routing guide
 - **Validation:** `validate_entry_point()` ensures correct source_file requirements
 - **Docs:** ADR-014-shared-session.md, HANDOFF_FIXES_shared_session.md
 

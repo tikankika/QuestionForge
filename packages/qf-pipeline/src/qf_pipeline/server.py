@@ -68,12 +68,10 @@ async def list_tools() -> List[Tool]:
         Tool(
             name="init",
             description=(
-                "CALL THIS FIRST! Returns critical instructions. "
-                "After calling init, you MUST ASK the user for: "
-                "(1) source_file - which markdown file? "
-                "(2) output_folder - where to save? "
-                "(3) project_name - what to call it? (optional) "
-                "WAIT for user response. Do NOT guess paths!"
+                "CALL THIS FIRST! Returns A/B/C/D entry point routing. "
+                "Ask user: 'Vad har du?' "
+                "A=Material, B=Lärandemål, C=Blueprint, D=Frågor. "
+                "Then use step0_start with correct entry_point."
             ),
             inputSchema={
                 "type": "object",
@@ -478,60 +476,74 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
 # =============================================================================
 
 async def handle_init() -> List[TextContent]:
-    """Handle init tool call - return critical instructions."""
-    instructions = """# QF-Pipeline - Kritiska Instruktioner
+    """Handle init tool call - return critical instructions with A/B/C/D routing."""
+    instructions = """# QuestionForge - Kritiska Instruktioner
 
-## REGLER (MASTE FOLJAS)
+## STEG 1: FRÅGA VAD ANVÄNDAREN HAR
 
-1. **FRAGA ALLTID anvandaren INNAN du kor step0_start:**
-   - "Vilken markdown-fil vill du arbeta med?" (source_file)
-   - "Var ska projektet sparas?" (output_folder)
-   - "Vad ska projektet heta?" (project_name) - VALFRITT
-   - **VANTA PA SVAR** innan du fortsatter! Gissa INTE!
+"Vad har du att börja med?"
 
-2. **ANVAND INTE bash/cat/ls** - qf-pipeline har full filatkomst
+A) **Material** (föreläsningar, slides, transkriberingar)
+   → Du vill SKAPA frågor från scratch
+   → Använd M1-M4 metodologi (qf-scaffolding)
 
-3. **SAG ALDRIG "ladda upp filen"** - MCP kan lasa filer direkt
+B) **Lärandemål / Kursplan**
+   → Du har redan mål, vill planera assessment
+   → Börja M2 (qf-scaffolding)
 
-4. **FOLJ PIPELINE-ORDNINGEN:**
-   - step0_start -> step1_start (om v6.3) -> step2_validate -> step4_export
-   - Validera ALLTID innan export!
+C) **Blueprint / Plan**
+   → Du har redan plan, vill generera frågor
+   → Börja M3 (qf-scaffolding)
 
-5. **OM VALIDERING MISSLYCKAS:**
-   - Om format-fel: Anvand step1_transform for att fixa
-   - Anvand step2_read for att lasa filen
-   - Hjalp anvandaren forsta och fixa felen
-   - Validera igen efter fix
+D) **Markdown-fil med frågor**
+   → Du vill VALIDERA eller EXPORTERA
+   → Använd Pipeline direkt (step2 → step4)
 
-## STANDARD WORKFLOW
+## STEG 2: SKAPA SESSION
 
-1. User: "Anvand qf-pipeline" / "Exportera till QTI"
-2. Claude: FRAGA ANVANDAREN:
-   - "Vilken markdown-fil vill du arbeta med?"
-   - "Var ska projektet sparas?"
-   - "Vad ska projektet heta? (valfritt)"
-3. User: anger sokvagar
-4. Claude: [step0_start] -> Skapar session
-5. Claude: [step1_start] -> Om v6.3 format, annars hoppa till 6
-6. Claude: [step1_transform] -> Transformerar v6.3 -> v6.5
-7. Claude: [step2_validate] -> Validerar
-8. Om valid: [step4_export] -> Exporterar
-   Om invalid: [step2_read] -> Visa fel, hjalp fixa
+EFTER användaren svarat, kör step0_start med rätt entry_point:
 
-## TILLGANGLIGA VERKTYG
+| Val | entry_point | source_file |
+|-----|-------------|-------------|
+| A   | "materials"  | Nej (valfri) |
+| B   | "objectives" | Ja (krävs)   |
+| C   | "blueprint"  | Ja (krävs)   |
+| D   | "questions"  | Ja (krävs)   |
 
+Fråga ALLTID:
+- "Var ska projektet sparas?" (output_folder)
+- "Vad ska projektet heta?" (project_name, valfritt)
+- För B/C/D: "Var ligger filen?" (source_file)
+
+## STEG 3: VÄG BASERAT PÅ VAL
+
+A) materials  → Vänta på qf-scaffolding → M1
+B) objectives → Vänta på qf-scaffolding → M2
+C) blueprint  → Vänta på qf-scaffolding → M3
+D) questions  → step2_validate → step4_export
+
+## REGLER
+
+1. **VÄNTA** på svar innan du fortsätter - GISSA INTE sökvägar!
+2. **VALIDERA** alltid innan export (step2 före step4)
+3. **ANVÄND INTE** bash/cat/ls - MCP har full filåtkomst
+
+## TILLGÄNGLIGA VERKTYG
+
+Session:
 - init: CALL THIS FIRST (denna instruktion)
-- step0_start: Starta ny session (FRAGA ANVANDAREN FORST!)
+- step0_start: Starta session med entry_point (A/B/C/D)
 - step0_status: Visa sessionstatus
-- step1_start: Starta Guided Build (v6.3 -> v6.5)
-- step1_transform: Transformera till v6.5 format
-- step1_status: Visa Step 1 progress
+
+Pipeline (för entry point D):
+- step1_start: Starta Guided Build (v6.3 → v6.5)
 - step2_validate: Validera markdown-fil
-- step2_validate_content: Validera markdown-innehall
-- step2_read: Las arbetsfilen for felsokning
+- step2_read: Läs arbetsfilen för felsökning
 - step4_export: Exportera till QTI-paket
-- list_types: Lista stodda fragetyper (16 st)
-- list_projects: Lista konfigurerade projekt/MQG-mappar
+
+Övrigt:
+- list_types: Lista stödda frågetyper (16 st)
+- list_projects: Lista konfigurerade projekt
 """
     return [TextContent(type="text", text=instructions)]
 
