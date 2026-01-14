@@ -25,31 +25,41 @@ def set_current_session(session: Optional[SessionManager]) -> None:
 
 
 async def start_session_tool(
-    source_file: str,
     output_folder: str,
-    project_name: Optional[str] = None
+    source_file: Optional[str] = None,
+    project_name: Optional[str] = None,
+    entry_point: str = "questions"
 ) -> dict:
     """Start a new QF pipeline session.
 
     Creates project structure:
         project_name/
-        ├── 01_source/      ← Original (never modified)
+        ├── 00_materials/   ← Instructional materials (entry point A)
+        ├── 01_source/      ← Original source file (never modified)
         ├── 02_working/     ← Working copy (editable)
         ├── 03_output/      ← Exported files
+        ├── methodology/    ← M1-M4 methodology outputs
         └── session.yaml    ← Session metadata
 
     Args:
-        source_file: Absolute path to markdown file
         output_folder: Directory where project will be created
-        project_name: Optional project name (auto-generated from filename if None)
+        source_file: Path to source file (required for entry points B/C/D)
+        project_name: Optional project name (auto-generated if not provided)
+        entry_point: One of "materials" (A), "objectives" (B),
+                    "blueprint" (C), "questions" (D). Default: "questions"
 
     Returns:
-        dict with success status and paths
+        dict with success status, paths, and next_module
     """
     global _current_session
 
     manager = SessionManager()
-    result = manager.create_session(source_file, output_folder, project_name)
+    result = manager.create_session(
+        output_folder=output_folder,
+        source_file=source_file,
+        project_name=project_name,
+        entry_point=entry_point
+    )
 
     if result.get("success"):
         _current_session = manager

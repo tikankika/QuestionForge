@@ -83,21 +83,34 @@ async def list_tools() -> List[Tool]:
         # Step 0: Session Management
         Tool(
             name="step0_start",
-            description="Start a new session OR load existing. For new: provide source_file + output_folder. For existing: provide project_path.",
+            description=(
+                "Start a new session OR load existing. "
+                "For new: provide output_folder + entry_point (+ source_file for B/C/D). "
+                "For existing: provide project_path."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "source_file": {
-                        "type": "string",
-                        "description": "NEW SESSION: Absolute path to markdown file",
-                    },
                     "output_folder": {
                         "type": "string",
                         "description": "NEW SESSION: Directory where project will be created",
                     },
+                    "source_file": {
+                        "type": "string",
+                        "description": "NEW SESSION: Path to source file (required for entry_point B/C/D)",
+                    },
                     "project_name": {
                         "type": "string",
                         "description": "NEW SESSION: Optional project name (auto-generated if not provided)",
+                    },
+                    "entry_point": {
+                        "type": "string",
+                        "description": (
+                            "NEW SESSION: Entry point - "
+                            "'materials' (A), 'objectives' (B), 'blueprint' (C), 'questions' (D). "
+                            "Default: 'questions'"
+                        ),
+                        "enum": ["materials", "objectives", "blueprint", "questions"],
                     },
                     "project_path": {
                         "type": "string",
@@ -549,8 +562,8 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
                 text=f"Session laddad!\n"
                      f"  ID: {result['session_id']}\n"
                      f"  Projekt: {result['project_path']}\n"
-                     f"  Arbetsfil: {result['working_file']}\n"
-                     f"  Validering: {result['validation_status']}"
+                     f"  Arbetsfil: {result.get('working_file', 'N/A')}\n"
+                     f"  Validering: {result.get('validation_status', 'unknown')}"
             )]
         else:
             error = result.get("error", {})
@@ -559,57 +572,85 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
                 text=f"Kunde inte ladda session: {error.get('message')}"
             )]
 
-    # Create new session
-    if arguments.get("source_file"):
-        if not arguments.get("output_folder"):
-            return [TextContent(
-                type="text",
-                text="Error: output_folder kravs for ny session"
-            )]
+    # Create new session - requires output_folder
+    if not arguments.get("output_folder"):
+        return [TextContent(
+            type="text",
+            text=(
+                "Error: output_folder krävs för ny session.\n\n"
+                "Användning:\n"
+                "  - Ny session: output_folder + entry_point (+ source_file för B/C/D)\n"
+                "  - Ladda befintlig: project_path\n\n"
+                "Entry points:\n"
+                "  - materials (A): Börja från undervisningsmaterial\n"
+                "  - objectives (B): Börja från learning objectives\n"
+                "  - blueprint (C): Börja från assessment plan\n"
+                "  - questions (D): Validera färdiga frågor [default]"
+            )
+        )]
 
-        result = await start_session_tool(
-            source_file=arguments["source_file"],
-            output_folder=arguments["output_folder"],
-            project_name=arguments.get("project_name")
+    # Get entry_point (default to "questions" for backwards compatibility)
+    entry_point = arguments.get("entry_point", "questions")
+
+    result = await start_session_tool(
+        output_folder=arguments["output_folder"],
+        source_file=arguments.get("source_file"),
+        project_name=arguments.get("project_name"),
+        entry_point=entry_point
+    )
+
+    if result.get("success"):
+        log_action(
+            Path(result['project_path']),
+            "step0_start",
+            f"Session created: {result['session_id']} (entry_point: {entry_point})",
+            data={
+                "session_id": result['session_id'],
+                "source_file": arguments.get("source_file"),
+                "project_path": result['project_path'],
+                "entry_point": entry_point,
+                "next_module": result.get('next_module'),
+                "action": "create",
+            }
         )
 
-        if result.get("success"):
-            log_action(
-                Path(result['project_path']),
-                "step0_start",
-                f"Session created: {result['session_id']}",
-                data={
-                    "session_id": result['session_id'],
-                    "source_file": arguments["source_file"],
-                    "project_path": result['project_path'],
-                    "action": "create",
-                }
+        # Build next steps guidance based on entry_point
+        if result.get('pipeline_ready'):
+            next_steps = (
+                "Nästa steg (Pipeline):\n"
+                "  1. step2_validate: Validera arbetsfilen\n"
+                "  2. step4_export: Exportera till QTI"
             )
-            return [TextContent(
-                type="text",
-                text=f"Session startad!\n"
-                     f"  Session ID: {result['session_id']}\n"
-                     f"  Projekt: {result['project_path']}\n"
-                     f"  Arbetsfil: {result['working_file']}\n"
-                     f"  Output: {result['output_folder']}\n\n"
-                     f"Nasta steg:\n"
-                     f"  - step2_validate: Validera arbetsfilen\n"
-                     f"  - step4_export: Exportera till QTI"
-            )]
         else:
-            error = result.get("error", {})
-            return [TextContent(
-                type="text",
-                text=f"Kunde inte starta session:\n"
-                     f"  Typ: {error.get('type')}\n"
-                     f"  Meddelande: {error.get('message')}"
-            )]
+            next_module = result.get('next_module', 'm1')
+            next_steps = (
+                f"Nästa steg (qf-scaffolding):\n"
+                f"  1. list_modules: Visa tillgängliga moduler\n"
+                f"  2. load_stage({next_module}, 0): Börja med {next_module.upper()}"
+            )
 
-    # No valid arguments
-    return [TextContent(
-        type="text",
-        text="Ange source_file + output_folder (ny session) eller project_path (ladda befintlig)"
-    )]
+        # Build response text
+        response_text = (
+            f"Session startad!\n"
+            f"  Session ID: {result['session_id']}\n"
+            f"  Projekt: {result['project_path']}\n"
+            f"  Entry point: {entry_point}\n"
+        )
+
+        if result.get('working_file'):
+            response_text += f"  Arbetsfil: {result['working_file']}\n"
+
+        response_text += f"  Output: {result['output_folder']}\n\n{next_steps}"
+
+        return [TextContent(type="text", text=response_text)]
+    else:
+        error = result.get("error", {})
+        return [TextContent(
+            type="text",
+            text=f"Kunde inte starta session:\n"
+                 f"  Typ: {error.get('type')}\n"
+                 f"  Meddelande: {error.get('message')}"
+        )]
 
 
 async def handle_step0_status(arguments: dict) -> List[TextContent]:
