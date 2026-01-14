@@ -6,6 +6,30 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-14
 
+#### Methodology Import: M1-M4 Complete
+- **Structure:** Created `methodology/` at QuestionForge root (shared by both MCPs)
+- **M1 (Material Analysis):** 8 files (m1_0 to m1_7)
+  - Moved from `packages/qf-scaffolding/methodology/m1/`
+  - Renamed from `bb1a-bb1h` to `m1_0-m1_7` format
+- **M2 (Assessment Planning):** 9 files (m2_0 to m2_8) - NEW
+  - Imported from MQG_0.2 `bb2a-bb2i`
+  - Covers: objectives, strategy, Bloom's, question types, difficulty, blueprint
+- **M3 (Question Generation):** 5 files (m3_0 to m3_4) - NEW
+  - Imported from MQG_0.2 `bb4a-bb4e`
+  - Covers: generation principles, distribution review, finalization
+- **M4 (Quality Assurance):** 6 files (m4_0 to m4_5) - NEW
+  - Imported from MQG_0.2 `bb5a-bb5f`
+  - Covers: automated validation, pedagogical review, documentation
+- **Skipped:** bb3 (Technical Setup), bb4.5 (Assembly), bb6 (Field Requirements)
+  - These are covered by qf-pipeline (Step 1-4)
+
+#### qf-scaffolding MVP
+- **Feature:** Created minimal qf-scaffolding MCP with `load_stage` tool
+- **Tool:** `load_stage(module, stage)` - loads methodology markdown files
+- **Supported:** M1 stages 0-7 (intro through best practices)
+- **Config:** Added to Claude Desktop config
+- **Package:** TypeScript with @modelcontextprotocol/sdk
+
 #### URL Auto-Fetch for source_file
 - **Feature:** `source_file` can now be a URL (http:// or https://)
 - Automatically fetches URL content and converts HTML to markdown
@@ -135,21 +159,19 @@ QuestionForge/
 ├── CLAUDE.md                    ✅ Updated
 ├── CHANGELOG.md                 ✅ Updated
 ├── ROADMAP.md                   ✅ Updated
+├── methodology/                 ✅ All modules imported
+│   ├── m1/                      ✅ 8 files (Material Analysis)
+│   ├── m2/                      ✅ 9 files (Assessment Planning)
+│   ├── m3/                      ✅ 5 files (Question Generation)
+│   └── m4/                      ✅ 6 files (Quality Assurance)
 ├── docs/
 │   ├── DISCOVERY_BRIEF.md       ✅ Complete
 │   ├── acdm/                    ✅ ACDM documentation
-│   │   ├── README.md            ✅ Structure guide
-│   │   ├── logs/                ✅ 8 session logs
-│   │   └── meta/                ✅ Process reflections
-│   ├── adr/                     ✅ 12 ADRs
-│   │   ├── ADR-001 to ADR-005   ✅ Architecture
-│   │   ├── ADR-006 to ADR-009   ✅ Session/Resources
-│   │   └── ADR-010 to ADR-012   ✅ Step 3/Validation
+│   ├── adr/                     ✅ 14+ ADRs
 │   ├── specs/                   ✅ Implementation specs
-│   ├── analysis/                ✅ Technical analyses
-│   └── chat_claude_desctop/     ✅ Saved dialogues
+│   └── analysis/                ✅ Technical analyses
 ├── packages/
-│   ├── qf-scaffolding/          ⬜ To be built
+│   ├── qf-scaffolding/          ✅ MVP (load_stage for M1)
 │   ├── qf-pipeline/             ✅ MCP server active
 │   └── qti-core/                ✅ Standalone QTI logic
 └── qf-specifications/           ⬜ To be created
