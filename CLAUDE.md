@@ -19,7 +19,8 @@ packages/qf-pipeline/      # Python - validation & export
 
 ## Project Status
 
-- **Phase:** DISCOVER/SHAPE Complete → Ready for DECIDE
+- **Phase:** IMPLEMENT (qf-pipeline active, Step 0-2 + Step 4 complete)
+- **Next:** Step 3 Decision Tool
 - **Created:** 2026-01-02
 - **Method:** ACDM v1.0
 - **Name Origin:** "Forge" implies craftsmanship in creating questions
@@ -54,29 +55,28 @@ packages/qf-pipeline/      # Python - validation & export
 ```
 QuestionForge/
 ├── packages/
-│   ├── qf-scaffolding/     # TypeScript MCP (methodology)
-│   └── qf-pipeline/        # Python MCP (validation/export)
-├── qf-specifications/      # Shared specs (both MCPs use)
-│   ├── question-types/     # Per-type specifications
-│   ├── modules/            # M1-M4 methodology docs
-│   └── question-format.md  # Format specification
+│   ├── qf-scaffolding/     # TypeScript MCP (methodology) ⬜
+│   ├── qf-pipeline/        # Python MCP (validation/export) ✅
+│   └── qti-core/           # Standalone QTI logic ✅
+├── qf-specifications/      # Shared specs (both MCPs use) ⬜
 ├── docs/
-│   ├── DISCOVERY_BRIEF.md  # Problem analysis (complete)
-│   ├── adr/                # Architecture decisions
-│   ├── specs/              # Implementation specs
-│   └── rfcs/               # Proposals
+│   ├── DISCOVERY_BRIEF.md  # Problem analysis ✅
+│   ├── acdm/               # ACDM session logs ✅
+│   ├── adr/                # Architecture decisions (12 ADRs) ✅
+│   ├── specs/              # Implementation specs ✅
+│   └── analysis/           # Technical analyses ✅
 └── .claude/commands/       # ACDM workflow commands
 ```
 
-## Key Decisions (Pending ADRs)
+## Key Decisions (12 ADRs)
 
-| Decision | Choice |
-|----------|--------|
-| Number of MCPs | 2 (scaffolding + pipeline) |
-| MCP 1 language | TypeScript |
-| MCP 2 language | Python (wraps existing QTI code) |
-| Module naming | M1-M4 (not BB1-BB6) |
-| M2+M3 merge | Yes (Assessment Planning) |
+| Decision | Choice | ADR |
+|----------|--------|-----|
+| Number of MCPs | 2 (scaffolding + pipeline) | ADR-001 |
+| Module naming | M1-M4 (not BB1-BB6) | ADR-002 |
+| Languages | TS (scaffolding), Python (pipeline) | ADR-003 |
+| Tool naming | stepN_ prefix convention | ADR-007 |
+| Standalone | qti-core local package | ADR-008 |
 
 ## Key Commands
 
@@ -95,9 +95,12 @@ nativehtml
 
 ## Related Documents
 
-- [Discovery Brief](docs/DISCOVERY_BRIEF.md) - Problem analysis ✅
-- [ADRs](docs/adr/) - Architecture decisions (pending)
-- [Specs](docs/specs/) - Implementation specs (pending)
+- [ROADMAP](ROADMAP.md) - Current status and next steps
+- [CHANGELOG](CHANGELOG.md) - Detailed change log
+- [Discovery Brief](docs/DISCOVERY_BRIEF.md) - Problem analysis
+- [ACDM Logs](docs/acdm/) - Session logs and reflections
+- [ADRs](docs/adr/) - Architecture decisions (12 ADRs)
+- [Specs](docs/specs/) - Implementation specs
 
 ## Origins
 

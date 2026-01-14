@@ -29,6 +29,22 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-07
 
+#### ACDM Documentation Structure
+- **Feature:** Created `docs/acdm/` folder for structured ACDM logging
+- **Structure:**
+  - `docs/acdm/README.md` - Explains documentation structure
+  - `docs/acdm/logs/` - Chronological session logs (YYYY-MM-DD_PHASE_topic.md)
+  - `docs/acdm/meta/` - ACDM process reflections
+- **Logs created:**
+  - `2026-01-06_DISCOVER_Terminal_vs_qf-pipeline.md`
+  - `2026-01-06_DISCOVER_qf-pipeline_wrapper_analysis.md`
+  - `2026-01-06_DISCOVER_consolidated_analysis.md`
+  - `2026-01-06_DISCOVER_detailed_comparison.md`
+  - `2026-01-07_DISCOVER_MQG_vs_qfpipeline_analysis.md`
+  - `2026-01-07_DISCOVER_input_format_inventory.md`
+  - `2026-01-07_DISCOVER_step1_documentation_analysis.md`
+  - `2026-01-07_DISCOVER_v63_vs_v65_comparison.md`
+
 #### qti-core: Local package (standalone)
 - Copied QTI-Generator-for-Inspera as `packages/qti-core/`
 - 114 files (excluding .git, .venv, __pycache__, output)
@@ -93,51 +109,45 @@ All notable changes to QuestionForge will be documented in this file.
 QuestionForge/
 ├── CLAUDE.md                    ✅ Updated
 ├── CHANGELOG.md                 ✅ Updated
+├── ROADMAP.md                   ✅ Updated
 ├── docs/
 │   ├── DISCOVERY_BRIEF.md       ✅ Complete
-│   ├── adr/
-│   │   ├── ADR-001-two-mcp-architecture.md    ✅
-│   │   ├── ADR-002-module-naming.md           ✅
-│   │   ├── ADR-003-language-choices.md        ✅
-│   │   ├── ADR-004-m2-m3-merge.md             ✅
-│   │   └── ADR-005-mcp-integration.md         ✅
-│   ├── specs/
-│   │   ├── qf-scaffolding-spec.md             ✅
-│   │   ├── qf-pipeline-spec.md                ✅
-│   │   └── qf-specifications-structure.md     ✅
-│   ├── chat_claude_desctop/
-│   │   └── Restructuring...2026-01-02.md      ✅
-│   ├── instructions/                          ⬜ Empty
-│   └── rfcs/                                  ⬜ Empty
+│   ├── acdm/                    ✅ ACDM documentation
+│   │   ├── README.md            ✅ Structure guide
+│   │   ├── logs/                ✅ 8 session logs
+│   │   └── meta/                ✅ Process reflections
+│   ├── adr/                     ✅ 12 ADRs
+│   │   ├── ADR-001 to ADR-005   ✅ Architecture
+│   │   ├── ADR-006 to ADR-009   ✅ Session/Resources
+│   │   └── ADR-010 to ADR-012   ✅ Step 3/Validation
+│   ├── specs/                   ✅ Implementation specs
+│   ├── analysis/                ✅ Technical analyses
+│   └── chat_claude_desctop/     ✅ Saved dialogues
 ├── packages/
-│   ├── qf-scaffolding/                        ⬜ To be built
-│   └── qf-pipeline/                           ⬜ To be built
-└── qf-specifications/                         ⬜ To be created
+│   ├── qf-scaffolding/          ⬜ To be built
+│   ├── qf-pipeline/             ✅ MCP server active
+│   └── qti-core/                ✅ Standalone QTI logic
+└── qf-specifications/           ⬜ To be created
 ```
 
 ### ACDM Progress
 
 | Phase | Status | Outputs |
 |-------|--------|---------|
-| DISCOVER | ✅ Complete | DISCOVERY_BRIEF.md |
+| DISCOVER | ✅ Complete | DISCOVERY_BRIEF.md, docs/acdm/logs/ |
 | SHAPE | ✅ Complete | Architecture in brief |
-| DECIDE | ✅ Complete | 5 ADRs |
-| COORDINATE | ✅ Complete | 3 specs |
-| EXPLORE | ⬜ Next | - |
-| PLAN | ⬜ Pending | - |
-| CODE | ⬜ Pending | - |
-| COMMIT | ⬜ Pending | - |
+| DECIDE | ✅ Complete | 12 ADRs |
+| COORDINATE | ✅ Complete | specs/ |
+| IMPLEMENT | ✅ Active | qf-pipeline, qti-core |
 
 ---
 
 ## Future
 
 ### Planned
-- Create qf-specifications/ folder structure
-- Migrate Field Requirements v6.3 to v7
-- Build qf-scaffolding MCP (TypeScript)
-- Build qf-pipeline MCP (Python)
-- Implement Step 1.5 (MCP integration)
+- Step 3: Decision tool (simple export vs Question Set)
+- qf-scaffolding MCP (TypeScript, M1-M4)
+- Create qf-specifications/ shared folder
 - Archive legacy MCPs
 
 ---

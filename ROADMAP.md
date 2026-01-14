@@ -1,6 +1,6 @@
 # QuestionForge Roadmap
 
-**Senast uppdaterad:** 2026-01-06
+**Senast uppdaterad:** 2026-01-14
 
 ---
 
@@ -22,112 +22,115 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 ---
 
-## Fas 1.5: Refaktorering ⏳ PÅGÅR
+## Fas 1.5: Refaktorering ✅ KLAR
 
-### 1.5.1 Tool Naming Convention (ADR-007)
-| Uppgift | Status |
-|---------|--------|
-| Beslut: `stepN_` prefix | ✅ Beslutad |
-| Dokumenterat i ADR-007 | ✅ Klar |
-| Implementera i server.py | ⬜ Ej påbörjad |
+### 1.5.1 Tool Naming Convention (ADR-007) ✅ KLAR
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| Beslut: `stepN_` prefix | ✅ Klar | 2026-01-06 |
+| Dokumenterat i ADR-007 | ✅ Klar | 2026-01-06 |
+| Implementerat i server.py | ✅ Klar | 2026-01-07 |
 
-**Verktyg att byta namn:**
-- `start_session` → `step0_start`
-- `get_session_status` → `step0_status`
-- `validate_file` → `step2_validate`
-- `export_questions` → `step4_export`
-- `list_question_types` → `list_types`
+### 1.5.2 Standalone Migration (ADR-008) ✅ KLAR
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| DISCOVER-fas | ✅ Klar | 2026-01-06 |
+| Beslut: Alternativ A (full kopia) | ✅ Klar | 2026-01-06 |
+| Implementation: qti-core kopierad | ✅ Klar | 2026-01-07 |
 
-**Verktyg att ta bort:**
-- `end_session` (onödig)
-- `parse_markdown` (intern utility)
-
-**Verktyg att lägga till:**
-- `init` (CALL THIS FIRST!)
-
-### 1.5.2 Standalone Migration (ADR-008) 🔴 KRITISK
-| Uppgift | Status |
-|---------|--------|
-| DISCOVER-fas | ✅ Klar |
-| Beslut: Alternativ A (full kopia) | ✅ Beslutad |
-| SHAPE-fas | ⬜ Nästa |
-| Implementation | ⬜ Ej påbörjad |
-
-**Mål:** Göra qf-pipeline helt självständigt utan beroende på `/Users/niklaskarlsson/QTI-Generator-for-Inspera`
-
-**Ny struktur:**
-```
-qf-pipeline/src/qf_pipeline/
-├── core/              ← Migrerad QTI-logik
-│   ├── parser.py
-│   ├── generator.py
-│   ├── packager.py
-│   ├── validator.py
-│   └── resource_manager.py
-├── templates/xml/     ← 21 XML-mallar
-├── wrappers/          ← Tunna wrappers
-├── tools/             ← MCP-verktyg
-└── utils/             ← Session management
-```
-
-**Konsekvens:** QTI-Generator-for-Inspera arkiveras efter migration.
-
-**Uppskattad tid:** 5-7 timmar
+**Resultat:**
+- QTI-Generator-for-Inspera kopierad som `packages/qti-core/`
+- 114 filer (exkl. .git, .venv, __pycache__, output)
+- Wrapper-paths uppdaterade från absoluta till relativa
+- QuestionForge är nu helt standalone
 
 ---
 
-## Fas 2: Guided Build ⬜ PLANERAD
+## Fas 2: Guided Build ✅ KLAR
 
-**Beskrivning:** Interaktiv fråga-för-fråga genomgång med "fix once, apply to all similar"
+### Step 1: Interactive Guided Build (Rebuild)
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| Specifikation (STEP1_REBUILD_INTERACTIVE.md) | ✅ Klar | 2026-01-08 |
+| `step1_analyze` - kategorisera issues | ✅ Klar | 2026-01-08 |
+| `step1_fix_auto` - auto-fixable syntax | ✅ Klar | 2026-01-08 |
+| `step1_fix_manual` - user input handling | ✅ Klar | 2026-01-08 |
+| `step1_suggest` - generera förslag | ✅ Klar | 2026-01-08 |
+| `step1_batch_preview` - batch preview | ✅ Klar | 2026-01-08 |
+| `step1_batch_apply` - batch apply | ✅ Klar | 2026-01-08 |
+| `step1_skip` - skippa fråga/issue | ✅ Klar | 2026-01-08 |
 
-| Uppgift | Status |
-|---------|--------|
-| Specifikation | ⬜ Ej påbörjad |
-| `step1_build` | ⬜ Planerad |
-| `step1_fix` | ⬜ Planerad |
-| `step1_skip` | ⬜ Planerad |
-| `step1_done` | ⬜ Planerad |
-
-**Kärnfunktion från DISCOVERY_BRIEF:**
-```
-For each question:
-  1. READ question
-  2. IDENTIFY type, LOAD spec
-  3. COMPARE to spec
-  4. SUGGEST corrections
-  5. TEACHER decides: accept/modify/skip
-  6. APPLY fix to this question
-  7. APPLY same fix to ALL similar types  ← KEY FEATURE
-```
+### Step 2: Validator ✅ KLAR
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| Validation output improvement (ADR-012) | ✅ Klar | 2026-01-06 |
+| `^tags` som alternativ till `^labels` | ✅ Klar | 2026-01-07 |
+| step2_complete signal | ✅ Klar | 2026-01-08 |
 
 ---
 
-## Fas 3: PostgreSQL Logging ⬜ PARKERAD
+## Fas 3: Decision & Export ⏳ NÄSTA
 
-**Status:** Parkerad (se PARKED_assessment_mcp_logging.md)
-
+### Step 3: Decision Tool (ADR-010, ADR-011)
 | Uppgift | Status |
 |---------|--------|
-| Schema design | ✅ Specificerat |
-| Implementation | ⬜ Parkerad |
+| ADR-010: Step 3 architecture | ✅ Föreslaget |
+| ADR-011: Question Set Builder | ✅ Föreslaget |
+| `step3_question_set` implementation | ⬜ Planerad |
+
+**Två exportvägar:**
+- **Path A:** Direkt export (enkla frågor → QTI)
+- **Path B:** Question Set Builder (filtrering, sektioner, random selection)
+
+### Step 4: Export ✅ KLAR
+| Uppgift | Status |
+|---------|--------|
+| `step4_export` - generera QTI-paket | ✅ Klar |
+| Tags → Labels mapping | ✅ Klar |
 
 ---
 
-## Fas 4: Avancerade funktioner ⬜ FRAMTIDA
+## Fas 4: Logging ⬜ PARKERAD
 
-- Question Sets (assessmentTest)
-- Step 3: Decision tool (`step3_choose`)
-- Statistik och rapporter
-- Integration med Assessment_suite
+**Status:** Parkerad (filbaserad loggning redan implementerad i Step 1)
+
+| Uppgift | Status |
+|---------|--------|
+| Filbaserad loggning (pipeline.log, pipeline.jsonl) | ✅ Klar |
+| PostgreSQL logging | ⬜ Parkerad |
+
+---
+
+## Fas 5: qf-scaffolding ⬜ FRAMTIDA
+
+**Beskrivning:** TypeScript MCP för pedagogisk scaffolding (M1-M4)
+
+| Uppgift | Status |
+|---------|--------|
+| M1: Content Analysis | ⬜ Planerad |
+| M2: Assessment Planning | ⬜ Planerad |
+| M3: Question Generation | ⬜ Planerad |
+| M4: Quality Assurance | ⬜ Planerad |
+
+---
+
+## Pipeline Status
+
+| Step | Namn | Status |
+|------|------|--------|
+| Step 0 | Session | ✅ Klar |
+| Step 1 | Guided Build | ✅ Klar |
+| Step 2 | Validator | ✅ Klar |
+| Step 3 | Decision | ⬜ Nästa |
+| Step 4 | Export | ✅ Klar |
 
 ---
 
 ## Prioritetsordning
 
-1. **🔴 Fas 1.5.2: Standalone Migration** - Kritisk för distribution
-2. **Fas 1.5.1: Tool Naming** - Kan göras parallellt
-3. **Fas 2: Guided Build** - Huvudfunktionen
-4. **Fas 3-4:** Efter Fas 2 är stabil
+1. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
+2. **Testa hela pipelinen** - End-to-end test
+3. **qf-scaffolding** - När pipeline är stabil
 
 ---
 
@@ -135,12 +138,13 @@ For each question:
 
 | Dokument | Beskrivning |
 |----------|-------------|
-| `docs/DISCOVER_standalone_migration.md` | Analys av migration |
-| `docs/adr/ADR-007-tool-naming-convention.md` | Namnkonvention |
-| `docs/adr/ADR-006-session-management.md` | Session-arkitektur |
-| `docs/IMPLEMENT_handoff_claude_code.md` | Handoff för implementation |
+| `CHANGELOG.md` | Detaljerad ändringslogg |
+| `docs/acdm/` | ACDM sessionsloggar och reflektioner |
+| `docs/adr/ADR-010-step3-decision-architecture.md` | Step 3 arkitektur |
+| `docs/adr/ADR-011-question-set-builder.md` | Question Set spec |
+| `docs/specs/STEP1_REBUILD_INTERACTIVE.md` | Step 1 spec |
 | `docs/DISCOVERY_BRIEF.md` | Ursprunglig vision |
 
 ---
 
-*Roadmap skapad 2026-01-06*
+*Roadmap uppdaterad 2026-01-14*
