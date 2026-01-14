@@ -6,6 +6,14 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-14
 
+#### URL Auto-Fetch for source_file
+- **Feature:** `source_file` can now be a URL (http:// or https://)
+- Automatically fetches URL content and converts HTML to markdown
+- Saves fetched file to project with timestamp-based filename
+- New utility: `utils/url_fetcher.py` with `is_url()` and `fetch_url_to_markdown()`
+- New dependencies: `httpx>=0.27.0`, `markdownify>=0.13.0`
+- Example: `step0_start(source_file="https://example.com/syllabus", ...)`
+
 #### Shared Session: 4 Entry Points (ADR-014)
 - **Feature:** Flexible entry points for different starting contexts
   - **A (materials):** Start from instructional materials → M1 (qf-scaffolding)

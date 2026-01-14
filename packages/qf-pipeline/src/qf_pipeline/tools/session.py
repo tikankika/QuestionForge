@@ -3,11 +3,14 @@
 Provides tools for creating and managing QF pipeline sessions.
 """
 
+import logging
 from pathlib import Path
 from typing import Optional
 
 from ..utils.session_manager import SessionManager
+from ..utils.url_fetcher import is_url, fetch_url_to_markdown
 
+logger = logging.getLogger(__name__)
 
 # Global session manager instance
 _current_session: Optional[SessionManager] = None
@@ -43,7 +46,8 @@ async def start_session_tool(
 
     Args:
         output_folder: Directory where project will be created
-        source_file: Path to source file (required for entry points B/C/D)
+        source_file: Path to source file OR URL (required for entry points B/C/D)
+                    If URL is provided, content is fetched and saved as .md
         project_name: Optional project name (auto-generated if not provided)
         entry_point: One of "materials" (A), "objectives" (B),
                     "blueprint" (C), "questions" (D). Default: "questions"
@@ -52,6 +56,35 @@ async def start_session_tool(
         dict with success status, paths, and next_module
     """
     global _current_session
+
+    # Check if source_file is a URL - if so, fetch it first
+    fetched_from_url = None
+    if source_file and is_url(source_file):
+        logger.info(f"Detected URL as source_file: {source_file}")
+
+        # Create temp directory for fetched file
+        output_path = Path(output_folder).resolve()
+        temp_materials = output_path / "_temp_fetched"
+
+        success, message, local_path = await fetch_url_to_markdown(
+            url=source_file,
+            output_dir=temp_materials
+        )
+
+        if not success:
+            return {
+                "success": False,
+                "error": {
+                    "type": "url_fetch_error",
+                    "message": f"Failed to fetch URL: {message}",
+                    "url": source_file
+                }
+            }
+
+        # Use the fetched file as source
+        fetched_from_url = source_file
+        source_file = str(local_path)
+        logger.info(f"URL fetched to: {source_file}")
 
     manager = SessionManager()
     result = manager.create_session(
@@ -63,6 +96,23 @@ async def start_session_tool(
 
     if result.get("success"):
         _current_session = manager
+
+        # Add URL info to result if fetched from URL
+        if fetched_from_url:
+            result["fetched_from_url"] = fetched_from_url
+            result["message"] = (
+                f"URL fetched and session started. "
+                f"Source: {fetched_from_url}"
+            )
+
+            # Clean up temp directory
+            try:
+                temp_materials = Path(output_folder).resolve() / "_temp_fetched"
+                if temp_materials.exists():
+                    import shutil
+                    shutil.rmtree(temp_materials)
+            except Exception as e:
+                logger.warning(f"Could not clean up temp dir: {e}")
 
     return result
 

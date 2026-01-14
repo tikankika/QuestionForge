@@ -21,25 +21,35 @@ Båda delar **samma session** för enhetlig användarupplevelse.
 
 ## Entry Points (Startpunkter)
 
+**Entry point = var du STARTAR, men du kan hoppa fritt mellan moduler!**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  "Vad har du att börja med?"                                                │
-├─────────────────────────────────────────────────────────────────────────────┤
+│                           QUESTIONFORGE                                      │
 │                                                                              │
-│  A) MATERIAL                          B) LÄRANDEMÅL                         │
-│     Föreläsningar, slides,               Kursplan, objectives               │
-│     transkriberingar                     redan definierade                  │
-│     ↓                                    ↓                                  │
-│     M1 → M2 → M3 → M4 → Pipeline         M2 → M3 → M4 → Pipeline            │
+│   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌──────────────┐ │
+│   │   M1    │   │   M2    │   │   M3    │   │   M4    │   │    Export    │ │
+│   │ Analys  │──▶│Blueprint│──▶│ Frågor  │──▶│   QA    │──▶│     QTI      │ │
+│   └────▲────┘   └────▲────┘   └────▲────┘   └─────────┘   └──────▲───────┘ │
+│        │             │             │                              │          │
+│   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐                   ┌────┴────┐    │
+│   │ Entry A │   │ Entry B │   │ Entry C │                   │ Entry D │    │
+│   │Material │   │  Mål    │   │  Plan   │                   │ Frågor  │    │
+│   └─────────┘   └─────────┘   └─────────┘                   └─────────┘    │
 │                                                                              │
-│  C) BLUEPRINT                         D) FRÅGOR                             │
-│     Plan redan klar,                     Markdown-fil med                   │
-│     vet vad som ska testas               färdiga frågor                     │
-│     ↓                                    ↓                                  │
-│     M3 → M4 → Pipeline                   Pipeline direkt                    │
+│          ◀── ── ── KAN HOPPA MELLAN MODULER ── ── ──▶                      │
 │                                                                              │
+│   M1 = Content Analysis    M3 = Question Generation                         │
+│   M2 = Assessment Design   M4 = Quality Assurance                           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+| Entry | Startar på | Rekommenderad väg | Kan hoppa till |
+|-------|------------|-------------------|----------------|
+| **A** Material | M1 | M1 → M2 → M3 → M4 → Export | Alla moduler |
+| **B** Mål | M2 | M2 → M3 → M4 → Export | M1, M3, M4, Export |
+| **C** Plan | M3 | M3 → M4 → Export | M1, M2, M4, Export |
+| **D** Frågor | Export | Validate → Export | M1, M2, M3, M4 |
 
 ---
 

@@ -84,6 +84,7 @@ async def list_tools() -> List[Tool]:
             description=(
                 "Start a new session OR load existing. "
                 "For new: provide output_folder + entry_point (+ source_file for B/C/D). "
+                "source_file can be a local path OR a URL (auto-fetched as .md). "
                 "For existing: provide project_path."
             ),
             inputSchema={
@@ -95,7 +96,7 @@ async def list_tools() -> List[Tool]:
                     },
                     "source_file": {
                         "type": "string",
-                        "description": "NEW SESSION: Path to source file (required for entry_point B/C/D)",
+                        "description": "NEW SESSION: Path OR URL to source (required for B/C/D). URLs auto-fetched to .md",
                     },
                     "project_name": {
                         "type": "string",
@@ -479,71 +480,91 @@ async def handle_init() -> List[TextContent]:
     """Handle init tool call - return critical instructions with A/B/C/D routing."""
     instructions = """# QuestionForge - Kritiska Instruktioner
 
+## FLEXIBEL WORKFLOW
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         QUESTIONFORGE                                │
+│                                                                      │
+│   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌──────┐ │
+│   │   M1    │   │   M2    │   │   M3    │   │   M4    │   │Export│ │
+│   │ Analys  │──▶│Blueprint│──▶│ Frågor  │──▶│   QA    │──▶│ QTI  │ │
+│   └────▲────┘   └────▲────┘   └────▲────┘   └─────────┘   └──▲───┘ │
+│        │             │             │                          │      │
+│   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐                ┌───┴───┐ │
+│   │ Entry A │   │ Entry B │   │ Entry C │                │Entry D│ │
+│   │Material │   │  Mål    │   │  Plan   │                │Frågor │ │
+│   └─────────┘   └─────────┘   └─────────┘                └───────┘ │
+│                                                                      │
+│         ◀── ── KAN HOPPA MELLAN MODULER ── ──▶                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Entry point = var du STARTAR, men du kan hoppa fritt mellan moduler!**
+
 ## STEG 1: FRÅGA VAD ANVÄNDAREN HAR
 
 "Vad har du att börja med?"
 
-A) **Material** (föreläsningar, slides, transkriberingar)
-   → Du vill SKAPA frågor från scratch
-   → Använd M1-M4 metodologi (qf-scaffolding)
+**A) MATERIAL** (föreläsningar, slides, transkriberingar)
+   - Startar: M1 (Content Analysis)
+   - Rekommenderad väg: M1 → M2 → M3 → M4 → Export
+   - Kan hoppa till: alla moduler
 
-B) **Lärandemål / Kursplan**
-   → Du har redan mål, vill planera assessment
-   → Börja M2 (qf-scaffolding)
+**B) LÄRANDEMÅL** (kursplan, Skolverket, etc.)
+   - Startar: M2 (Assessment Design)
+   - Rekommenderad väg: M2 → M3 → M4 → Export
+   - Kräver: Fil eller URL med lärandemål
 
-C) **Blueprint / Plan**
-   → Du har redan plan, vill generera frågor
-   → Börja M3 (qf-scaffolding)
+**C) BLUEPRINT** (bedömningsplan, question matrix)
+   - Startar: M3 (Question Generation)
+   - Rekommenderad väg: M3 → M4 → Export
+   - Kräver: Fil med blueprint
 
-D) **Markdown-fil med frågor**
-   → Du vill VALIDERA eller EXPORTERA
-   → Använd Pipeline direkt (step2 → step4)
+**D) FÄRDIGA FRÅGOR** (markdown-fil)
+   - Startar: Pipeline (validera → exportera)
+   - Kan hoppa till: M1-M4 om du vill
+   - Kräver: Markdown-fil med frågor
 
-## STEG 2: SKAPA SESSION
+## MODULER
 
-EFTER användaren svarat, kör step0_start med rätt entry_point:
+| Modul | Namn | Vad den gör |
+|-------|------|-------------|
+| M1 | Content Analysis | Analyserar material, hittar lärandemål |
+| M2 | Assessment Design | Skapar blueprint, planerar bedömning |
+| M3 | Question Generation | Genererar frågor |
+| M4 | Quality Assurance | Pedagogisk granskning |
 
-| Val | entry_point | source_file |
-|-----|-------------|-------------|
-| A   | "materials"  | Nej (valfri) |
-| B   | "objectives" | Ja (krävs)   |
-| C   | "blueprint"  | Ja (krävs)   |
-| D   | "questions"  | Ja (krävs)   |
+## STEG 2: BEKRÄFTA VAL
 
-Fråga ALLTID:
+INNAN step0_start, bekräfta:
+"Du valde [X] och startar på [modul]. Du kan hoppa till andra moduler. OK?"
+
+## STEG 3: SKAPA SESSION
+
+| Val | entry_point  | source_file |
+|-----|--------------|-------------|
+| A   | "materials"  | Nej (valfri)|
+| B   | "objectives" | Ja (fil/URL)|
+| C   | "blueprint"  | Ja (fil/URL)|
+| D   | "questions"  | Ja (fil/URL)|
+
+Fråga:
 - "Var ska projektet sparas?" (output_folder)
 - "Vad ska projektet heta?" (project_name, valfritt)
-- För B/C/D: "Var ligger filen?" (source_file)
-
-## STEG 3: VÄG BASERAT PÅ VAL
-
-A) materials  → Vänta på qf-scaffolding → M1
-B) objectives → Vänta på qf-scaffolding → M2
-C) blueprint  → Vänta på qf-scaffolding → M3
-D) questions  → step2_validate → step4_export
+- För B/C/D: "Var ligger filen?" (source_file) - kan vara URL!
 
 ## REGLER
 
-1. **VÄNTA** på svar innan du fortsätter - GISSA INTE sökvägar!
-2. **VALIDERA** alltid innan export (step2 före step4)
-3. **ANVÄND INTE** bash/cat/ls - MCP har full filåtkomst
+1. **VÄNTA** på svar - GISSA INTE sökvägar!
+2. **BEKRÄFTA** entry point innan step0_start
+3. **VALIDERA** alltid innan export
 
-## TILLGÄNGLIGA VERKTYG
+## VERKTYG
 
-Session:
-- init: CALL THIS FIRST (denna instruktion)
-- step0_start: Starta session med entry_point (A/B/C/D)
-- step0_status: Visa sessionstatus
-
-Pipeline (för entry point D):
-- step1_start: Starta Guided Build (v6.3 → v6.5)
-- step2_validate: Validera markdown-fil
-- step2_read: Läs arbetsfilen för felsökning
-- step4_export: Exportera till QTI-paket
-
-Övrigt:
-- list_types: Lista stödda frågetyper (16 st)
-- list_projects: Lista konfigurerade projekt
+Session: init, step0_start, step0_status
+Metodologi: list_modules, load_stage, module_status (qf-scaffolding)
+Pipeline: step1_*, step2_validate, step4_export
 """
     return [TextContent(type="text", text=instructions)]
 
