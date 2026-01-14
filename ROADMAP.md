@@ -114,11 +114,33 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 ---
 
+## Fas 2.5: Shared Session (ADR-014) ✅ KLAR
+
+**Beskrivning:** Delad session mellan qf-pipeline och qf-scaffolding
+
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| ADR-014: Shared Session arkitektur | ✅ Klar | 2026-01-14 |
+| 4 Entry Points (A/B/C/D) | ✅ Klar | 2026-01-14 |
+| source_file Optional för entry A | ✅ Klar | 2026-01-14 |
+| Nya mappar: 00_materials/, methodology/ | ✅ Klar | 2026-01-14 |
+| methodology sektion i session.yaml | ✅ Klar | 2026-01-14 |
+
+**Entry Points:**
+| ID | Entry Point | source_file | Nästa Modul |
+|----|-------------|-------------|-------------|
+| A | materials | ❌ Valfri | M1 (scaffolding) |
+| B | objectives | ✅ Krävs | M2 (scaffolding) |
+| C | blueprint | ✅ Krävs | M3 (scaffolding) |
+| D | questions | ✅ Krävs | Pipeline direkt |
+
+---
+
 ## Pipeline Status
 
 | Step | Namn | Status |
 |------|------|--------|
-| Step 0 | Session | ✅ Klar |
+| Step 0 | Session + Entry Points | ✅ Klar |
 | Step 1 | Guided Build | ✅ Klar |
 | Step 2 | Validator | ✅ Klar |
 | Step 3 | Decision | ⬜ Nästa |
@@ -138,10 +160,12 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 | Dokument | Beskrivning |
 |----------|-------------|
+| `WORKFLOW.md` | Komplett workflow-diagram |
 | `CHANGELOG.md` | Detaljerad ändringslogg |
 | `docs/acdm/` | ACDM sessionsloggar och reflektioner |
 | `docs/adr/ADR-010-step3-decision-architecture.md` | Step 3 arkitektur |
 | `docs/adr/ADR-011-question-set-builder.md` | Question Set spec |
+| `docs/adr/ADR-014-shared-session.md` | Shared Session arkitektur |
 | `docs/specs/STEP1_REBUILD_INTERACTIVE.md` | Step 1 spec |
 | `docs/DISCOVERY_BRIEF.md` | Ursprunglig vision |
 

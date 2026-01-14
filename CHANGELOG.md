@@ -4,6 +4,22 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-14
+
+#### Shared Session: 4 Entry Points (ADR-014)
+- **Feature:** Flexible entry points for different starting contexts
+  - **A (materials):** Start from instructional materials → M1 (qf-scaffolding)
+  - **B (objectives):** Start from learning objectives → M2 (qf-scaffolding)
+  - **C (blueprint):** Start from assessment plan → M3 (qf-scaffolding)
+  - **D (questions):** Direct pipeline (validate/export) [default]
+- **Enhancement:** `source_file` now Optional (only required for B/C/D)
+- **Enhancement:** New project folders: `00_materials/`, `methodology/`
+- **Enhancement:** Auto-generated README in `00_materials/`
+- **Enhancement:** `methodology` section in session.yaml for M1-M4 tracking
+- **Enhancement:** `step0_start` returns routing guidance based on entry_point
+- **Validation:** `validate_entry_point()` ensures correct source_file requirements
+- **Docs:** ADR-014-shared-session.md, HANDOFF_FIXES_shared_session.md
+
 ### Added - 2026-01-08
 
 #### Step 2: Validation Complete Signal
