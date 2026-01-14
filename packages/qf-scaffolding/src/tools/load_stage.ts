@@ -31,49 +31,49 @@ interface StageInfo {
 
 const M1_STAGES: Record<number, StageInfo> = {
   0: {
-    filename: "bb1a_Introduction_Framework.md",
+    filename: "m1_0_intro.md",
     name: "Introduction",
     description: "Framework overview and principles for Material Analysis",
     estimatedTime: "15 min read",
   },
   1: {
-    filename: "bb1b_Stage0_Material_Analysis.md",
+    filename: "m1_1_stage0_material_analysis.md",
     name: "Stage 0: Material Analysis",
     description: "AI analyzes instructional materials (AI solo phase)",
     estimatedTime: "60-90 min",
   },
   2: {
-    filename: "bb1c_Stage1_Initial_Validation.md",
+    filename: "m1_2_stage1_validation.md",
     name: "Stage 1: Initial Validation",
     description: "Teacher validates AI's material analysis",
     estimatedTime: "20-30 min",
   },
   3: {
-    filename: "bb1d_Stage2_Emphasis_Refinement.md",
+    filename: "m1_3_stage2_emphasis.md",
     name: "Stage 2: Emphasis Refinement",
     description: "Deep dive into teaching priorities and emphasis",
     estimatedTime: "30-45 min",
   },
   4: {
-    filename: "bb1e_Stage3_Example_Catalog.md",
+    filename: "m1_4_stage3_examples.md",
     name: "Stage 3: Example Catalog",
     description: "Document effective examples from teaching",
     estimatedTime: "20-30 min",
   },
   5: {
-    filename: "bb1f_Stage4_Misconception_Analysis.md",
+    filename: "m1_5_stage4_misconceptions.md",
     name: "Stage 4: Misconception Analysis",
     description: "Identify and document common student misconceptions",
     estimatedTime: "20-30 min",
   },
   6: {
-    filename: "bb1g_Stage5_Scope_Objectives.md",
+    filename: "m1_6_stage5_objectives.md",
     name: "Stage 5: Scope & Objectives",
     description: "Finalize learning objectives from analysis",
     estimatedTime: "45-60 min",
   },
   7: {
-    filename: "bb1h_Facilitation_Best_Practices.md",
+    filename: "m1_7_best_practices.md",
     name: "Best Practices",
     description: "Facilitation principles and guidelines",
     estimatedTime: "15 min read",
@@ -125,9 +125,11 @@ export async function loadStage(input: LoadStageInput): Promise<LoadStageResult>
 
   try {
     // Build path to methodology file
-    // From build/tools/ we need to go up to package root, then into methodology/m1/
+    // From build/tools/ -> up to package root -> up to QuestionForge root -> methodology/m1/
     const methodologyPath = join(
       __dirname,
+      "..",
+      "..",
       "..",
       "..",
       "methodology",
