@@ -1,0 +1,23 @@
+{
+  "name": "qf-scaffolding",
+  "version": "0.1.0",
+  "description": "QuestionForge Scaffolding MCP - M1 Minimal MVP",
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  },
+  "keywords": ["mcp", "scaffolding", "education", "assessment"],
+  "author": "Niklas Karlsson",
+  "license": "MIT"
+}
