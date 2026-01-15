@@ -5,7 +5,7 @@ Provides tools for creating and managing QF pipeline sessions.
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from ..utils.session_manager import SessionManager
 from ..utils.url_fetcher import is_url, fetch_url_to_markdown
@@ -31,7 +31,8 @@ async def start_session_tool(
     output_folder: str,
     source_file: Optional[str] = None,
     project_name: Optional[str] = None,
-    entry_point: str = "pipeline"
+    entry_point: str = "pipeline",
+    initial_sources: Optional[List[Dict[str, Any]]] = None
 ) -> dict:
     """Start a new QF pipeline session.
 
@@ -41,7 +42,9 @@ async def start_session_tool(
         ├── 01_source/      ← Original source file (never modified)
         ├── 02_working/     ← Working copy (editable)
         ├── 03_output/      ← Exported files
-        ├── methodology/    ← M1-M4 methodology outputs
+        ├── methodology/    ← M1-M4 methodology files (copied from QuestionForge)
+        ├── logs/           ← Session logs (shared by both MCPs)
+        ├── sources.yaml    ← Source tracking (updated by both MCPs)
         └── session.yaml    ← Session metadata
 
     Args:
@@ -50,6 +53,8 @@ async def start_session_tool(
                     If URL is provided, content is fetched and saved as .md
         project_name: Optional project name (auto-generated if not provided)
         entry_point: One of "m1", "m2", "m3", "m4", "pipeline". Default: "pipeline"
+        initial_sources: Optional list of initial sources for sources.yaml
+                        Each source should have: path, type (optional), location (optional)
 
     Returns:
         dict with success status, paths, and next_module
@@ -90,7 +95,8 @@ async def start_session_tool(
         output_folder=output_folder,
         source_file=source_file,
         project_name=project_name,
-        entry_point=entry_point
+        entry_point=entry_point,
+        initial_sources=initial_sources
     )
 
     if result.get("success"):

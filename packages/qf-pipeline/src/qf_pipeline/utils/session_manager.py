@@ -10,7 +10,11 @@ import uuid
 import yaml
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+
+from .methodology import copy_methodology
+from .sources import create_empty_sources_yaml, update_sources_yaml
+from .logger import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +117,8 @@ class SessionManager:
         "01_source",       # Original source file (entry point B/C/D)
         "02_working",      # Working copy during transformation
         "03_output",       # Exported QTI files
-        "methodology"      # For M1-M4 methodology documentation
+        "methodology",     # For M1-M4 methodology (copied from QuestionForge)
+        "logs",            # Session logs (shared by both MCPs)
     ]
     SESSION_FILE = "session.yaml"
 
@@ -171,7 +176,8 @@ class SessionManager:
         output_folder: str,
         source_file: Optional[str] = None,
         project_name: Optional[str] = None,
-        entry_point: str = "pipeline"
+        entry_point: str = "pipeline",
+        initial_sources: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """Create a new session with project structure.
 
@@ -180,6 +186,8 @@ class SessionManager:
             source_file: Path to source file (required for m2/m3/m4/pipeline)
             project_name: Optional project name (auto-generated if not provided)
             entry_point: One of "m1", "m2", "m3", "m4", "pipeline"
+            initial_sources: Optional list of initial sources for sources.yaml
+                Each source should have: path, type (optional), location (optional)
 
         Returns:
             dict with success status, paths, and next_module
@@ -259,6 +267,26 @@ class SessionManager:
                         encoding="utf-8"
                     )
 
+            # Copy methodology from QuestionForge (makes project self-contained)
+            methodology_result = copy_methodology(project_path)
+            if not methodology_result["success"]:
+                logger.warning(f"Could not copy methodology: {methodology_result.get('error')}")
+            else:
+                logger.info(f"Copied {methodology_result['files_copied']} methodology files")
+
+            # Initialize sources.yaml
+            if initial_sources:
+                sources_result = update_sources_yaml(
+                    project_path,
+                    initial_sources,
+                    updated_by="qf-pipeline:step0_start",
+                    append=False
+                )
+                logger.info(f"Initialized sources.yaml with {sources_result.get('sources_added', 0)} sources")
+            else:
+                create_empty_sources_yaml(project_path, created_by="qf-pipeline:step0_start")
+                logger.info("Created empty sources.yaml")
+
             # Copy source file if provided (entry points B/C/D)
             source_dest = None
             working_dest = None
@@ -306,6 +334,22 @@ class SessionManager:
             self._project_path = project_path
             self._save_session()
 
+            # Log session creation
+            log_event(
+                project_path,
+                "session_start",
+                tool="step0_start",
+                entry_point=entry_point,
+                session_id=session_id
+            )
+            log_event(
+                project_path,
+                "session_created",
+                tool="step0_start",
+                methodology_files=methodology_result.get("files_copied", 0),
+                sources_count=len(initial_sources) if initial_sources else 0
+            )
+
             # Build response
             response = {
                 "success": True,
@@ -315,6 +359,8 @@ class SessionManager:
                 "entry_point": entry_point,
                 "next_module": ep_config["next_module"],
                 "pipeline_ready": entry_point == "pipeline",
+                "methodology_copied": methodology_result.get("files_copied", 0),
+                "sources_initialized": len(initial_sources) if initial_sources else 0,
             }
 
             # Add file paths if source was provided
