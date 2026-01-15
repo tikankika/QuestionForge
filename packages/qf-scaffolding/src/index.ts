@@ -16,7 +16,7 @@ import {
   CallToolRequestSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { loadStage, loadStageSchema, getAllStages } from "./tools/load_stage.js";
+import { loadStage, loadStageSchema, getModuleName } from "./tools/load_stage.js";
 
 // Server version
 const VERSION = "0.1.0";
@@ -34,37 +34,37 @@ const server = new Server(
   }
 );
 
-// Get stage descriptions for tool documentation
-const stageDescriptions = getAllStages("m1")
-  .map((s, i) => `${i}: ${s.name}`)
-  .join(", ");
-
 // Tool definitions
 const TOOLS: Tool[] = [
   {
     name: "load_stage",
     description:
-      `Load a methodology stage from M1 (Material Analysis). ` +
+      `Load a methodology stage from QuestionForge modules. ` +
+      `Supports: M1 (Material Analysis), M2 (Assessment Design), M3 (Question Generation), M4 (Quality Assurance). ` +
       `Returns the complete markdown content plus progress info. ` +
-      `Stages: ${stageDescriptions}. ` +
-      `Use this to guide the teacher through M1 step by step.`,
+      `Use this to guide the teacher through the complete question generation workflow.`,
     inputSchema: {
       type: "object",
       properties: {
         module: {
           type: "string",
-          enum: ["m1"],
-          description: "Module to load from. MVP only supports 'm1' (Material Analysis).",
+          enum: ["m1", "m2", "m3", "m4"],
+          description:
+            "Module to load from. " +
+            "m1=Material Analysis (8 stages), " +
+            "m2=Assessment Design (9 stages), " +
+            "m3=Question Generation (5 stages), " +
+            "m4=Quality Assurance (6 stages).",
         },
         stage: {
           type: "number",
           minimum: 0,
-          maximum: 7,
+          maximum: 8,
           description:
-            "Stage index (0-7). " +
-            "0=Introduction, 1=Stage0 (AI analysis), 2=Stage1 (validation), " +
-            "3=Stage2 (emphasis), 4=Stage3 (examples), 5=Stage4 (misconceptions), " +
-            "6=Stage5 (objectives), 7=Best Practices.",
+            "Stage index (0-based). " +
+            "M1: 0-7, M2: 0-8, M3: 0-4, M4: 0-5. " +
+            "Stage 0 is always Introduction. Last stage is always reference material. " +
+            "Middle stages are dialogue-driven with teacher approval gates.",
         },
       },
       required: ["module", "stage"],
@@ -91,12 +91,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       if (result.success && result.content) {
         // Format response with stage info and content
+        const moduleName = result.stage?.module ? getModuleName(result.stage.module) : "Unknown";
         const header = [
           `# ${result.stage?.name}`,
           ``,
-          `**Modul:** M1 (Material Analysis)`,
+          `**Modul:** ${moduleName}`,
           `**Stage:** ${result.stage?.index} av ${result.progress?.totalStages}`,
           `**Estimerad tid:** ${result.stage?.estimatedTime}`,
+          result.stage?.requiresApproval === true ? `**Kräver godkännande:** Ja` :
+          result.stage?.requiresApproval === "conditional" ? `**Kräver godkännande:** Villkorligt (auto-pass)` :
+          `**Kräver godkännande:** Nej`,
           ``,
           `---`,
           ``,
@@ -109,7 +113,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           `**Progress:** Stage ${(result.progress?.currentStage ?? 0) + 1}/${result.progress?.totalStages}`,
           result.progress?.remaining && result.progress.remaining.length > 0
             ? `**Återstår:** ${result.progress.remaining.join(" → ")}`
-            : `**Status:** M1 komplett!`,
+            : `**Status:** ${moduleName} komplett!`,
           ``,
           `**Nästa:** ${result.nextAction}`,
         ].join("\n");
@@ -163,7 +167,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`QF-Scaffolding MCP Server v${VERSION} running (M1 minimal MVP)`);
+  console.error(`QF-Scaffolding MCP Server v${VERSION} running (M1-M4 support)`);
 }
 
 main().catch((error) => {
