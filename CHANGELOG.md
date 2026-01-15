@@ -4,6 +4,30 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-15
+
+#### Sources, Methodology Copy, and Logging Infrastructure
+- **sources.yaml:** New shared file for tracking source files
+  - Sequential IDs (src001, src002, ...) for readability
+  - File locking for thread-safe concurrent writes
+  - Updated by both qf-pipeline and qf-scaffolding
+  - Tracks: path, type, location, added_by, discovered_in
+- **Methodology copy:** `copy_methodology()` copies all 28 files to project
+  - Projects become self-contained
+  - Copied BEFORE load_stage runs
+- **Logging consolidation:** All logs now go to `logs/` folder
+  - `logs/session.jsonl` - Shared structured log (both MCPs)
+  - `logs/qf-pipeline.jsonl` - MCP-specific log
+  - `logs/session.log` - Human-readable format
+  - `log_action()` now delegates to `log_event()` (backwards compatible)
+  - No more root-level `pipeline.log`/`pipeline.jsonl` duplicates
+- **New utils:** `sources.py`, `methodology.py` in qf-pipeline
+- **Updated:** `session_manager.py` with `initial_sources` parameter
+
+#### Session Init Design Spec (DRAFT)
+- **Spec:** Created `docs/specs/SESSION_INIT_DESIGN.md`
+- **Status:** IMPLEMENTED (see above)
+
 ### Added - 2026-01-14
 
 #### Methodology Import: M1-M4 Complete
