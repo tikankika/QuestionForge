@@ -83,7 +83,7 @@ async def list_tools() -> List[Tool]:
             name="step0_start",
             description=(
                 "Start a new session OR load existing. "
-                "For new: provide output_folder + entry_point (+ source_file for m2/m3/m4/pipeline). "
+                "For new: provide output_folder + entry_point (+ source_file for m2/m3/m4/pipeline OR materials_folder for m1). "
                 "source_file can be a local path OR a URL (auto-fetched as .md). "
                 "For existing: provide project_path."
             ),
@@ -110,6 +110,10 @@ async def list_tools() -> List[Tool]:
                             "Default: 'pipeline'"
                         ),
                         "enum": ["m1", "m2", "m3", "m4", "pipeline"],
+                    },
+                    "materials_folder": {
+                        "type": "string",
+                        "description": "NEW SESSION: Path to folder containing instructional materials (required for entry_point m1). Entire folder structure copied to 00_materials/ (junk files filtered).",
                     },
                     "project_path": {
                         "type": "string",
@@ -632,11 +636,54 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
     # Get entry_point (default to "pipeline")
     entry_point = arguments.get("entry_point", "pipeline")
 
+    # Validate materials_folder for m1 entry point
+    materials_folder = arguments.get("materials_folder")
+
+    if entry_point == "m1":
+        if not materials_folder:
+            return [TextContent(
+                type="text",
+                text=(
+                    "Error: materials_folder krävs för entry point 'm1'.\n\n"
+                    "Entry point m1 (Content Analysis) startar från undervisningsmaterial.\n"
+                    "Ange sökväg till mapp med:\n"
+                    "  - Presentationer (PDF, PPTX)\n"
+                    "  - Föreläsningsanteckningar\n"
+                    "  - Transkriptioner\n"
+                    "  - Läroböcker/artiklar\n\n"
+                    "Exempel:\n"
+                    "  materials_folder='/Users/niklas/Nextcloud/Biologi_VT2025/Föreläsningar'"
+                )
+            )]
+
+        # Validate materials_folder exists and is directory
+        materials_path = Path(materials_folder)
+        if not materials_path.exists():
+            return [TextContent(
+                type="text",
+                text=f"Error: materials_folder finns inte: {materials_folder}"
+            )]
+
+        if not materials_path.is_dir():
+            return [TextContent(
+                type="text",
+                text=f"Error: materials_folder är inte en mapp: {materials_folder}"
+            )]
+
+    # If materials_folder provided for non-m1 entry point, warn but continue
+    if materials_folder and entry_point != "m1":
+        logger.warning(
+            f"materials_folder provided for '{entry_point}' entry point - "
+            f"will be ignored. This parameter is only used for 'm1'."
+        )
+        materials_folder = None  # Clear it
+
     result = await start_session_tool(
         output_folder=arguments["output_folder"],
         source_file=arguments.get("source_file"),
         project_name=arguments.get("project_name"),
-        entry_point=entry_point
+        entry_point=entry_point,
+        materials_folder=materials_folder
     )
 
     if result.get("success"):
@@ -679,6 +726,9 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
 
         if result.get('working_file'):
             response_text += f"  Arbetsfil: {result['working_file']}\n"
+
+        if result.get('materials_copied'):
+            response_text += f"  Material: {result['materials_copied']} filer kopierade till 00_materials/\n"
 
         response_text += f"  Output: {result['output_folder']}\n\n{next_steps}"
 

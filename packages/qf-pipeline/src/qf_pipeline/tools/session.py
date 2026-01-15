@@ -32,6 +32,7 @@ async def start_session_tool(
     source_file: Optional[str] = None,
     project_name: Optional[str] = None,
     entry_point: str = "pipeline",
+    materials_folder: Optional[str] = None,
     initial_sources: Optional[List[Dict[str, Any]]] = None
 ) -> dict:
     """Start a new QF pipeline session.
@@ -53,6 +54,7 @@ async def start_session_tool(
                     If URL is provided, content is fetched and saved as .md
         project_name: Optional project name (auto-generated if not provided)
         entry_point: One of "m1", "m2", "m3", "m4", "pipeline". Default: "pipeline"
+        materials_folder: Path to folder with instructional materials (required for m1)
         initial_sources: Optional list of initial sources for sources.yaml
                         Each source should have: path, type (optional), location (optional)
 
@@ -96,6 +98,7 @@ async def start_session_tool(
         source_file=source_file,
         project_name=project_name,
         entry_point=entry_point,
+        materials_folder=materials_folder,
         initial_sources=initial_sources
     )
 

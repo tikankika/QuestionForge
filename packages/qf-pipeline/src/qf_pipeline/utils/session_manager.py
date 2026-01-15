@@ -60,15 +60,20 @@ ENTRY_POINT_REQUIREMENTS = {
 }
 
 
-def validate_entry_point(entry_point: str, source_file: Optional[str]) -> None:
-    """Validate entry point and source_file combination.
+def validate_entry_point(
+    entry_point: str,
+    source_file: Optional[str],
+    materials_folder: Optional[str] = None
+) -> None:
+    """Validate entry point and source_file/materials_folder combination.
 
     Args:
         entry_point: One of "m1", "m2", "m3", "m4", "pipeline"
         source_file: Path to source file (required for m2/m3/m4/pipeline)
+        materials_folder: Path to materials folder (required for m1)
 
     Raises:
-        ValueError: If entry_point is invalid or source_file requirements not met
+        ValueError: If entry_point is invalid or requirements not met
     """
     if entry_point not in ENTRY_POINT_REQUIREMENTS:
         valid_options = list(ENTRY_POINT_REQUIREMENTS.keys())
@@ -79,17 +84,32 @@ def validate_entry_point(entry_point: str, source_file: Optional[str]) -> None:
 
     config = ENTRY_POINT_REQUIREMENTS[entry_point]
 
-    if config["requires_source_file"] and not source_file:
+    # m1 requires materials_folder
+    if entry_point == "m1":
+        if not materials_folder:
+            raise ValueError(
+                f"Entry point 'm1' requires materials_folder.\n"
+                f"Description: {config['description']}\n"
+                f"Expected workflow: {' → '.join(config['next_steps'])}"
+            )
+        if source_file:
+            logger.warning(
+                f"source_file provided for 'm1' entry point - "
+                f"will be ignored. Use materials_folder instead."
+            )
+    # Other entry points require source_file
+    elif config["requires_source_file"] and not source_file:
         raise ValueError(
             f"Entry point '{entry_point}' requires source_file.\n"
             f"Description: {config['description']}\n"
             f"Expected workflow: {' → '.join(config['next_steps'])}"
         )
 
-    if not config["requires_source_file"] and source_file:
+    # Warn if materials_folder provided for non-m1
+    if materials_folder and entry_point != "m1":
         logger.warning(
-            f"source_file provided for '{entry_point}' entry point - "
-            f"will be ignored. This entry point creates files during workflow."
+            f"materials_folder provided for '{entry_point}' entry point - "
+            f"will be ignored. This parameter is only used for 'm1'."
         )
 
 
@@ -177,6 +197,7 @@ class SessionManager:
         source_file: Optional[str] = None,
         project_name: Optional[str] = None,
         entry_point: str = "pipeline",
+        materials_folder: Optional[str] = None,
         initial_sources: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """Create a new session with project structure.
@@ -186,6 +207,7 @@ class SessionManager:
             source_file: Path to source file (required for m2/m3/m4/pipeline)
             project_name: Optional project name (auto-generated if not provided)
             entry_point: One of "m1", "m2", "m3", "m4", "pipeline"
+            materials_folder: Path to folder with instructional materials (required for m1)
             initial_sources: Optional list of initial sources for sources.yaml
                 Each source should have: path, type (optional), location (optional)
 
@@ -194,9 +216,9 @@ class SessionManager:
         """
         output_base = Path(output_folder).resolve()
 
-        # Validate entry point and source_file combination
+        # Validate entry point and source_file/materials_folder combination
         try:
-            validate_entry_point(entry_point, source_file)
+            validate_entry_point(entry_point, source_file, materials_folder)
         except ValueError as e:
             return {
                 "success": False,
@@ -254,8 +276,9 @@ class SessionManager:
                 folder_path = project_path / folder
                 folder_path.mkdir(exist_ok=True)
 
-                # Add README for 00_materials folder
-                if folder == "00_materials":
+                # Add README for 00_materials folder ONLY if no materials_folder provided
+                # (otherwise user's own README might be in materials_folder)
+                if folder == "00_materials" and not materials_folder:
                     readme_path = folder_path / "README.md"
                     readme_path.write_text(
                         "# Undervisningsmaterial\n\n"
@@ -266,6 +289,48 @@ class SessionManager:
                         "- Läroböcker/artiklar som använts\n",
                         encoding="utf-8"
                     )
+
+            # Copy materials if provided (for m1 entry point)
+            materials_copied = 0
+            if materials_folder:
+                materials_src = Path(materials_folder)
+                materials_dest = project_path / "00_materials"
+
+                logger.info(f"Copying materials from {materials_src} to {materials_dest}")
+
+                # Define junk files to ignore
+                def ignore_junk(directory, files):
+                    """Ignore junk files and hidden files."""
+                    ignored = []
+                    for f in files:
+                        # Ignore hidden files (except .md files which might be intentional)
+                        if f.startswith('.') and not f.endswith('.md'):
+                            ignored.append(f)
+                        # Ignore OS junk
+                        elif f in ('Thumbs.db', 'desktop.ini', 'ehthumbs.db'):
+                            ignored.append(f)
+                        # Ignore Office temp files
+                        elif f.startswith('~$'):
+                            ignored.append(f)
+                        # Ignore Python cache
+                        elif f == '__pycache__' or f.endswith('.pyc'):
+                            ignored.append(f)
+                    return ignored
+
+                # Copy entire tree (including subdirectories)
+                shutil.copytree(
+                    materials_src,
+                    materials_dest,
+                    dirs_exist_ok=True,  # Merge with existing (00_materials already exists)
+                    ignore=ignore_junk
+                )
+
+                # Count files recursively for reporting
+                for item in materials_dest.rglob('*'):
+                    if item.is_file():
+                        materials_copied += 1
+
+                logger.info(f"Copied {materials_copied} files to 00_materials/")
 
             # Copy methodology from QuestionForge (makes project self-contained)
             methodology_result = copy_methodology(project_path)
@@ -347,7 +412,8 @@ class SessionManager:
                 "session_created",
                 tool="step0_start",
                 methodology_files=methodology_result.get("files_copied", 0),
-                sources_count=len(initial_sources) if initial_sources else 0
+                sources_count=len(initial_sources) if initial_sources else 0,
+                materials_copied=materials_copied
             )
 
             # Build response
@@ -361,6 +427,7 @@ class SessionManager:
                 "pipeline_ready": entry_point == "pipeline",
                 "methodology_copied": methodology_result.get("files_copied", 0),
                 "sources_initialized": len(initial_sources) if initial_sources else 0,
+                "materials_copied": materials_copied,
             }
 
             # Add file paths if source was provided
@@ -368,6 +435,16 @@ class SessionManager:
                 response["working_file"] = str(working_dest)
                 response["source_file"] = str(source_dest)
                 response["message"] = f"Session startad. Arbetar med: {source_path.name}"
+            elif materials_folder:
+                # Materials folder provided (m1 entry point)
+                response["working_file"] = None
+                response["source_file"] = None
+                response["materials_folder"] = str(project_path / "00_materials")
+                response["message"] = (
+                    f"Session startad med entry point '{entry_point}'. "
+                    f"{materials_copied} filer kopierade till 00_materials/ (mappstruktur bevarad). "
+                    f"Nästa steg: {ep_config['next_module']} (qf-scaffolding)"
+                )
             else:
                 response["working_file"] = None
                 response["source_file"] = None
