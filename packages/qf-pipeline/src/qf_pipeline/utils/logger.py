@@ -1,8 +1,9 @@
 """Pipeline logging utility.
 
-Logs actions to both human-readable (pipeline.log) and structured (pipeline.jsonl) formats.
+All logging goes to logs/ folder (shared by qf-pipeline and qf-scaffolding).
 """
 
+import fcntl
 import json
 from pathlib import Path
 from datetime import datetime, timezone
@@ -15,7 +16,10 @@ def log_action(
     data: dict = None
 ):
     """
-    Log action to both pipeline.log (human) and pipeline.jsonl (structured).
+    Log action to logs/ folder.
+
+    This is a wrapper around log_event for backwards compatibility.
+    All logs now go to logs/session.jsonl and logs/session.log.
 
     Args:
         project_path: Project directory containing log files
@@ -23,33 +27,13 @@ def log_action(
         message: Human-readable message
         data: Optional structured data for JSON log
     """
-    if project_path is None:
-        return
-
-    project_path = Path(project_path)
-
-    timestamp = datetime.now(timezone.utc)
-    timestamp_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    timestamp_iso = timestamp.isoformat()
-
-    # Human-readable log
-    log_file = project_path / "pipeline.log"
-    entry = f"{timestamp_str} [{step}] {message}\n"
-    with open(log_file, "a", encoding="utf-8") as f:
-        f.write(entry)
-
-    # Structured JSON log (JSON Lines format)
-    jsonl_file = project_path / "pipeline.jsonl"
-    json_entry = {
-        "timestamp": timestamp_iso,
-        "step": step,
-        "message": message,
-    }
-    if data:
-        json_entry["data"] = data
-
-    with open(jsonl_file, "a", encoding="utf-8") as f:
-        f.write(json.dumps(json_entry, ensure_ascii=False) + "\n")
+    # Delegate to log_event (consolidates all logging)
+    log_event(
+        project_path,
+        event_type=message,
+        tool=step,
+        **(data or {})
+    )
 
 
 def log_event(
