@@ -68,9 +68,9 @@ async def list_tools() -> List[Tool]:
         Tool(
             name="init",
             description=(
-                "CALL THIS FIRST! Returns A/B/C/D entry point routing. "
+                "CALL THIS FIRST! Returns M1/M2/M3/M4/Pipeline entry point routing. "
                 "Ask user: 'Vad har du?' "
-                "A=Material, B=Lärandemål, C=Blueprint, D=Frågor. "
+                "M1=Material, M2=Lärandemål, M3=Blueprint, M4=Frågor för QA, Pipeline=Direkt export. "
                 "Then use step0_start with correct entry_point."
             ),
             inputSchema={
@@ -83,7 +83,7 @@ async def list_tools() -> List[Tool]:
             name="step0_start",
             description=(
                 "Start a new session OR load existing. "
-                "For new: provide output_folder + entry_point (+ source_file for B/C/D). "
+                "For new: provide output_folder + entry_point (+ source_file for m2/m3/m4/pipeline). "
                 "source_file can be a local path OR a URL (auto-fetched as .md). "
                 "For existing: provide project_path."
             ),
@@ -96,7 +96,7 @@ async def list_tools() -> List[Tool]:
                     },
                     "source_file": {
                         "type": "string",
-                        "description": "NEW SESSION: Path OR URL to source (required for B/C/D). URLs auto-fetched to .md",
+                        "description": "NEW SESSION: Path OR URL to source (required for m2/m3/m4/pipeline). URLs auto-fetched to .md",
                     },
                     "project_name": {
                         "type": "string",
@@ -106,10 +106,10 @@ async def list_tools() -> List[Tool]:
                         "type": "string",
                         "description": (
                             "NEW SESSION: Entry point - "
-                            "'materials' (A), 'objectives' (B), 'blueprint' (C), 'questions' (D). "
-                            "Default: 'questions'"
+                            "'m1' (material), 'm2' (lärandemål), 'm3' (blueprint), 'm4' (QA), 'pipeline' (direkt). "
+                            "Default: 'pipeline'"
                         ),
-                        "enum": ["materials", "objectives", "blueprint", "questions"],
+                        "enum": ["m1", "m2", "m3", "m4", "pipeline"],
                     },
                     "project_path": {
                         "type": "string",
@@ -477,7 +477,7 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
 # =============================================================================
 
 async def handle_init() -> List[TextContent]:
-    """Handle init tool call - return critical instructions with A/B/C/D routing."""
+    """Handle init tool call - return critical instructions with M1/M2/M3/M4/Pipeline routing."""
     instructions = """# QuestionForge - Kritiska Instruktioner
 
 ## FLEXIBEL WORKFLOW
@@ -489,12 +489,12 @@ async def handle_init() -> List[TextContent]:
 │   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌──────┐ │
 │   │   M1    │   │   M2    │   │   M3    │   │   M4    │   │Export│ │
 │   │ Analys  │──▶│Blueprint│──▶│ Frågor  │──▶│   QA    │──▶│ QTI  │ │
-│   └────▲────┘   └────▲────┘   └────▲────┘   └─────────┘   └──▲───┘ │
-│        │             │             │                          │      │
-│   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐                ┌───┴───┐ │
-│   │ Entry A │   │ Entry B │   │ Entry C │                │Entry D│ │
-│   │Material │   │  Mål    │   │  Plan   │                │Frågor │ │
-│   └─────────┘   └─────────┘   └─────────┘                └───────┘ │
+│   └────▲────┘   └────▲────┘   └────▲────┘   └────▲────┘   └──▲───┘ │
+│        │             │             │              │           │      │
+│   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐  ┌───┴───┐ │
+│   │   m1    │   │   m2    │   │   m3    │   │   m4    │  │pipeline│
+│   │Material │   │  Mål    │   │  Plan   │   │Frågor QA│  │ Direkt │
+│   └─────────┘   └─────────┘   └─────────┘   └─────────┘  └───────┘ │
 │                                                                      │
 │         ◀── ── KAN HOPPA MELLAN MODULER ── ──▶                     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -506,25 +506,30 @@ async def handle_init() -> List[TextContent]:
 
 "Vad har du att börja med?"
 
-**A) MATERIAL** (föreläsningar, slides, transkriberingar)
+**M1) MATERIAL** (föreläsningar, slides, transkriberingar)
    - Startar: M1 (Content Analysis)
-   - Rekommenderad väg: M1 → M2 → M3 → M4 → Export
-   - Kan hoppa till: alla moduler
+   - Väg: M1 → M2 → M3 → M4 → Pipeline
+   - source_file: Nej (valfri)
 
-**B) LÄRANDEMÅL** (kursplan, Skolverket, etc.)
+**M2) LÄRANDEMÅL** (kursplan, Skolverket, etc.)
    - Startar: M2 (Assessment Design)
-   - Rekommenderad väg: M2 → M3 → M4 → Export
-   - Kräver: Fil eller URL med lärandemål
+   - Väg: M2 → M3 → M4 → Pipeline
+   - source_file: Ja (fil/URL)
 
-**C) BLUEPRINT** (bedömningsplan, question matrix)
+**M3) BLUEPRINT** (bedömningsplan, question matrix)
    - Startar: M3 (Question Generation)
-   - Rekommenderad väg: M3 → M4 → Export
-   - Kräver: Fil med blueprint
+   - Väg: M3 → M4 → Pipeline
+   - source_file: Ja (fil/URL)
 
-**D) FÄRDIGA FRÅGOR** (markdown-fil)
-   - Startar: Pipeline (validera → exportera)
-   - Kan hoppa till: M1-M4 om du vill
-   - Kräver: Markdown-fil med frågor
+**M4) FRÅGOR FÖR QA** (frågor som behöver granskas)
+   - Startar: M4 (Quality Assurance)
+   - Väg: M4 → Pipeline
+   - source_file: Ja (fil/URL)
+
+**PIPELINE) FÄRDIGA FRÅGOR** (validera och exportera direkt)
+   - Startar: Step 1-4 (Pipeline)
+   - Hoppar: Alla moduler (M1-M4)
+   - source_file: Ja (fil/URL)
 
 ## MODULER
 
@@ -538,21 +543,22 @@ async def handle_init() -> List[TextContent]:
 ## STEG 2: BEKRÄFTA VAL
 
 INNAN step0_start, bekräfta:
-"Du valde [X] och startar på [modul]. Du kan hoppa till andra moduler. OK?"
+"Du valde [entry_point] och startar på [modul]. Du kan hoppa mellan moduler. OK?"
 
 ## STEG 3: SKAPA SESSION
 
-| Val | entry_point  | source_file |
-|-----|--------------|-------------|
-| A   | "materials"  | Nej (valfri)|
-| B   | "objectives" | Ja (fil/URL)|
-| C   | "blueprint"  | Ja (fil/URL)|
-| D   | "questions"  | Ja (fil/URL)|
+| Val      | entry_point | source_file |
+|----------|-------------|-------------|
+| Material | "m1"        | Nej (valfri)|
+| Mål      | "m2"        | Ja (fil/URL)|
+| Blueprint| "m3"        | Ja (fil/URL)|
+| QA       | "m4"        | Ja (fil/URL)|
+| Direkt   | "pipeline"  | Ja (fil/URL)|
 
 Fråga:
 - "Var ska projektet sparas?" (output_folder)
 - "Vad ska projektet heta?" (project_name, valfritt)
-- För B/C/D: "Var ligger filen?" (source_file) - kan vara URL!
+- För m2/m3/m4/pipeline: "Var ligger filen?" (source_file) - kan vara URL!
 
 ## REGLER
 
@@ -612,18 +618,19 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
             text=(
                 "Error: output_folder krävs för ny session.\n\n"
                 "Användning:\n"
-                "  - Ny session: output_folder + entry_point (+ source_file för B/C/D)\n"
+                "  - Ny session: output_folder + entry_point (+ source_file för m2/m3/m4/pipeline)\n"
                 "  - Ladda befintlig: project_path\n\n"
                 "Entry points:\n"
-                "  - materials (A): Börja från undervisningsmaterial\n"
-                "  - objectives (B): Börja från learning objectives\n"
-                "  - blueprint (C): Börja från assessment plan\n"
-                "  - questions (D): Validera färdiga frågor [default]"
+                "  - m1: Börja från undervisningsmaterial (Content Analysis)\n"
+                "  - m2: Börja från lärandemål (Assessment Design)\n"
+                "  - m3: Börja från blueprint (Question Generation)\n"
+                "  - m4: Börja från frågor för QA (Quality Assurance)\n"
+                "  - pipeline: Validera och exportera direkt [default]"
             )
         )]
 
-    # Get entry_point (default to "questions" for backwards compatibility)
-    entry_point = arguments.get("entry_point", "questions")
+    # Get entry_point (default to "pipeline")
+    entry_point = arguments.get("entry_point", "pipeline")
 
     result = await start_session_tool(
         output_folder=arguments["output_folder"],

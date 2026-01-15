@@ -30,12 +30,12 @@ Båda delar **samma session** för enhetlig användarupplevelse.
 │   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌──────────────┐ │
 │   │   M1    │   │   M2    │   │   M3    │   │   M4    │   │    Export    │ │
 │   │ Analys  │──▶│Blueprint│──▶│ Frågor  │──▶│   QA    │──▶│     QTI      │ │
-│   └────▲────┘   └────▲────┘   └────▲────┘   └─────────┘   └──────▲───────┘ │
-│        │             │             │                              │          │
-│   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐                   ┌────┴────┐    │
-│   │ Entry A │   │ Entry B │   │ Entry C │                   │ Entry D │    │
-│   │Material │   │  Mål    │   │  Plan   │                   │ Frågor  │    │
-│   └─────────┘   └─────────┘   └─────────┘                   └─────────┘    │
+│   └────▲────┘   └────▲────┘   └────▲────┘   └────▲────┘   └──────▲───────┘ │
+│        │             │             │              │               │          │
+│   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐    ┌────┴────┐    │
+│   │   m1    │   │   m2    │   │   m3    │   │   m4    │    │pipeline │    │
+│   │Material │   │  Mål    │   │  Plan   │   │Frågor QA│    │ Direkt  │    │
+│   └─────────┘   └─────────┘   └─────────┘   └─────────┘    └─────────┘    │
 │                                                                              │
 │          ◀── ── ── KAN HOPPA MELLAN MODULER ── ── ──▶                      │
 │                                                                              │
@@ -46,10 +46,11 @@ Båda delar **samma session** för enhetlig användarupplevelse.
 
 | Entry | Startar på | Rekommenderad väg | Kan hoppa till |
 |-------|------------|-------------------|----------------|
-| **A** Material | M1 | M1 → M2 → M3 → M4 → Export | Alla moduler |
-| **B** Mål | M2 | M2 → M3 → M4 → Export | M1, M3, M4, Export |
-| **C** Plan | M3 | M3 → M4 → Export | M1, M2, M4, Export |
-| **D** Frågor | Export | Validate → Export | M1, M2, M3, M4 |
+| **m1** Material | M1 | M1 → M2 → M3 → M4 → Pipeline | Alla moduler |
+| **m2** Mål | M2 | M2 → M3 → M4 → Pipeline | M1, M3, M4, Pipeline |
+| **m3** Plan | M3 | M3 → M4 → Pipeline | M1, M2, M4, Pipeline |
+| **m4** QA | M4 | M4 → Pipeline | M1, M2, M3, Pipeline |
+| **pipeline** Direkt | Pipeline | Step1 → Step2 → Step4 | M1, M2, M3, M4 |
 
 ---
 
@@ -66,15 +67,15 @@ Båda delar **samma session** för enhetlig användarupplevelse.
                           │   "Vad har du?"     │
                           └─────────┬───────────┘
                                     │
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-                    ▼               ▼               ▼
-              ┌─────────┐    ┌─────────┐    ┌─────────┐
-              │    A    │    │   B/C   │    │    D    │
-              │Material │    │Obj/Plan │    │ Frågor  │
-              └────┬────┘    └────┬────┘    └────┬────┘
-                   │              │              │
-                   └──────────────┼──────────────┘
+            ┌───────────┬───────────┼───────────┬───────────┐
+            │           │           │           │           │
+            ▼           ▼           ▼           ▼           ▼
+      ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+      │   m1    │ │   m2    │ │   m3    │ │   m4    │ │pipeline │
+      │Material │ │  Mål    │ │  Plan   │ │   QA    │ │ Direkt  │
+      └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘
+           │           │           │           │           │
+           └───────────┴───────────┴───────────┴───────────┘
                                   │
                                   ▼
                        ┌─────────────────────┐
@@ -89,13 +90,13 @@ Båda delar **samma session** för enhetlig användarupplevelse.
                        │   session.yaml      │
                        └─────────┬───────────┘
                                  │
-         ┌───────────────────────┼───────────────────────┐
-         │                       │                       │
-         ▼                       ▼                       ▼
-   ┌───────────┐          ┌───────────┐          ┌───────────┐
-   │  Val A    │          │  Val B/C  │          │  Val D    │
-   │  M1-M4    │          │  M2/M3-M4 │          │ Pipeline  │
-   └─────┬─────┘          └─────┬─────┘          └─────┬─────┘
+    ┌────────────┬───────────────┼───────────────┬────────────┐
+    │            │               │               │            │
+    ▼            ▼               ▼               ▼            ▼
+┌───────┐   ┌───────┐       ┌───────┐       ┌───────┐   ┌─────────┐
+│  m1   │   │  m2   │       │  m3   │       │  m4   │   │pipeline │
+│ M1-M4 │   │ M2-M4 │       │ M3-M4 │       │M4 only│   │  direct │
+└───┬───┘   └───┬───┘       └───┬───┘       └───┬───┘   └────┬────┘
          │                      │                      │
          ▼                      ▼                      │
    ┌───────────┐          ┌───────────┐                │
@@ -328,7 +329,7 @@ exports:
 
 # ===== QF-SCAFFOLDING =====
 methodology:
-  entry_point: "materials"  # materials | objectives | blueprint | questions
+  entry_point: "m1"  # m1 | m2 | m3 | m4 | pipeline
   active_module: "m2"
   
   m1:
@@ -363,7 +364,7 @@ methodology:
 ### För Claude
 
 1. **ALLTID börja med init** - returnerar kritiska instruktioner
-2. **FRÅGA vad användaren har** - anta aldrig A/B/C/D
+2. **FRÅGA vad användaren har** - anta aldrig m1/m2/m3/m4/pipeline
 3. **VÄNTA på svar** - gissa inte sökvägar
 4. **En stage i taget** - progressiv laddning
 5. **STOP vid stage gates** - vänta på lärarens godkännande

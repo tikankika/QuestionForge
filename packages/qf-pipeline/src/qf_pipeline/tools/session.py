@@ -31,13 +31,13 @@ async def start_session_tool(
     output_folder: str,
     source_file: Optional[str] = None,
     project_name: Optional[str] = None,
-    entry_point: str = "questions"
+    entry_point: str = "pipeline"
 ) -> dict:
     """Start a new QF pipeline session.
 
     Creates project structure:
         project_name/
-        ├── 00_materials/   ← Instructional materials (entry point A)
+        ├── 00_materials/   ← Instructional materials (entry point m1)
         ├── 01_source/      ← Original source file (never modified)
         ├── 02_working/     ← Working copy (editable)
         ├── 03_output/      ← Exported files
@@ -46,11 +46,10 @@ async def start_session_tool(
 
     Args:
         output_folder: Directory where project will be created
-        source_file: Path to source file OR URL (required for entry points B/C/D)
+        source_file: Path to source file OR URL (required for m2/m3/m4/pipeline)
                     If URL is provided, content is fetched and saved as .md
         project_name: Optional project name (auto-generated if not provided)
-        entry_point: One of "materials" (A), "objectives" (B),
-                    "blueprint" (C), "questions" (D). Default: "questions"
+        entry_point: One of "m1", "m2", "m3", "m4", "pipeline". Default: "pipeline"
 
     Returns:
         dict with success status, paths, and next_module

@@ -38,18 +38,30 @@ All notable changes to QuestionForge will be documented in this file.
 - New dependencies: `httpx>=0.27.0`, `markdownify>=0.13.0`
 - Example: `step0_start(source_file="https://example.com/syllabus", ...)`
 
-#### Shared Session: 4 Entry Points (ADR-014)
+#### Entry Points Renamed: A/B/C/D → m1/m2/m3/m4/pipeline
+- **Breaking change:** Entry point names now match module names
+  - `"materials"` → `"m1"` (Content Analysis)
+  - `"objectives"` → `"m2"` (Assessment Design)
+  - `"blueprint"` → `"m3"` (Question Generation)
+  - NEW: `"m4"` (Quality Assurance) - frågor som behöver QA
+  - `"questions"` → `"pipeline"` (Direct validate/export)
+- **Rationale:** Clearer connection between entry point and starting module
+- **Default:** `entry_point="pipeline"` (was `"questions"`)
+- **Files updated:** session_manager.py, session.py, server.py, WORKFLOW.md
+
+#### Shared Session: 5 Entry Points (ADR-014)
 - **Feature:** Flexible entry points for different starting contexts
-  - **A (materials):** Start from instructional materials → M1 (qf-scaffolding)
-  - **B (objectives):** Start from learning objectives → M2 (qf-scaffolding)
-  - **C (blueprint):** Start from assessment plan → M3 (qf-scaffolding)
-  - **D (questions):** Direct pipeline (validate/export) [default]
-- **Enhancement:** `source_file` now Optional (only required for B/C/D)
+  - **m1 (materials):** Start from instructional materials → M1 (qf-scaffolding)
+  - **m2 (objectives):** Start from learning objectives → M2 (qf-scaffolding)
+  - **m3 (blueprint):** Start from assessment plan → M3 (qf-scaffolding)
+  - **m4 (questions for QA):** Start from questions needing review → M4
+  - **pipeline (direct):** Validate and export directly [default]
+- **Enhancement:** `source_file` now Optional (only required for m2/m3/m4/pipeline)
 - **Enhancement:** New project folders: `00_materials/`, `methodology/`
 - **Enhancement:** Auto-generated README in `00_materials/`
 - **Enhancement:** `methodology` section in session.yaml for M1-M4 tracking
 - **Enhancement:** `step0_start` returns routing guidance based on entry_point
-- **Enhancement:** `init` tool now returns full A/B/C/D routing guide
+- **Enhancement:** `init` tool now returns full m1/m2/m3/m4/pipeline routing guide
 - **Validation:** `validate_entry_point()` ensures correct source_file requirements
 - **Docs:** ADR-014-shared-session.md, HANDOFF_FIXES_shared_session.md
 

@@ -16,30 +16,42 @@ logger = logging.getLogger(__name__)
 
 
 # Entry point configuration for shared session
+# Named after the module they start with (M1-M4) or "pipeline" for direct export
 ENTRY_POINT_REQUIREMENTS = {
-    "materials": {           # A
+    "m1": {
         "requires_source_file": False,
         "next_module": "m1",
-        "description": "Börja från undervisningsmaterial",
-        "next_steps": ["analyze_materials", "create_objectives"]
+        "description": "Börja från undervisningsmaterial → Content Analysis",
+        "next_steps": ["M1", "M2", "M3", "M4", "Pipeline"],
+        "skips": []
     },
-    "objectives": {          # B
+    "m2": {
         "requires_source_file": True,
         "next_module": "m2",
-        "description": "Börja från learning objectives",
-        "next_steps": ["create_blueprint", "create_questions"]
+        "description": "Börja från lärandemål → Assessment Planning",
+        "next_steps": ["M2", "M3", "M4", "Pipeline"],
+        "skips": ["M1"]
     },
-    "blueprint": {           # C
+    "m3": {
         "requires_source_file": True,
         "next_module": "m3",
-        "description": "Börja från befintlig assessment plan",
-        "next_steps": ["create_questions"]
+        "description": "Börja från blueprint → Question Generation",
+        "next_steps": ["M3", "M4", "Pipeline"],
+        "skips": ["M1", "M2"]
     },
-    "questions": {           # D
+    "m4": {
+        "requires_source_file": True,
+        "next_module": "m4",
+        "description": "Börja från frågor för QA → Quality Assurance",
+        "next_steps": ["M4", "Pipeline"],
+        "skips": ["M1", "M2", "M3"]
+    },
+    "pipeline": {
         "requires_source_file": True,
         "next_module": None,  # → Pipeline direkt
-        "description": "Validera och exportera färdiga frågor",
-        "next_steps": ["validate", "transform", "export"]
+        "description": "Validera och exportera färdiga frågor direkt",
+        "next_steps": ["Step1", "Step2", "Step3", "Step4"],
+        "skips": ["M1", "M2", "M3", "M4"]
     }
 }
 
@@ -48,8 +60,8 @@ def validate_entry_point(entry_point: str, source_file: Optional[str]) -> None:
     """Validate entry point and source_file combination.
 
     Args:
-        entry_point: One of "materials", "objectives", "blueprint", "questions"
-        source_file: Path to source file (required for B/C/D)
+        entry_point: One of "m1", "m2", "m3", "m4", "pipeline"
+        source_file: Path to source file (required for m2/m3/m4/pipeline)
 
     Raises:
         ValueError: If entry_point is invalid or source_file requirements not met
@@ -159,16 +171,15 @@ class SessionManager:
         output_folder: str,
         source_file: Optional[str] = None,
         project_name: Optional[str] = None,
-        entry_point: str = "questions"
+        entry_point: str = "pipeline"
     ) -> Dict[str, Any]:
         """Create a new session with project structure.
 
         Args:
             output_folder: Directory where project will be created
-            source_file: Path to source file (required for entry points B/C/D)
+            source_file: Path to source file (required for m2/m3/m4/pipeline)
             project_name: Optional project name (auto-generated if not provided)
-            entry_point: One of "materials" (A), "objectives" (B),
-                        "blueprint" (C), "questions" (D)
+            entry_point: One of "m1", "m2", "m3", "m4", "pipeline"
 
         Returns:
             dict with success status, paths, and next_module
@@ -303,7 +314,7 @@ class SessionManager:
                 "output_folder": str(project_path / "03_output"),
                 "entry_point": entry_point,
                 "next_module": ep_config["next_module"],
-                "pipeline_ready": entry_point == "questions",
+                "pipeline_ready": entry_point == "pipeline",
             }
 
             # Add file paths if source was provided
