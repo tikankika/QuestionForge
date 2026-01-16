@@ -403,21 +403,26 @@ class SessionManager:
             self._project_path = project_path
             self._save_session()
 
-            # Log session creation
+            # Log session creation (RFC-001 compliant)
             log_event(
-                project_path,
-                "session_start",
+                project_path=project_path,
+                session_id=session_id,
                 tool="step0_start",
-                entry_point=entry_point,
-                session_id=session_id
+                event="session_start",
+                level="info",
+                data={"entry_point": entry_point}
             )
             log_event(
-                project_path,
-                "session_created",
+                project_path=project_path,
+                session_id=session_id,
                 tool="step0_start",
-                methodology_files=methodology_result.get("files_copied", 0),
-                sources_count=len(initial_sources) if initial_sources else 0,
-                materials_copied=materials_copied
+                event="session_created",
+                level="info",
+                data={
+                    "methodology_files": methodology_result.get("files_copied", 0),
+                    "sources_count": len(initial_sources) if initial_sources else 0,
+                    "materials_copied": materials_copied
+                }
             )
 
             # Build response
