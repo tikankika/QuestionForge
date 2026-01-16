@@ -1,6 +1,6 @@
 # QuestionForge Roadmap
 
-**Senast uppdaterad:** 2026-01-14
+**Senast uppdaterad:** 2026-01-16
 
 ---
 
@@ -69,6 +69,33 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 ---
 
+## Fas 2.5: Shared Session (ADR-014) ✅ KLAR
+
+**Beskrivning:** Delad session mellan qf-pipeline och qf-scaffolding
+
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| ADR-014: Shared Session arkitektur | ✅ Klar | 2026-01-14 |
+| 5 Entry Points (m1/m2/m3/m4/pipeline) | ✅ Klar | 2026-01-14 |
+| source_file Optional för m1 | ✅ Klar | 2026-01-14 |
+| Nya mappar: 00_materials/, methodology/ | ✅ Klar | 2026-01-14 |
+| methodology sektion i session.yaml | ✅ Klar | 2026-01-14 |
+| URL auto-fetch för source_file | ✅ Klar | 2026-01-14 |
+| materials_folder parameter (m1) | ✅ Klar | 2026-01-16 |
+| sources.yaml tracking | ✅ Klar | 2026-01-15 |
+| Methodology copy till projekt | ✅ Klar | 2026-01-15 |
+
+**Entry Points:**
+| Entry Point | source_file | Nästa Modul |
+|-------------|-------------|-------------|
+| m1 | ❌ Valfri | M1 (scaffolding) |
+| m2 | ✅ Krävs | M2 (scaffolding) |
+| m3 | ✅ Krävs | M3 (scaffolding) |
+| m4 | ✅ Krävs | M4 (scaffolding) |
+| pipeline | ✅ Krävs | Pipeline direkt |
+
+---
+
 ## Fas 3: Decision & Export ⏳ NÄSTA
 
 ### Step 3: Decision Tool (ADR-010, ADR-011)
@@ -87,52 +114,52 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 |---------|--------|
 | `step4_export` - generera QTI-paket | ✅ Klar |
 | Tags → Labels mapping | ✅ Klar |
+| Resource handling (bilder etc) | ✅ Klar |
 
 ---
 
-## Fas 4: Logging ⬜ PARKERAD
+## Fas 4: Unified Logging (RFC-001) 🔶 DELVIS KLAR
 
-**Status:** Parkerad (filbaserad loggning redan implementerad i Step 1)
-
-| Uppgift | Status |
-|---------|--------|
-| Filbaserad loggning (pipeline.log, pipeline.jsonl) | ✅ Klar |
-| PostgreSQL logging | ⬜ Parkerad |
-
----
-
-## Fas 5: qf-scaffolding ⬜ FRAMTIDA
-
-**Beskrivning:** TypeScript MCP för pedagogisk scaffolding (M1-M4)
-
-| Uppgift | Status |
-|---------|--------|
-| M1: Content Analysis | ⬜ Planerad |
-| M2: Assessment Planning | ⬜ Planerad |
-| M3: Question Generation | ⬜ Planerad |
-| M4: Quality Assurance | ⬜ Planerad |
-
----
-
-## Fas 2.5: Shared Session (ADR-014) ✅ KLAR
-
-**Beskrivning:** Delad session mellan qf-pipeline och qf-scaffolding
+**Status:** Partially Implemented (se RFC-001)
 
 | Uppgift | Status | Datum |
 |---------|--------|-------|
-| ADR-014: Shared Session arkitektur | ✅ Klar | 2026-01-14 |
-| 4 Entry Points (A/B/C/D) | ✅ Klar | 2026-01-14 |
-| source_file Optional för entry A | ✅ Klar | 2026-01-14 |
-| Nya mappar: 00_materials/, methodology/ | ✅ Klar | 2026-01-14 |
-| methodology sektion i session.yaml | ✅ Klar | 2026-01-14 |
+| RFC-001 specifikation | ✅ Klar | 2026-01-16 |
+| JSON Schema (qf-specifications/logging/) | ✅ Klar | 2026-01-16 |
+| Python logger (RFC-001 compliant) | ✅ Klar | 2026-01-16 |
+| TypeScript logger (qf-scaffolding) | ⬜ Planerad | |
+| Migrera gamla projekt | ⬜ Planerad | |
+| PostgreSQL (framtida) | ⬜ Parkerad | |
 
-**Entry Points:**
-| ID | Entry Point | source_file | Nästa Modul |
-|----|-------------|-------------|-------------|
-| A | materials | ❌ Valfri | M1 (scaffolding) |
-| B | objectives | ✅ Krävs | M2 (scaffolding) |
-| C | blueprint | ✅ Krävs | M3 (scaffolding) |
-| D | questions | ✅ Krävs | Pipeline direkt |
+**Nya filer:**
+- `docs/rfcs/RFC-001-unified-logging.md`
+- `qf-specifications/logging/schema.json`
+- `qf-specifications/logging/events.md`
+- `qf-specifications/logging/examples/*.json`
+
+---
+
+## Fas 5: qf-scaffolding 🔶 DELVIS KLAR
+
+**Beskrivning:** TypeScript MCP för pedagogisk scaffolding (M1-M4)
+
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| MVP: `load_stage` tool | ✅ Klar | 2026-01-14 |
+| M1-M4 stage loading | ✅ Klar | 2026-01-16 |
+| `requiresApproval` field | ✅ Klar | 2026-01-16 |
+| Methodology files imported (28 filer) | ✅ Klar | 2026-01-14 |
+| TypeScript logger (RFC-001) | ⬜ Planerad | |
+| User decision logging | ⬜ Planerad | |
+
+**Methodology struktur:**
+```
+methodology/
+├── m1/  (8 filer) - Content Analysis
+├── m2/  (9 filer) - Assessment Design
+├── m3/  (5 filer) - Question Generation
+└── m4/  (6 filer) - Quality Assurance
+```
 
 ---
 
@@ -148,11 +175,21 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 ---
 
+## Bugfixar (2026-01-16)
+
+| Bugg | Status |
+|------|--------|
+| markdownify strip/convert conflict | ✅ Fixad |
+| Duplicate folder creation | ✅ Fixad |
+| log_event() argument error | ✅ Fixad |
+
+---
+
 ## Prioritetsordning
 
 1. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
-2. **Testa hela pipelinen** - End-to-end test
-3. **qf-scaffolding** - När pipeline är stabil
+2. **qf-scaffolding logging** - TypeScript logger per RFC-001
+3. **Testa hela pipelinen** - End-to-end test
 
 ---
 
@@ -162,6 +199,7 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 |----------|-------------|
 | `WORKFLOW.md` | Komplett workflow-diagram |
 | `CHANGELOG.md` | Detaljerad ändringslogg |
+| `docs/rfcs/RFC-001-unified-logging.md` | Unified Logging RFC |
 | `docs/acdm/` | ACDM sessionsloggar och reflektioner |
 | `docs/adr/ADR-010-step3-decision-architecture.md` | Step 3 arkitektur |
 | `docs/adr/ADR-011-question-set-builder.md` | Question Set spec |
@@ -171,4 +209,4 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 ---
 
-*Roadmap uppdaterad 2026-01-14*
+*Roadmap uppdaterad 2026-01-16*
