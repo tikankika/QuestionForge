@@ -264,7 +264,11 @@ class SessionManager:
                 project_name = f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         # Create project directory
-        project_path = output_base / project_name
+        # Avoid duplicate folders if output_folder already ends with project_name
+        if output_base.name == project_name:
+            project_path = output_base
+        else:
+            project_path = output_base / project_name
 
         try:
             # Create output base if needed

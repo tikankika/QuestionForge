@@ -154,14 +154,12 @@ def html_to_markdown(html: str, source_url: str = "") -> str:
         Markdown string
     """
     # Use markdownify with sensible defaults
+    # Note: Can't use both 'strip' and 'convert' - they're mutually exclusive
     markdown = md(
         html,
         heading_style='ATX',  # Use # style headings
         bullets='-',          # Use - for lists
-        strip=['script', 'style', 'nav', 'footer', 'header', 'aside'],
-        convert=['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
-                 'a', 'strong', 'em', 'code', 'pre', 'blockquote', 'table',
-                 'tr', 'td', 'th', 'thead', 'tbody']
+        strip=['script', 'style', 'nav', 'footer', 'header', 'aside', 'noscript', 'iframe']
     )
 
     # Clean up excessive whitespace

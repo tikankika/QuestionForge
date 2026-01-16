@@ -28,11 +28,13 @@ def log_action(
         data: Optional structured data for JSON log
     """
     # Delegate to log_event (consolidates all logging)
+    # Filter out 'project_path' from data to avoid duplicate argument error
+    safe_data = {k: v for k, v in (data or {}).items() if k != 'project_path'}
     log_event(
         project_path,
         event_type=message,
         tool=step,
-        **(data or {})
+        **safe_data
     )
 
 
