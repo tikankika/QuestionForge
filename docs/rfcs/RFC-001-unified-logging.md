@@ -2,11 +2,20 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Draft |
+| **Status** | Partially Implemented |
 | **Created** | 2026-01-16 |
 | **Updated** | 2026-01-16 |
 | **Author** | Niklas Karlsson |
 | **Relates to** | qf-pipeline, qf-scaffolding, qti-core |
+
+## Implementation Status
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 1: Python Logger | ✅ Complete | `logger.py` updated, tested |
+| Phase 2: TypeScript Logger | ⬜ Not started | For qf-scaffolding |
+| Phase 3: Migrate Projects | ⬜ Not started | Script needed |
+| Phase 4: Schema Validation | ✅ Complete | `qf-specifications/logging/schema.json` |
 
 ## Summary
 
@@ -389,23 +398,25 @@ def get_session_state(project_path: Path) -> dict:
 
 ## Migration Plan
 
-### Phase 1: Update Logger (Immediate)
+### Phase 1: Update Logger (Immediate) ✅ COMPLETE
 
-1. Modify `logger.py` to:
-   - Remove writes to `qf-pipeline.jsonl`
-   - Remove writes to `session.log`
-   - Add `session_id` and `v` fields
-   - Update function signature
+1. ✅ Modify `logger.py` to:
+   - ✅ Remove writes to `qf-pipeline.jsonl`
+   - ✅ Remove writes to `session.log`
+   - ✅ Add `session_id` and `v` fields
+   - ✅ Update function signature
 
-2. Update all `log_event()` calls in qf-pipeline
+2. ✅ Update all `log_event()` calls in qf-pipeline
 
-### Phase 2: Add TypeScript Logger
+**Commit:** `64a27c8 feat: Implement RFC-001 unified logging`
+
+### Phase 2: Add TypeScript Logger ⬜ TODO
 
 1. Create `packages/qf-scaffolding/src/utils/logger.ts`
 2. Add logging to all M1-M4 stage handlers
 3. Log user decisions
 
-### Phase 3: Migrate Existing Projects
+### Phase 3: Migrate Existing Projects ⬜ TODO
 
 1. Script to migrate old logs:
    ```bash
@@ -418,22 +429,33 @@ def get_session_state(project_path: Path) -> dict:
 
 2. Add migration version field to session.yaml
 
-### Phase 4: Schema Validation (Optional)
+### Phase 4: Schema Validation ✅ COMPLETE
 
-1. Add JSON Schema file to `qf-specifications/logging/`
-2. Add optional validation in development mode
+1. ✅ JSON Schema file: `qf-specifications/logging/schema.json`
+2. ✅ Example files: `qf-specifications/logging/examples/*.json`
+3. ✅ Event documentation: `qf-specifications/logging/events.md`
 
-## Open Questions
+## Open Questions (Resolved)
 
-1. **Log retention** - How long to keep logs? Auto-delete after X days?
+1. **Log retention** - How long to keep logs?
+   - **Decision:** No auto-delete. Logs stay with project indefinitely.
+   - **Rationale:** Projects are self-contained; user manages cleanup.
 
 2. **Log size limits** - Rotate when file exceeds X MB?
+   - **Decision:** No rotation for now. Revisit if projects exceed 10MB logs.
+   - **Rationale:** Typical sessions produce <1MB. Future PostgreSQL will handle scale.
 
 3. **Sensitive data** - Should user decisions include actual content or just metadata?
+   - **Decision:** Log full content for user decisions (needed for ML training).
+   - **Rationale:** Logs are local to project, not shared externally.
 
-4. **Performance** - Is synchronous file writing acceptable, or need async?
+4. **Performance** - Is synchronous file writing acceptable?
+   - **Decision:** Synchronous is fine for now.
+   - **Rationale:** Logging is infrequent (<100 events/session). Async adds complexity.
 
 5. **Cross-platform** - `fcntl` is Unix-only. Need Windows support?
+   - **Decision:** Unix-only for now (macOS/Linux).
+   - **Rationale:** Primary users on macOS. Add Windows support if needed later.
 
 ## References
 
@@ -446,3 +468,7 @@ def get_session_state(project_path: Path) -> dict:
 | Date | Change |
 |------|--------|
 | 2026-01-16 | Initial draft |
+| 2026-01-16 | Phase 1 implemented (Python logger) |
+| 2026-01-16 | Phase 4 implemented (JSON Schema) |
+| 2026-01-16 | Open Questions resolved |
+| 2026-01-16 | Status: Draft → Partially Implemented |
