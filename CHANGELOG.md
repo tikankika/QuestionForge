@@ -4,6 +4,49 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-16 (Evening)
+
+#### RFC-001: Unified Logging
+- **RFC:** Created `docs/rfcs/RFC-001-unified-logging.md`
+  - Single log file per project: `logs/session.jsonl`
+  - Standardized JSON schema with version field
+  - Supports: qf-pipeline, qf-scaffolding, qti-core
+  - Deep error logging (stacktrace + context + state)
+  - User decision logging for ML training
+  - PostgreSQL-ready schema for future migration
+- **Schema:** Created `qf-specifications/logging/schema.json`
+  - JSON Schema draft 2020-12
+  - Required fields: ts, v, session_id, mcp, tool, event, level
+  - Optional: data, duration_ms, parent_id
+- **Documentation:** Created `qf-specifications/logging/events.md`
+  - Session events (start, resume, end)
+  - Tool events (start, end, progress, error)
+  - Module events (stage_start, stage_complete, user_decision)
+  - Validation events (file_parsed, question_validated, export_complete)
+- **Examples:** Created 4 example files in `qf-specifications/logging/examples/`
+  - session_start.json, user_decision.json, validation_complete.json, error_deep.json
+- **Verified:** Schema validates, examples pass validation, backward compatible
+
+### Fixed - 2026-01-16 (Evening)
+
+#### qf-pipeline: URL Fetch Bug
+- **BUG FIX:** Fixed `markdownify` crash when fetching URLs
+  - Error: "You may specify either tags to strip or tags to convert, but not both"
+  - Fix: Removed `convert` parameter, kept only `strip` in `html_to_markdown()`
+  - File: `packages/qf-pipeline/src/qf_pipeline/utils/url_fetcher.py`
+
+#### qf-pipeline: Duplicate Folder Bug
+- **BUG FIX:** Fixed duplicate folder creation when `output_folder` ends with `project_name`
+  - Example: `output_folder="Test/MyProject"` + `project_name="MyProject"` → `Test/MyProject/MyProject/`
+  - Fix: Check if `output_base.name == project_name`, skip appending if match
+  - File: `packages/qf-pipeline/src/qf_pipeline/utils/session_manager.py`
+
+#### qf-pipeline: log_event() Argument Error
+- **BUG FIX:** Fixed "multiple values for argument 'project_path'" error
+  - Cause: `data` dict passed to `log_action()` contained `project_path` key
+  - Fix: Filter out `project_path` from data before unpacking with `**`
+  - File: `packages/qf-pipeline/src/qf_pipeline/utils/logger.py`
+
 ### Added - 2026-01-16
 
 #### qf-scaffolding: M2-M4 Module Support
@@ -244,7 +287,9 @@ QuestionForge/
 │   ├── qf-scaffolding/          ✅ MVP (load_stage for M1)
 │   ├── qf-pipeline/             ✅ MCP server active
 │   └── qti-core/                ✅ Standalone QTI logic
-└── qf-specifications/           ⬜ To be created
+├── qf-specifications/           🔶 Partially created
+│   └── logging/                 ✅ RFC-001 schema + examples
+└── docs/rfcs/                   ✅ RFC-001 unified logging
 ```
 
 ### ACDM Progress
@@ -262,9 +307,10 @@ QuestionForge/
 ## Future
 
 ### Planned
+- **RFC-001 Implementation:** Update logger.py per RFC spec
+- **TypeScript Logger:** Create `qf-scaffolding/src/utils/logger.ts`
 - Step 3: Decision tool (simple export vs Question Set)
 - qf-scaffolding MCP (TypeScript, M1-M4)
-- Create qf-specifications/ shared folder
 - Archive legacy MCPs
 
 ---
