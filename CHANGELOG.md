@@ -28,6 +28,16 @@ All notable changes to QuestionForge will be documented in this file.
 - **Logging:** `materials_copied` count in session logs
 - **UX:** No more manual file copying needed for M1 workflow
 
+#### Documentation: Verified Previously Implemented Features
+- **Resource handling (ADR-009):** Confirmed already implemented in `server.py`
+  - `validate_resources()` checks images exist before export
+  - `copy_resources()` copies media to QTI package
+  - Return message shows `{resource_count} filer kopierade`
+- **list_projects tool (ADR-008):** Confirmed already implemented
+  - `utils/config.py` with `list_projects()`, `get_project_files()`
+  - Tool definition and handler in `server.py`
+  - Lists configured MQG folders with status
+
 ### Added - 2026-01-15
 
 #### Sources, Methodology Copy, and Logging Infrastructure
