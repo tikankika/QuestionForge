@@ -1,7 +1,8 @@
 # QuestionForge Filhantering - Implementation Plan
 
-**Status:** BESLUTAD  
+**Status:** ✅ COMPLETED
 **Datum:** 2026-01-14 23:40
+**Completed:** 2026-01-15
 
 ---
 
@@ -269,24 +270,24 @@ Claude:
 ## IMPLEMENTATION TASKS
 
 ### qf-pipeline updates
-- [ ] 1. Hårdkoda path till QuestionForge/methodology/ (senare: config)
-- [ ] 2. copy_methodology() function
-- [ ] 3. update_sources_yaml() med file locking
-- [ ] 4. log_event() helper
-- [ ] 5. create_empty_sources_yaml() med metadata
-- [ ] 6. Uppdatera step0_start med initial_sources parameter
+- [x] 1. Hårdkoda path till QuestionForge/methodology/ (senare: config) ✅
+- [x] 2. copy_methodology() function ✅
+- [x] 3. update_sources_yaml() med file locking ✅
+- [x] 4. log_event() helper ✅
+- [x] 5. create_empty_sources_yaml() med metadata ✅
+- [x] 6. Uppdatera step0_start med initial_sources parameter ✅
 
 ### qf-scaffolding updates
 - [ ] 1. update_sources_yaml() (TypeScript version)
 - [ ] 2. log_event() helper (TypeScript version)
 - [ ] 3. Uppdatera load_stage med sources discovery
-- [ ] 4. Läs från projekt/methodology/ istället för package
+- [x] 4. Läs från projekt/methodology/ istället för package ✅
 
 ### Shared
-- [ ] 1. sources.yaml schema definition
-- [ ] 2. JSONL log format spec
-- [ ] 3. Event types dokumentation
-- [ ] 4. File locking strategy (fcntl vs alternativer)
+- [x] 1. sources.yaml schema definition ✅
+- [x] 2. JSONL log format spec ✅
+- [x] 3. Event types dokumentation ✅
+- [x] 4. File locking strategy (fcntl vs alternativer) ✅
 
 ---
 

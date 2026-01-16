@@ -1,25 +1,27 @@
 # IMPLEMENT_handoff: Shared Session (P1-P5)
 
-**Date:** 2026-01-14  
-**For:** Claude Code  
-**Priority:** HIGH  
+**Date:** 2026-01-14
+**Updated:** 2026-01-16
+**For:** Claude Code
+**Priority:** HIGH
+**Status:** ✅ COMPLETED (2026-01-16)
 **Related:** ADR-014, qf-scaffolding-spec.md v2.2, WORKFLOW.md
 
 ---
 
 ## Overview
 
-Implementera delad session mellan qf-pipeline och qf-scaffolding. 
+Implementera delad session mellan qf-pipeline och qf-scaffolding.
 Denna handoff täcker P1-P5 (qf-pipeline ändringar).
 
 **Pending Items:**
 | ID | Beslut | Status |
 |----|--------|--------|
-| P1 | `step0_start` behöver `materials_folder` param | TODO |
-| P2 | `step0_start` behöver `entry_point` param | TODO |
-| P3 | `init` output ska inkludera A/B/C/D routing | TODO |
-| P4 | Projektstruktur: `00_materials/` | TODO |
-| P5 | Projektstruktur: `methodology/` | TODO |
+| P1 | `step0_start` behöver `materials_folder` param | ✅ DONE |
+| P2 | `step0_start` behöver `entry_point` param | ✅ DONE |
+| P3 | `init` output ska inkludera A/B/C/D routing | ✅ DONE |
+| P4 | Projektstruktur: `00_materials/` | ✅ DONE |
+| P5 | Projektstruktur: `methodology/` | ✅ DONE |
 
 ---
 
@@ -375,15 +377,15 @@ step0_start(project_path="/path/to/existing/project")
 
 ## Completion Checklist
 
-- [ ] P1: `materials_folder` param added to step0_start
-- [ ] P2: `entry_point` param added to step0_start
-- [ ] P3: init output includes A/B/C/D routing
-- [ ] P4: 00_materials/ directory created
-- [ ] P5: methodology/ directory created
-- [ ] session.yaml includes methodology section
-- [ ] Test: Entry point A works
-- [ ] Test: Entry point D works (backward compatible)
-- [ ] Test: Load existing session works
+- [x] P1: `materials_folder` param added to step0_start ✅
+- [x] P2: `entry_point` param added to step0_start ✅
+- [x] P3: init output includes m1/m2/m3/m4/pipeline routing ✅
+- [x] P4: 00_materials/ directory created ✅
+- [x] P5: methodology/ directory created ✅
+- [x] session.yaml includes methodology section ✅
+- [x] Test: Entry point m1 works ✅
+- [x] Test: Entry point pipeline works (backward compatible) ✅
+- [x] Test: Load existing session works ✅
 
 ---
 

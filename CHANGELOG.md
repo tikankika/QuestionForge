@@ -4,6 +4,30 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-16
+
+#### qf-scaffolding: M2-M4 Module Support
+- **Feature:** Extended `load_stage` tool to support all 4 modules (was M1 only)
+  - M2 (Assessment Design): 9 stages (0-8)
+  - M3 (Question Generation): 5 stages (0-4)
+  - M4 (Quality Assurance): 6 stages (0-5)
+- **Enhancement:** Added `requiresApproval` field to stage info
+  - `true` = teacher approval required before continuing
+  - `false` = informational/reference material
+  - `"conditional"` = auto-proceed if validation passes (M4 Phase 1)
+- **Enhancement:** Dynamic validation with `MAX_STAGES` and `getStages()` helpers
+- **Enhancement:** Module-specific completion messages (e.g., "M2 komplett! Fortsätt till M3")
+- **Enhancement:** Updated tool description and input schema for all modules
+
+#### qf-pipeline: materials_folder Parameter (P1)
+- **Feature:** New `materials_folder` parameter for entry point `m1`
+  - Automatically copies instructional materials to `00_materials/`
+  - Preserves subdirectory structure with `shutil.copytree`
+  - Filters junk files (.DS_Store, Thumbs.db, ~$*, hidden files)
+- **Validation:** Required for m1, ignored for other entry points
+- **Logging:** `materials_copied` count in session logs
+- **UX:** No more manual file copying needed for M1 workflow
+
 ### Added - 2026-01-15
 
 #### Sources, Methodology Copy, and Logging Infrastructure
