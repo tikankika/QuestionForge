@@ -1,6 +1,6 @@
 # QuestionForge Roadmap
 
-**Senast uppdaterad:** 2026-01-16
+**Senast uppdaterad:** 2026-01-17
 
 ---
 
@@ -118,17 +118,16 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 ---
 
-## Fas 4: Unified Logging (RFC-001) 🔶 DELVIS KLAR
+## Fas 4: Unified Logging (RFC-001) ✅ KLAR
 
-**Status:** Partially Implemented (se RFC-001)
+**Status:** Implemented (se RFC-001)
 
 | Uppgift | Status | Datum |
 |---------|--------|-------|
 | RFC-001 specifikation | ✅ Klar | 2026-01-16 |
 | JSON Schema (qf-specifications/logging/) | ✅ Klar | 2026-01-16 |
 | Python logger (RFC-001 compliant) | ✅ Klar | 2026-01-16 |
-| TypeScript logger (qf-scaffolding) | ⬜ Planerad | |
-| Migrera gamla projekt | ⬜ Planerad | |
+| TypeScript logger (qf-scaffolding) | ✅ Klar | 2026-01-17 |
 | PostgreSQL (framtida) | ⬜ Parkerad | |
 
 **Nya filer:**
@@ -149,7 +148,7 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 | M1-M4 stage loading | ✅ Klar | 2026-01-16 |
 | `requiresApproval` field | ✅ Klar | 2026-01-16 |
 | Methodology files imported (28 filer) | ✅ Klar | 2026-01-14 |
-| TypeScript logger (RFC-001) | ⬜ Planerad | |
+| TypeScript logger (RFC-001) | ✅ Klar | 2026-01-17 |
 | User decision logging | ⬜ Planerad | |
 
 **Methodology struktur:**
@@ -209,4 +208,4 @@ methodology/
 
 ---
 
-*Roadmap uppdaterad 2026-01-16*
+*Roadmap uppdaterad 2026-01-17*

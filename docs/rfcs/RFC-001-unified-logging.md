@@ -2,9 +2,9 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Partially Implemented |
+| **Status** | Implemented |
 | **Created** | 2026-01-16 |
-| **Updated** | 2026-01-16 |
+| **Updated** | 2026-01-17 |
 | **Author** | Niklas Karlsson |
 | **Relates to** | qf-pipeline, qf-scaffolding, qti-core |
 
@@ -13,9 +13,8 @@
 | Phase | Status | Notes |
 |-------|--------|-------|
 | Phase 1: Python Logger | ✅ Complete | `logger.py` updated, tested |
-| Phase 2: TypeScript Logger | ⬜ Not started | For qf-scaffolding |
-| Phase 3: Migrate Projects | ⬜ Not started | Script needed |
-| Phase 4: Schema Validation | ✅ Complete | `qf-specifications/logging/schema.json` |
+| Phase 2: TypeScript Logger | ✅ Complete | `logger.ts` created, load_stage integrated |
+| Phase 3: Schema Validation | ✅ Complete | `qf-specifications/logging/schema.json` |
 
 ## Summary
 
@@ -410,26 +409,13 @@ def get_session_state(project_path: Path) -> dict:
 
 **Commit:** `64a27c8 feat: Implement RFC-001 unified logging`
 
-### Phase 2: Add TypeScript Logger ⬜ TODO
+### Phase 2: Add TypeScript Logger ✅ COMPLETE
 
-1. Create `packages/qf-scaffolding/src/utils/logger.ts`
-2. Add logging to all M1-M4 stage handlers
-3. Log user decisions
+1. ✅ Created `packages/qf-scaffolding/src/utils/logger.ts`
+2. ✅ Integrated logging in `load_stage.ts` (optional project_path parameter)
+3. ⬜ Log user decisions (to be added with decision tracking)
 
-### Phase 3: Migrate Existing Projects ⬜ TODO
-
-1. Script to migrate old logs:
-   ```bash
-   # Move legacy files
-   mv pipeline.jsonl logs/session.jsonl
-   rm pipeline.log
-   rm logs/qf-pipeline.jsonl
-   rm logs/session.log
-   ```
-
-2. Add migration version field to session.yaml
-
-### Phase 4: Schema Validation ✅ COMPLETE
+### Phase 3: Schema Validation ✅ COMPLETE
 
 1. ✅ JSON Schema file: `qf-specifications/logging/schema.json`
 2. ✅ Example files: `qf-specifications/logging/examples/*.json`
@@ -472,3 +458,5 @@ def get_session_state(project_path: Path) -> dict:
 | 2026-01-16 | Phase 4 implemented (JSON Schema) |
 | 2026-01-16 | Open Questions resolved |
 | 2026-01-16 | Status: Draft → Partially Implemented |
+| 2026-01-17 | Phase 2 implemented (TypeScript logger) |
+| 2026-01-17 | Removed Phase 3 (migration), renumbered. Status → Implemented |

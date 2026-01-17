@@ -9,6 +9,7 @@ import { z } from "zod";
 import { readFile } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { logStageEvent } from "../utils/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,6 +18,7 @@ const __dirname = dirname(__filename);
 export const loadStageSchema = z.object({
   module: z.enum(["m1", "m2", "m3", "m4"]),
   stage: z.number().min(0).max(8), // Max 8 for M2
+  project_path: z.string().optional(), // Optional: enables logging to project
 });
 
 export type LoadStageInput = z.infer<typeof loadStageSchema>;
@@ -300,7 +302,7 @@ export interface LoadStageResult {
  * Load a specific methodology stage
  */
 export async function loadStage(input: LoadStageInput): Promise<LoadStageResult> {
-  const { module, stage } = input;
+  const { module, stage, project_path } = input;
 
   // Validate module exists
   const maxStage = MAX_STAGES[module];
@@ -385,6 +387,14 @@ export async function loadStage(input: LoadStageInput): Promise<LoadStageResult>
       } else {
         nextAction = `Läs igenom materialet. Säg 'fortsätt' för ${nextStage?.name || 'nästa steg'}.`;
       }
+    }
+
+    // Log stage load if project_path provided (RFC-001)
+    if (project_path) {
+      logStageEvent(project_path, module, stage, "stage_start", {
+        stage_name: stageInfo.name,
+        requires_approval: stageInfo.requiresApproval,
+      });
     }
 
     return {

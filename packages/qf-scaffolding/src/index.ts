@@ -66,6 +66,12 @@ const TOOLS: Tool[] = [
             "Stage 0 is always Introduction. Last stage is always reference material. " +
             "Middle stages are dialogue-driven with teacher approval gates.",
         },
+        project_path: {
+          type: "string",
+          description:
+            "Optional: Absolute path to project folder. " +
+            "If provided, stage loads are logged to logs/session.jsonl (RFC-001).",
+        },
       },
       required: ["module", "stage"],
     },

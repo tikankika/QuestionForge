@@ -11,13 +11,20 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
+    "js-yaml": "^4.1.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.2",
     "typescript": "^5.7.2"
   },
-  "keywords": ["mcp", "scaffolding", "education", "assessment"],
+  "keywords": [
+    "mcp",
+    "scaffolding",
+    "education",
+    "assessment"
+  ],
   "author": "Niklas Karlsson",
   "license": "MIT"
 }
