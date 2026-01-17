@@ -9,7 +9,7 @@ import { z } from "zod";
 import { readFile } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { logStageEvent } from "../utils/logger.js";
+import { logStageEvent, logEvent, logError } from "../utils/logger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -303,21 +303,60 @@ export interface LoadStageResult {
  */
 export async function loadStage(input: LoadStageInput): Promise<LoadStageResult> {
   const { module, stage, project_path } = input;
+  const startTime = Date.now();
+
+  // Log tool_start (TIER 1)
+  if (project_path) {
+    logEvent(
+      project_path,
+      "", // session_id will be auto-read from session.yaml
+      "load_stage",
+      "tool_start",
+      "info",
+      { module, stage }
+    );
+  }
 
   // Validate module exists
   const maxStage = MAX_STAGES[module];
   if (maxStage === undefined) {
+    const error = `Unknown module '${module}'. Available modules: m1, m2, m3, m4`;
+    // Log tool_end with failure
+    if (project_path) {
+      logEvent(
+        project_path,
+        "",
+        "load_stage",
+        "tool_end",
+        "warn",
+        { success: false, error },
+        Date.now() - startTime
+      );
+    }
     return {
       success: false,
-      error: `Unknown module '${module}'. Available modules: m1, m2, m3, m4`,
+      error,
     };
   }
 
   // Validate stage is within range
   if (stage < 0 || stage > maxStage) {
+    const error = `Invalid stage ${stage} for module ${module}. Valid stages: 0-${maxStage}`;
+    // Log tool_end with failure
+    if (project_path) {
+      logEvent(
+        project_path,
+        "",
+        "load_stage",
+        "tool_end",
+        "warn",
+        { success: false, error },
+        Date.now() - startTime
+      );
+    }
     return {
       success: false,
-      error: `Invalid stage ${stage} for module ${module}. Valid stages: 0-${maxStage}`,
+      error,
     };
   }
 
@@ -326,25 +365,85 @@ export async function loadStage(input: LoadStageInput): Promise<LoadStageResult>
   const stageInfo = stages[stage];
 
   if (!stageInfo) {
+    const error = `Stage ${stage} not found in module ${module}`;
+    // Log tool_end with failure
+    if (project_path) {
+      logEvent(
+        project_path,
+        "",
+        "load_stage",
+        "tool_end",
+        "warn",
+        { success: false, error },
+        Date.now() - startTime
+      );
+    }
     return {
       success: false,
-      error: `Stage ${stage} not found in module ${module}`,
+      error,
     };
   }
 
   try {
     // Build path to methodology file
-    // From build/tools/ -> up to package root -> up to QuestionForge root -> methodology/m1/
-    const methodologyPath = join(
-      __dirname,
-      "..",
-      "..",
-      "..",
-      "..",
-      "methodology",
-      module,
-      stageInfo.filename
-    );
+    // If project_path is provided, read from project's methodology folder (self-contained project)
+    // Otherwise, fall back to QuestionForge source (development/testing only)
+    let methodologyPath: string;
+
+    if (project_path) {
+      // Preferred: Read from project's methodology folder
+      const projectMethodologyPath = join(
+        project_path,
+        "methodology",
+        module,
+        stageInfo.filename
+      );
+
+      // Check if project methodology file exists
+      try {
+        await readFile(projectMethodologyPath, "utf-8"); // Test read
+        methodologyPath = projectMethodologyPath;
+      } catch {
+        // Project methodology not found, fall back to source
+        methodologyPath = join(
+          __dirname,
+          "..",
+          "..",
+          "..",
+          "..",
+          "methodology",
+          module,
+          stageInfo.filename
+        );
+
+        // Log warning about fallback (TIER 1)
+        logEvent(
+          project_path,
+          "",
+          "load_stage",
+          "tool_warning",
+          "warn",
+          {
+            message: `Project methodology not found at ${projectMethodologyPath}, using QuestionForge source`,
+            expected_path: projectMethodologyPath,
+            fallback_path: methodologyPath,
+          }
+        );
+      }
+    } else {
+      // No project_path: use QuestionForge source (development mode)
+      // From build/tools/ -> up to package root -> up to QuestionForge root -> methodology/m1/
+      methodologyPath = join(
+        __dirname,
+        "..",
+        "..",
+        "..",
+        "..",
+        "methodology",
+        module,
+        stageInfo.filename
+      );
+    }
 
     // Read the file
     const content = await readFile(methodologyPath, "utf-8");
@@ -389,12 +488,30 @@ export async function loadStage(input: LoadStageInput): Promise<LoadStageResult>
       }
     }
 
-    // Log stage load if project_path provided (RFC-001)
+    // Log stage_start for methodology tracking (RFC-001)
     if (project_path) {
       logStageEvent(project_path, module, stage, "stage_start", {
         stage_name: stageInfo.name,
         requires_approval: stageInfo.requiresApproval,
       });
+    }
+
+    // Log tool_end with success (TIER 1)
+    if (project_path) {
+      logEvent(
+        project_path,
+        "",
+        "load_stage",
+        "tool_end",
+        "info",
+        {
+          success: true,
+          module,
+          stage,
+          stage_name: stageInfo.name,
+        },
+        Date.now() - startTime
+      );
     }
 
     return {
@@ -417,6 +534,23 @@ export async function loadStage(input: LoadStageInput): Promise<LoadStageResult>
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    // Log tool_error (TIER 1)
+    if (project_path) {
+      logError(
+        project_path,
+        "load_stage",
+        error instanceof Error ? error.constructor.name : "UnknownError",
+        errorMessage,
+        {
+          module,
+          stage,
+          stack: errorStack,
+        }
+      );
+    }
+
     return {
       success: false,
       error: `Failed to load stage: ${errorMessage}`,
@@ -460,4 +594,126 @@ export function getModuleName(module: string): string {
  */
 export function getMaxStage(module: string): number | undefined {
   return MAX_STAGES[module];
+}
+
+/**
+ * Log stage completion (TIER 2: Session Resumption)
+ *
+ * Call this when the teacher approves a stage and is ready to move on.
+ *
+ * @param project_path - Path to the project directory
+ * @param module - Module name (m1, m2, m3, m4)
+ * @param stage - Stage number
+ * @param outputs - Optional outputs produced by this stage
+ */
+export function completeStage(
+  project_path: string,
+  module: string,
+  stage: number,
+  outputs?: Record<string, unknown>
+): void {
+  const stages = getStages(module);
+  const stageInfo = stages[stage];
+
+  logStageEvent(project_path, module, stage, "stage_complete", {
+    stage_name: stageInfo?.name || `Stage ${stage}`,
+    outputs: outputs || {},
+  });
+}
+
+/**
+ * Tool hint for a specific stage
+ */
+export interface ToolHint {
+  tool: string;
+  description: string;
+  example: string;
+}
+
+/**
+ * Get tool hints for a specific module and stage
+ *
+ * Returns an array of tools that should be used for this stage,
+ * helping Claude know which MCP tools to call.
+ */
+export function getToolHintsForStage(module: string, stage: number): ToolHint[] {
+  // M1 tool hints
+  if (module === "m1") {
+    switch (stage) {
+      case 0: // Introduction
+        return []; // No tools needed for reading intro
+      case 1: // Stage 0: Material Analysis (Claude's solo work)
+        return [
+          {
+            tool: "read_materials",
+            description: "Läs undervisningsmaterial från 00_materials/",
+            example: 'read_materials(project_path="<project>", extract_text=true)',
+          },
+          {
+            tool: "read_reference",
+            description: "Läs kursplan och andra referensdokument",
+            example: 'read_reference(project_path="<project>")',
+          },
+          {
+            tool: "complete_stage",
+            description: "Spara material_analysis output när analysen är klar",
+            example: 'complete_stage(project_path="<project>", module="m1", stage=0, output={type: "material_analysis", data: {...}})',
+          },
+        ];
+      case 2: // Stage 1: Initial Validation
+      case 3: // Stage 2: Emphasis Refinement
+      case 4: // Stage 3: Example Catalog
+      case 5: // Stage 4: Misconception Analysis
+      case 6: // Stage 5: Scope & Objectives
+        // These are dialogue stages - primarily complete_stage for output
+        const outputTypes: Record<number, string> = {
+          2: "emphasis_patterns",
+          3: "emphasis_patterns",
+          4: "examples",
+          5: "misconceptions",
+          6: "learning_objectives",
+        };
+        const outputType = outputTypes[stage];
+        if (outputType) {
+          return [
+            {
+              tool: "complete_stage",
+              description: `Spara ${outputType} output efter lärarens godkännande`,
+              example: `complete_stage(project_path="<project>", module="m1", stage=${stage - 1}, output={type: "${outputType}", data: {...}})`,
+            },
+          ];
+        }
+        return [];
+      case 7: // Best Practices
+        return []; // Reference material, no tools needed
+      default:
+        return [];
+    }
+  }
+
+  // M2, M3, M4 tool hints can be added later
+  // For now, return empty array
+  return [];
+}
+
+/**
+ * Format tool hints as markdown for display in load_stage response
+ */
+export function formatToolHints(hints: ToolHint[]): string {
+  if (hints.length === 0) return "";
+
+  const lines = [
+    "",
+    "---",
+    "",
+    "**MCP-verktyg för denna stage:**",
+    "",
+  ];
+
+  for (const hint of hints) {
+    lines.push(`- \`${hint.tool}\` - ${hint.description}`);
+    lines.push(`  \`\`\`${hint.example}\`\`\``);
+  }
+
+  return lines.join("\n");
 }

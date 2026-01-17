@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Implemented |
+| **Status** | Implemented (TIER 1-2 Complete) |
 | **Created** | 2026-01-16 |
 | **Updated** | 2026-01-17 |
 | **Author** | Niklas Karlsson |
@@ -15,6 +15,8 @@
 | Phase 1: Python Logger | ✅ Complete | `logger.py` updated, tested |
 | Phase 2: TypeScript Logger | ✅ Complete | `logger.ts` created, load_stage integrated |
 | Phase 3: Schema Validation | ✅ Complete | `qf-specifications/logging/schema.json` |
+| TIER 1: Tool Logging | ✅ Complete | tool_start/end/error in step1, step2, step4, load_stage |
+| TIER 2: Session Resumption | ✅ Complete | session_start/resume/end, stage_start/complete, validation_complete, export_complete |
 
 ## Summary
 
@@ -24,6 +26,92 @@ This RFC proposes a unified logging system for all QuestionForge packages. The s
 2. **Session resumption** - Know where work stopped
 3. **Audit trail** - Track M1-M4 stages and user decisions
 4. **Future ML training** - Structured data for machine learning
+
+## Implementation Phases (TIER Structure)
+
+Logging is implemented in four tiers based on priority and use case:
+
+### TIER 1: Tool Logging (Debugging) - ✅ COMPLETE
+**Status:** Fully implemented
+**Events:** `tool_start`, `tool_end`, `tool_error`
+**Purpose:** Debugging, error tracking, performance monitoring
+
+**Implemented in:**
+- ✅ Logger functions (logger.py, logger.ts)
+- ✅ Schema defined
+- ✅ step1_analyze, step1_fix_auto, step1_fix_manual
+- ✅ step2_validate
+- ✅ step4_export
+- ✅ load_stage (TypeScript)
+
+**Details:** See `docs/handoffs/2026-01-17_logging_tier1_2.md`
+
+**Example:**
+```json
+{"ts":"2026-01-17T10:00:00Z","tool":"step2_validate","event":"tool_start","data":{"file":"quiz.md"}}
+{"ts":"2026-01-17T10:00:30Z","tool":"step2_validate","event":"tool_end","data":{"success":true,"valid":true},"duration_ms":500}
+```
+
+### TIER 2: Session Resumption - ✅ COMPLETE
+**Status:** Fully implemented
+**Events:** `session_start`, `session_resume`, `session_end`, `stage_start`, `stage_complete`, `validation_complete`, `export_complete`
+**Purpose:** Resume sessions after interruption, track progress
+
+**Implemented in:**
+- ✅ session_start (SessionManager.create_session)
+- ✅ session_resume (step0_start with project_path)
+- ✅ session_end (SessionManager.end_session)
+- ✅ stage_start (qf-scaffolding load_stage)
+- ✅ stage_complete (qf-scaffolding completeStage function)
+- ✅ validation_complete (step2_validate)
+- ✅ export_complete (step4_export)
+
+**Details:** See `docs/handoffs/2026-01-17_logging_tier1_2.md`
+
+**Example:**
+```json
+{"event":"session_start","data":{"entry_point":"m1","source_file":null}}
+{"event":"session_resume","data":{"resumed_at":"valid","working_file":"02_working/quiz.md","export_count":1}}
+{"event":"stage_start","data":{"module":"m1","stage":0}}
+{"event":"stage_complete","data":{"module":"m1","stage":0,"outputs":{}}}
+{"event":"validation_complete","data":{"valid":true,"question_count":25}}
+{"event":"export_complete","data":{"output_file":"quiz_QTI.zip","question_count":25,"format":"QTI 1.2"}}
+{"event":"session_end","data":{"export_count":1,"validation_status":"valid","question_count":25}}
+```
+
+### TIER 3: Audit Trail - 🔄 PARTIAL
+**Status:** Partially implemented (format events ready, user_decision pending M1-M4)  
+**Events:**
+- ✅ `format_detected` - When input format is identified
+- ✅ `format_converted` - When conversion to QFMD completes
+- ⏸️ `user_decision` - When teacher makes pedagogical decision (spec pending M1-M4 implementation)
+
+**Purpose:** Track teacher decisions, format conversions, audit trail  
+**Details:** See `docs/specs/logging/tier3_partial.md` (updated as M1-M4 progresses)
+
+**Example (ready now):**
+```json
+{"event":"format_detected","data":{"format":"LEGACY_SYNTAX","question_count":15}}
+{"event":"format_converted","data":{"from":"LEGACY_SYNTAX","to":"QFMD","questions":15,"auto_fixes":120}}
+```
+
+**Example (pending M1-M4):**
+```json
+{"event":"user_decision","data":{"question_id":"Q005","decision_type":"bloom_level","options":["Remember","Understand","Apply"],"choice":"Remember"}}
+```
+
+### TIER 4: ML Training Data - ⏸️ DEFERRED
+**Status:** Placeholder only (see RFC-003)  
+**Events:** `user_decision` (with full context), `ai_suggestion`, `correction_made`  
+**Purpose:** Dataset for ML model training, pattern analysis  
+**Timeline:** Q2-Q3 2026, after M1-M4 operational and TIER 3 complete  
+**Details:** See `docs/rfcs/RFC-003-ml-training-placeholder.md`
+
+**Not implemented yet** - requires:
+1. TIER 1-2 complete ✅
+2. M1-M4 scaffolding operational ⏸️
+3. TIER 3 user_decision specified ⏸️
+4. Real usage data collected (>100 sessions) ⏸️
 
 ## Motivation
 
@@ -460,3 +548,4 @@ def get_session_state(project_path: Path) -> dict:
 | 2026-01-16 | Status: Draft → Partially Implemented |
 | 2026-01-17 | Phase 2 implemented (TypeScript logger) |
 | 2026-01-17 | Removed Phase 3 (migration), renumbered. Status → Implemented |
+| 2026-01-17 | Status verification: TIER 1-2 confirmed fully implemented in server.py. Status remains Implemented. |

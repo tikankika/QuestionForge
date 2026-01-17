@@ -58,6 +58,7 @@ function readSessionId(projectPath: string): string {
  * Log event to logs/session.jsonl (RFC-001 compliant)
  *
  * Thread-safe with synchronous writes.
+ * If sessionId is empty, it will be auto-read from session.yaml.
  */
 export function logEvent(
   projectPath: string,
@@ -73,6 +74,9 @@ export function logEvent(
     return;
   }
 
+  // Auto-read session_id if not provided
+  const effectiveSessionId = sessionId || readSessionId(projectPath);
+
   // Ensure logs directory exists
   const logsDir = path.join(projectPath, "logs");
   if (!fs.existsSync(logsDir)) {
@@ -83,7 +87,7 @@ export function logEvent(
   const logEntry: LogEntry = {
     ts: new Date().toISOString(),
     v: SCHEMA_VERSION,
-    session_id: sessionId,
+    session_id: effectiveSessionId,
     mcp: "qf-scaffolding",
     tool,
     event,

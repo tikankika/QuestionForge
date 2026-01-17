@@ -120,7 +120,9 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 ## Fas 4: Unified Logging (RFC-001) ✅ KLAR
 
-**Status:** Implemented (se RFC-001)
+**Status:** TIER 1-2 Complete, TIER 3-4 planerade
+
+### TIER 1-2: Implementerat ✅
 
 | Uppgift | Status | Datum |
 |---------|--------|-------|
@@ -128,13 +130,46 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 | JSON Schema (qf-specifications/logging/) | ✅ Klar | 2026-01-16 |
 | Python logger (RFC-001 compliant) | ✅ Klar | 2026-01-16 |
 | TypeScript logger (qf-scaffolding) | ✅ Klar | 2026-01-17 |
-| PostgreSQL (framtida) | ⬜ Parkerad | |
+| **TIER 1:** tool_start/end/error | ✅ Klar | 2026-01-17 |
+| **TIER 2:** session_start/resume/end | ✅ Klar | 2026-01-17 |
+| **TIER 2:** stage_start/complete | ✅ Klar | 2026-01-17 |
+| **TIER 2:** validation_complete, export_complete | ✅ Klar | 2026-01-17 |
 
-**Nya filer:**
+**TIER 1-2 events:**
+| Event | Fil | Beskrivning |
+|-------|-----|-------------|
+| tool_start/end/error | server.py, load_stage.ts | Alla tool calls |
+| session_start | session_manager.py | Ny session |
+| session_resume | server.py | Återuppta session |
+| session_end | session_manager.py | Avsluta session |
+| stage_start/complete | load_stage.ts | M1-M4 stages |
+| validation_complete | server.py | Validering lyckad |
+| export_complete | server.py | Export klar |
+
+### TIER 3: Audit Trail 🔄 Delvis
+
+| Uppgift | Status | Beroende |
+|---------|--------|----------|
+| format_detected | ✅ Klar | - |
+| format_converted | ✅ Klar | - |
+| user_decision | ⬜ Planerad | M1-M4 implementation |
+
+**Väntar på:** M1-M4 scaffolding implementation för att definiera user_decision events.
+
+### TIER 4: ML Training ⏸️ Parkerad
+
+| Uppgift | Status | Timeline |
+|---------|--------|----------|
+| user_decision (full context) | ⏸️ Parkerad | Q2-Q3 2026 |
+| ai_suggestion | ⏸️ Parkerad | Q2-Q3 2026 |
+| correction_made | ⏸️ Parkerad | Q2-Q3 2026 |
+
+**Krav:** TIER 1-3 complete + >100 sessions insamlade. Se RFC-003.
+
+**Filer:**
 - `docs/rfcs/RFC-001-unified-logging.md`
+- `docs/rfcs/RFC-003-ml-training-placeholder.md`
 - `qf-specifications/logging/schema.json`
-- `qf-specifications/logging/events.md`
-- `qf-specifications/logging/examples/*.json`
 
 ---
 
@@ -149,7 +184,8 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 | `requiresApproval` field | ✅ Klar | 2026-01-16 |
 | Methodology files imported (28 filer) | ✅ Klar | 2026-01-14 |
 | TypeScript logger (RFC-001) | ✅ Klar | 2026-01-17 |
-| User decision logging | ⬜ Planerad | |
+| TIER 1-2 logging (tool_start/end/error, stage_complete) | ✅ Klar | 2026-01-17 |
+| User decision logging (TIER 3) | ⬜ Planerad | |
 
 **Methodology struktur:**
 ```
@@ -186,9 +222,10 @@ methodology/
 
 ## Prioritetsordning
 
-1. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
-2. **qf-scaffolding logging** - TypeScript logger per RFC-001
-3. **Testa hela pipelinen** - End-to-end test
+1. ~~**qf-scaffolding logging** - TypeScript logger per RFC-001~~ ✅ Klar
+2. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
+3. **Testa hela pipelinen** - End-to-end test med TIER 1-2 logging
+4. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
 
 ---
 
@@ -208,4 +245,4 @@ methodology/
 
 ---
 
-*Roadmap uppdaterad 2026-01-17*
+*Roadmap uppdaterad 2026-01-17 (RFC-001 TIER 1-2 complete)*

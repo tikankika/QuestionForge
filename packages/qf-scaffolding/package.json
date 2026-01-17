@@ -1,23 +1,28 @@
 {
   "name": "qf-scaffolding",
-  "version": "0.1.0",
-  "description": "QuestionForge Scaffolding MCP - M1 Minimal MVP",
+  "version": "0.2.0",
+  "description": "QuestionForge Scaffolding MCP - M1-M4 methodology guidance",
   "type": "module",
   "main": "build/index.js",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node build/index.js"
+    "start": "node build/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
     "js-yaml": "^4.1.1",
+    "pdf-parse": "^2.4.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.2",
-    "typescript": "^5.7.2"
+    "@types/pdf-parse": "^1.1.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.0"
   },
   "keywords": [
     "mcp",

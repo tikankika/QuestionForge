@@ -4,6 +4,71 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-17 (Night)
+
+#### Tool Hints in load_stage Response
+- **Feature:** `load_stage` now includes tool hints in response
+  - Shows which MCP tools to use for each stage
+  - M1 Stage 1 shows: `read_materials`, `read_reference`, `complete_stage`
+  - Dialogue stages show relevant `complete_stage` with output type
+- **New functions:**
+  - `getToolHintsForStage(module, stage)` - Returns tool hints array
+  - `formatToolHints(hints)` - Formats hints as markdown
+- **Impact:** Claude knows which tools to call without modifying methodology files
+
+#### RFC-004 Phase 1: Core Read Tools for M1
+- **New Tool:** `read_materials` - Read instructional materials from `00_materials/`
+  - Supports PDF text extraction via `pdf-parse` library
+  - Supports markdown and text files
+  - Pattern filtering (e.g., `*.pdf`, `lecture*`)
+  - Returns content within MCP response (no file copying)
+  - RFC-001 compliant logging
+- **New Tool:** `read_reference` - Read reference documents from project root
+  - Reads kursplan, grading criteria, etc.
+  - Includes source URL metadata if originally fetched from URL
+- **Files added:**
+  - `packages/qf-scaffolding/src/tools/read_materials.ts`
+  - `packages/qf-scaffolding/src/tools/read_reference.ts`
+- **Files modified:**
+  - `packages/qf-scaffolding/src/index.ts` - Registered new tools
+  - `packages/qf-scaffolding/package.json` - Added pdf-parse dependency
+- **Tests:** All 190 tests pass, TypeScript build clean
+- **RFC:** Phase 1 of RFC-004 complete
+
+### Fixed - 2026-01-17 (Night)
+
+#### RFC-004 Phase 0: load_stage Now Reads from Project Methodology
+- **Critical Bug Fixed:** `load_stage` was reading methodology files from QuestionForge source instead of project's `methodology/` folder
+- **Root Cause:** `project_path` parameter was only used for logging, not for file path resolution
+- **Fix:** Now reads from `project_path/methodology/{module}/` when `project_path` is provided
+- **Fallback:** If project methodology not found, falls back to QuestionForge source with warning log
+- **Impact:** Projects are now truly self-contained (can be moved/copied, methodology edits respected)
+- **Files modified:**
+  - `packages/qf-scaffolding/src/tools/load_stage.ts` - Path resolution fix with fallback logic
+- **Tests:** All 136 tests pass, TypeScript build clean
+- **RFC:** Documented in RFC-004 as Phase 0 (critical blocker)
+
+### Added - 2026-01-17 (Afternoon)
+
+#### RFC-001: TIER 1-2 Logging Implementation
+- **TIER 1 (Tool Logging):** tool_start, tool_end, tool_error events
+  - Python: `step1_analyze()`, `step1_fix_auto()`, `step1_fix_manual()`, `step2_validate()`, `step4_export()`
+  - TypeScript: `load_stage()` with duration tracking
+  - All errors include stacktrace + context
+- **TIER 2 (Session Resumption):** milestone events for workflow tracking
+  - `session_start` - logged when new session created
+  - `session_resume` - logged when existing session loaded (step0_start with project_path)
+  - `session_end` - logged when session explicitly ended (SessionManager.end_session)
+  - `stage_start/complete` - logged in load_stage.ts and completeStage()
+  - `validation_complete` - logged when step2_validate passes
+  - `export_complete` - logged when step4_export succeeds
+- **Status:** RFC-001 TIER 1-2 fully complete
+- **Files modified:**
+  - `packages/qf-pipeline/src/qf_pipeline/server.py`
+  - `packages/qf-pipeline/src/qf_pipeline/utils/session_manager.py`
+  - `packages/qf-scaffolding/src/tools/load_stage.ts`
+  - `packages/qf-scaffolding/src/utils/logger.ts`
+
 ### Added - 2026-01-17
 
 #### qf-scaffolding: TypeScript Logger (RFC-001 Phase 2)
@@ -336,10 +401,10 @@ QuestionForge/
 ## Future
 
 ### Planned
-- **RFC-001 Implementation:** Update logger.py per RFC spec
-- **TypeScript Logger:** Create `qf-scaffolding/src/utils/logger.ts`
+- **RFC-001 TIER 3:** user_decision events (after M1-M4 operational)
+- **RFC-001 TIER 4:** ML training data collection (Q2-Q3 2026)
 - Step 3: Decision tool (simple export vs Question Set)
-- qf-scaffolding MCP (TypeScript, M1-M4)
+- qf-scaffolding MCP completion (TypeScript, M1-M4 stages)
 - Archive legacy MCPs
 
 ---
