@@ -202,7 +202,7 @@ async def list_tools() -> List[Tool]:
                 },
             },
         ),
-        # Step 1: Guided Build (v6.3 → v6.5)
+        # Step 1: Guided Build (Convert to QFMD)
         Tool(
             name="step1_start",
             description="Start Step 1 Guided Build session. Uses Step 0 session if active, otherwise requires source_file and output_folder.",
@@ -211,7 +211,7 @@ async def list_tools() -> List[Tool]:
                 "properties": {
                     "source_file": {
                         "type": "string",
-                        "description": "Path to v6.3 markdown file (optional if Step 0 session exists)",
+                        "description": "Path to markdown file (optional if Step 0 session exists)",
                     },
                     "output_folder": {
                         "type": "string",
@@ -772,7 +772,7 @@ def format_validation_output(result: dict, file_path: str, question_count: int) 
     """Format validation result like Terminal QTI-Generator."""
     lines = [
         "=" * 60,
-        "MQG FORMAT VALIDATION REPORT (v6.5)",
+        "QFMD FORMAT VALIDATION REPORT",
         "=" * 60,
         "",
     ]
@@ -1180,7 +1180,7 @@ async def handle_list_projects(arguments: dict) -> List[TextContent]:
 
 
 # =============================================================================
-# Step 1: Guided Build (v6.3 → v6.5)
+# Step 1: Guided Build (Convert to QFMD)
 # =============================================================================
 
 async def handle_step1_start(arguments: dict) -> List[TextContent]:

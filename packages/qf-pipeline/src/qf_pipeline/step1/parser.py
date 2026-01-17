@@ -21,7 +21,7 @@ class ParsedQuestion:
 
 # Question delimiters for different formats
 QUESTION_PATTERNS = [
-    # v6.5/v6.3: # Q001 Title
+    # QFMD/Legacy: # Q001 Title
     r'^#\s*(Q\d{3}[A-Z]?)\s*(.*?)$',
 
     # Semi-structured: # Question 1: Title
@@ -100,7 +100,7 @@ def detect_question_type(content: str) -> Optional[str]:
     """
     content_lower = content.lower()
 
-    # Explicit type declaration (both v6.3 and v6.5 syntax)
+    # Explicit type declaration (both Legacy and QFMD syntax)
     type_match = re.search(r'(?:\^type|@type:)\s*(\w+)', content, re.IGNORECASE)
     if type_match:
         return normalize_type(type_match.group(1))

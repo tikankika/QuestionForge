@@ -130,7 +130,7 @@ def _check_metadata(content: str) -> List[Issue]:
 
 
 def _check_old_syntax(content: str) -> List[Issue]:
-    """Check for old v6.3 syntax patterns."""
+    """Check for Legacy Syntax patterns."""
     issues = []
 
     # Old metadata patterns (@ with colon instead of ^ with space)
@@ -154,7 +154,7 @@ def _check_old_syntax(content: str) -> List[Issue]:
                     severity=Severity.CRITICAL,
                     category='old_syntax',
                     field='metadata',
-                    message=f"v6.3 metadata syntax behöver uppgraderas till v6.5",
+                    message=f"Legacy Syntax needs conversion to QFMD",
                     auto_fixable=True,
                     transform_id=transform_id
                 ))
@@ -174,13 +174,13 @@ def _check_old_syntax(content: str) -> List[Issue]:
             transform_id='add_end_fields'
         ))
 
-    # Check for ## headers that should be ### in v6.5
+    # Check for ## headers that should be ### in QFMD
     if re.search(r'^##\s+(Question Text|Options|Answer|Feedback|Blanks|Scoring|Pairs)', content, re.MULTILINE):
         issues.append(Issue(
             severity=Severity.WARNING,
             category='old_syntax',
             field='headers',
-            message="## headers → ### headers (v6.5 format)",
+            message="## headers → ### headers (QFMD format)",
             auto_fixable=True,
             transform_id='upgrade_headers'
         ))
@@ -280,7 +280,7 @@ def _check_field_structure(content: str) -> List[Issue]:
     subfield_starts = len(re.findall(r'^@@field:', content, re.MULTILINE))
     subfield_ends = len(re.findall(r'^@@end_field', content, re.MULTILINE))
 
-    # For v6.5, we need matching pairs
+    # For QFMD, we need matching pairs
     if field_starts > field_ends:
         issues.append(Issue(
             severity=Severity.CRITICAL,
@@ -291,14 +291,14 @@ def _check_field_structure(content: str) -> List[Issue]:
             transform_id='add_end_fields'
         ))
 
-    # Check nested fields - in v6.3 nested fields use @field: instead of @@field:
+    # Check nested fields - in Legacy Syntax nested fields use @field: instead of @@field:
     # This is detected by the header pattern ### within an @field: block
     if re.search(r'^###\s+\w+.*\n@field:', content, re.MULTILINE):
         issues.append(Issue(
             severity=Severity.CRITICAL,
             category='old_syntax',
             field='nested_fields',
-            message="Nested fields använder @field: → @@field: (v6.5)",
+            message="Nested fields use @field: → @@field: (QFMD)",
             auto_fixable=True,
             transform_id='nested_field_syntax'
         ))

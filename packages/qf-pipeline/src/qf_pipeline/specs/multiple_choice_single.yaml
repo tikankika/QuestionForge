@@ -298,7 +298,7 @@ common_issues:
   - id: "old_metadata_syntax"
     severity: "critical"
     detect: "@question: eller @type: eller @tags:"
-    message: "Gammal metadata-syntax (v6.3)"
+    message: "Legacy metadata syntax (needs QFMD conversion)"
     auto_fix: true
     transform:
       "@question:": "^question"
@@ -317,7 +317,7 @@ common_issues:
     fix: "Lägg till @end_field efter field-innehåll"
 
 # ════════════════════════════════════════════════════════════════════
-# COMPLETE EXAMPLE (v6.5 format)
+# COMPLETE EXAMPLE (QFMD format)
 # ════════════════════════════════════════════════════════════════════
 
 complete_example: |

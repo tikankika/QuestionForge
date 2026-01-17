@@ -4,6 +4,35 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-17
+
+#### qf-scaffolding: TypeScript Logger (RFC-001 Phase 2)
+- **Feature:** Created RFC-001 compliant logger in `packages/qf-scaffolding/src/utils/logger.ts`
+  - Same schema as Python logger (v:1, ts, session_id, mcp, tool, event, level, data)
+  - Synchronous writes to `logs/session.jsonl`
+  - Auto-reads session_id from `session.yaml`
+- **Functions:** `logEvent()`, `logAction()`, `logStageEvent()`, `logUserDecision()`, `logError()`, `getSessionState()`
+- **Integration:** Updated `load_stage.ts` with optional `project_path` parameter
+  - Logs `stage_start` events when project_path provided
+  - Exposed `project_path` in MCP tool schema
+- **Status:** RFC-001 Phase 2 marked complete
+
+#### RFC-001: Unified Logging - IMPLEMENTED
+- **Status:** RFC-001 markerad som Implemented (alla faser klara)
+- **Removed:** Phase 3 (Migration) - behövs inte för nya projekt
+- **Final structure:** 3 faser (Python Logger, TypeScript Logger, Schema Validation)
+
+#### RFC-002: QFMD Naming - IMPLEMENTED
+- **Renamed:** FormatLevel enum values in `detector.py`
+  - `VALID_V65` → `QFMD`
+  - `OLD_SYNTAX_V63` → `LEGACY_SYNTAX`
+  - `RAW` → `UNSTRUCTURED`
+- **Updated:** All references in step1 module (detector, analyzer, transformer, parser, tools)
+- **Updated:** User-facing messages to use QFMD terminology
+- **Updated:** Specs (INDEX.md, multiple_choice_single.yaml)
+- **Updated:** step1_guided_build_spec.md documentation
+- **Zero** v6.3/v6.5 references in source code after implementation
+
 ### Added - 2026-01-16 (Evening)
 
 #### RFC-001: Unified Logging

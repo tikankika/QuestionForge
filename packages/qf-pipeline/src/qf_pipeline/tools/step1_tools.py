@@ -1,6 +1,6 @@
 """
 MCP Tool implementations for Step 1: Guided Build.
-Transform v6.3 format to v6.5 format.
+Convert questions to QFMD (QuestionForge Markdown) format.
 """
 
 from pathlib import Path
@@ -97,25 +97,25 @@ async def step1_start(
     # Detect format
     format_level = detect_format(content)
 
-    if format_level == FormatLevel.RAW:
+    if format_level == FormatLevel.UNSTRUCTURED:
         return {
-            "error": "Filen är för ostrukturerad för Step 1",
-            "recommendation": "Använd qf-scaffolding först",
+            "error": "File is unstructured",
+            "recommendation": "Use M3 (Question Generation) or qf-scaffolding first",
             "format": format_level.value,
             "format_description": get_format_description(format_level)
         }
 
-    if format_level == FormatLevel.VALID_V65:
+    if format_level == FormatLevel.QFMD:
         return {
-            "message": "Filen är redan i valid v6.5 format",
-            "recommendation": "Gå direkt till Step 2 (validate)",
+            "message": "File is already in QFMD format",
+            "recommendation": "Go directly to Step 2 (validate)",
             "format": format_level.value
         }
 
     if format_level == FormatLevel.SEMI_STRUCTURED:
         return {
-            "error": "Filen är semi-strukturerad",
-            "recommendation": "Step 1 hanterar endast v6.3 → v6.5. Använd qf-scaffolding för semi-strukturerade filer.",
+            "error": "File is semi-structured",
+            "recommendation": "Step 1 handles Legacy Syntax → QFMD. Use qf-scaffolding for semi-structured files.",
             "format": format_level.value,
             "format_description": get_format_description(format_level)
         }
@@ -168,7 +168,7 @@ async def step1_start(
             "auto_fixable": len(get_auto_fixable_issues(issues)),
             "issues_summary": format_issue_summary(issues)
         },
-        "message": f"Session startad! {len(questions)} frågor i v6.3 format. Kör step1_transform för att konvertera alla till v6.5."
+        "message": f"Session started! {len(questions)} questions in Legacy Syntax. Run step1_transform to convert all to QFMD."
     }
 
 

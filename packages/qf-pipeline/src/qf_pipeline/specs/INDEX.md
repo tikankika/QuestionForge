@@ -66,7 +66,7 @@ common_issues:         # Vanliga problem med detect/fix
     transform: {old: new}  # för automatisk fix
 
 # EXEMPEL
-complete_example: |    # Komplett v6.5 exempel
+complete_example: |    # Complete QFMD example
   # Q001 ...
 ```
 

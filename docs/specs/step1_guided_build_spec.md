@@ -12,8 +12,8 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         STEP 1: GUIDED BUILD                             │
 │                                                                          │
-│  INPUT:  Markdown-fil med frågor (Level 1-3 format)                     │
-│  OUTPUT: Markdown-fil i valid v6.5 format (redo för Step 2)             │
+│  INPUT:  Markdown-fil med frågor (various formats)                      │
+│  OUTPUT: Markdown-fil i QFMD format (redo för Step 2)                   │
 │                                                                          │
 │  PROCESS: Fråga-för-fråga genomgång med lärar-verifikation              │
 │  KEY: Tydlig spec + Claude guidar + Human verifierar                    │
@@ -100,34 +100,34 @@ def detect_format(content: str) -> FormatLevel:
     Identifiera vilken input-nivå filen har.
     
     Returns:
-        FormatLevel.RAW (Level 1) - behöver qf-scaffolding
-        FormatLevel.SEMI_STRUCTURED (Level 2) - **Type**: format
-        FormatLevel.OLD_SYNTAX (Level 3) - @question: format
-        FormatLevel.VALID_V65 (Level 4) - redan korrekt
+        FormatLevel.UNSTRUCTURED - behöver qf-scaffolding
+        FormatLevel.SEMI_STRUCTURED - **Type**: format
+        FormatLevel.LEGACY_SYNTAX - @question: format
+        FormatLevel.QFMD - redan korrekt
     """
 ```
 
 **Detection logic:**
 ```python
 if "^question" in content and "@field:" in content and "@end_field" in content:
-    return FormatLevel.VALID_V65
+    return FormatLevel.QFMD
 elif "@question:" in content or "@type:" in content:
-    return FormatLevel.OLD_SYNTAX
+    return FormatLevel.LEGACY_SYNTAX
 elif "**Type**:" in content or "## Question Text" in content:
     return FormatLevel.SEMI_STRUCTURED
 elif "**FRÅGA:**" in content or "**RÄTT SVAR:**" in content:
-    return FormatLevel.RAW
+    return FormatLevel.UNSTRUCTURED
 else:
     return FormatLevel.UNKNOWN
 ```
 
 **Action per level:**
 ```
-Level 1 (RAW):          → Avvisa, hänvisa till qf-scaffolding
-Level 2 (SEMI):         → Acceptera, större transformation
-Level 3 (OLD_SYNTAX):   → Acceptera, syntax upgrade
-Level 4 (VALID):        → Skippa Step 1, gå direkt till Step 2
-Level UNKNOWN:          → Fråga användaren
+UNSTRUCTURED:       → Reject, recommend M3 or qf-scaffolding
+SEMI_STRUCTURED:    → Accept, larger transformation needed
+LEGACY_SYNTAX:      → Accept, syntax upgrade to QFMD
+QFMD:               → Skip Step 1, go directly to Step 2
+UNKNOWN:            → Ask user
 ```
 
 ### 0d. Question Parsing
@@ -138,9 +138,9 @@ def parse_questions(content: str, format_level: FormatLevel) -> List[Question]:
     Splitta fil till individuella frågor.
     
     Delimiters (beroende på format):
-    - Level 2: "# Question N:" eller "## QN"
-    - Level 3: "# Q001" + @question:
-    - Level 4: "# Q001" + ^question
+    - SEMI_STRUCTURED: "# Question N:" eller "## QN"
+    - LEGACY_SYNTAX: "# Q001" + @question:
+    - QFMD: "# Q001" + ^question
     """
 ```
 

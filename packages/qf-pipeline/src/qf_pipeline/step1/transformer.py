@@ -1,6 +1,6 @@
 """
 Apply transformations to fix issues.
-Transform v6.3 format to v6.5 format.
+Convert Legacy Syntax to QFMD (QuestionForge Markdown) format.
 """
 
 import re
@@ -71,7 +71,7 @@ class Transformer:
     # ════════════════════════════════════════════════════════════════
 
     def _transform_metadata_syntax(self, content: str) -> Tuple[str, str]:
-        """Transform @key: value → ^key value (v6.3 → v6.5)"""
+        """Transform @key: value → ^key value (Legacy → QFMD)"""
         transforms = [
             (r'^@question:\s*(.+)$', r'^question \1'),
             (r'^@type:\s*(.+)$', r'^type \1'),
@@ -88,7 +88,7 @@ class Transformer:
         for pattern, replacement in transforms:
             content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
 
-        # Remove the --- separator after metadata block (v6.3 style)
+        # Remove the --- separator after metadata block (Legacy style)
         # Look for pattern: ^tags line followed by --- on its own line
         content = re.sub(r'(\^tags\s+.+)\n+---\n+', r'\1\n\n', content)
         content = re.sub(r'(\^points\s+.+)\n+---\n+', r'\1\n\n', content)
@@ -115,7 +115,7 @@ class Transformer:
         return content, ""
 
     def _transform_upgrade_headers(self, content: str) -> Tuple[str, str]:
-        """Transform ## headers → ### headers for field sections (v6.3 → v6.5)"""
+        """Transform ## headers → ### headers for field sections (Legacy → QFMD)"""
 
         # Map of field section headers that should be upgraded
         field_headers = [
@@ -163,10 +163,10 @@ class Transformer:
         return content, ""
 
     def _transform_nested_fields(self, content: str) -> Tuple[str, str]:
-        """Transform nested @field: to @@field: for subfields (v6.3 → v6.5)"""
+        """Transform nested @field: to @@field: for subfields (Legacy → QFMD)"""
 
-        # In v6.3, nested fields use @field:
-        # In v6.5, nested fields use @@field:
+        # In Legacy Syntax, nested fields use @field:
+        # In QFMD, nested fields use @@field:
         #
         # Pattern: After a subfield header (#### Header), @field: should become @@field:
         # Example:

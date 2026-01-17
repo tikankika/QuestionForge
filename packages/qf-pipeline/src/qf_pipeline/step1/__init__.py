@@ -1,4 +1,4 @@
-"""Step 1: Guided Build - Transform v6.3 to v6.5 format."""
+"""Step 1: Guided Build - Convert to QFMD (QuestionForge Markdown) format."""
 
 from .session import Session, QuestionStatus, Change
 from .detector import detect_format, FormatLevel, get_format_description
