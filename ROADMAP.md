@@ -211,10 +211,30 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 | `read_reference` | Läs kursplan etc. |
 | `save_m1_progress` | Progressiv sparning till `m1_analysis.md` |
 
+### RFC-007: LLM Workflow Control Patterns ✅
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| Problem analysis (M1 session failures) | ✅ Klar | 2026-01-19 |
+| Core principles documented | ✅ Klar | 2026-01-19 |
+| Patterns that work (A/B/C) | ✅ Klar | 2026-01-19 |
+| Reality Check section | ✅ Klar | 2026-01-19 |
+| Final Recommendation: Option A | ✅ Klar | 2026-01-19 |
+| Teacher-facing methodology | ✅ Klar | 2026-01-19 |
+
+**RFC-007 Key Findings:**
+- MCP cannot "control" Claude - only provide tools and guidance
+- User-driven workflows (Option A): ~95% reliable
+- Tool constraints (Option B/C): ~70% reliable
+- "One-at-a-time with feedback" requires user to drive each step
+
+**Decision:** Option A (User-Driven) för M1 Stage 0
+- Teacher says: "Analyze [file]" → Claude analyzes → "Save and continue"
+- Methodology rewritten as teacher guide
+
 ### Återstående arbete
 | Uppgift | Status |
 |---------|--------|
-| Testa M1 i riktig session | ⬜ Nästa |
+| Testa M1 med Option A workflow | ⬜ Nästa |
 | User decision logging (TIER 3) | ⬜ Planerad |
 | M2-M4 tools implementation | ⬜ Planerad |
 
@@ -255,10 +275,11 @@ methodology/
 
 1. ~~**qf-scaffolding logging** - TypeScript logger per RFC-001~~ ✅ Klar
 2. ~~**RFC-004 Phase 2** - M1 progressive saving tools~~ ✅ Klar
-3. **Testa M1** - End-to-end test av M1 workflow
-4. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
-5. **M2-M4 Tools** - Implementera tools för övriga moduler
-6. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
+3. ~~**RFC-007** - LLM Workflow Control Patterns + Option A~~ ✅ Klar
+4. **Testa M1 Option A** - End-to-end test med teacher-driven workflow
+5. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
+6. **M2-M4 Tools** - Implementera tools för övriga moduler
+7. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
 
 ---
 
@@ -270,7 +291,9 @@ methodology/
 | `CHANGELOG.md` | Detaljerad ändringslogg |
 | `docs/rfcs/RFC-001-unified-logging.md` | Unified Logging RFC |
 | `docs/rfcs/RFC-004-m1-methodology-tools.md` | M1 Tools RFC |
-| `docs/workflows/m1_complete_workflow.md` | M1 Workflow (v3.0) |
+| `docs/rfcs/RFC-007-llm-workflow-control-patterns.md` | **NEW** LLM Workflow Control |
+| `docs/workflows/m1_complete_workflow.md` | M1 Workflow (v3.1) |
+| `methodology/m1/m1_0_stage0_material_analysis.md` | **NEW** Teacher Guide for Stage 0 |
 | `docs/acdm/` | ACDM sessionsloggar och reflektioner |
 | `docs/adr/ADR-010-step3-decision-architecture.md` | Step 3 arkitektur |
 | `docs/adr/ADR-011-question-set-builder.md` | Question Set spec |
@@ -280,4 +303,4 @@ methodology/
 
 ---
 
-*Roadmap uppdaterad 2026-01-19 (RFC-004 Phase 2 complete)*
+*Roadmap uppdaterad 2026-01-19 (RFC-007 complete, Option A workflow)*
