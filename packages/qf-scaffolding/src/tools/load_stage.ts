@@ -57,49 +57,49 @@ const M1_STAGES: Record<number, StageInfo> = {
     requiresApproval: false,
   },
   1: {
-    filename: "m1_1_stage0_material_analysis.md",
+    filename: "m1_0_stage0_material_analysis.md", // Renamed: file number matches stage number
     name: "Stage 0: Material Analysis",
     description: "AI analyzes instructional materials (AI solo phase)",
     estimatedTime: "60-90 min",
     requiresApproval: false, // AI solo work
   },
   2: {
-    filename: "m1_2_stage1_validation.md",
+    filename: "m1_1_stage1_validation.md", // Renamed: file number matches stage number
     name: "Stage 1: Initial Validation",
     description: "Teacher validates AI's material analysis",
     estimatedTime: "20-30 min",
     requiresApproval: true,
   },
   3: {
-    filename: "m1_3_stage2_emphasis.md",
+    filename: "m1_2_stage2_emphasis.md", // Renamed: file number matches stage number
     name: "Stage 2: Emphasis Refinement",
     description: "Deep dive into teaching priorities and emphasis",
     estimatedTime: "30-45 min",
     requiresApproval: true,
   },
   4: {
-    filename: "m1_4_stage3_examples.md",
+    filename: "m1_3_stage3_examples.md", // Renamed: file number matches stage number
     name: "Stage 3: Example Catalog",
     description: "Document effective examples from teaching",
     estimatedTime: "20-30 min",
     requiresApproval: true,
   },
   5: {
-    filename: "m1_5_stage4_misconceptions.md",
+    filename: "m1_4_stage4_misconceptions.md", // Renamed: file number matches stage number
     name: "Stage 4: Misconception Analysis",
     description: "Identify and document common student misconceptions",
     estimatedTime: "20-30 min",
     requiresApproval: true,
   },
   6: {
-    filename: "m1_6_stage5_objectives.md",
+    filename: "m1_5_stage5_objectives.md", // Renamed: file number matches stage number
     name: "Stage 5: Scope & Objectives",
     description: "Finalize learning objectives from analysis",
     estimatedTime: "45-60 min",
     requiresApproval: true,
   },
   7: {
-    filename: "m1_7_best_practices.md",
+    filename: "m1_6_best_practices.md", // Renamed: was m1_7
     name: "Best Practices",
     description: "Facilitation principles and guidelines",
     estimatedTime: "15 min read",
