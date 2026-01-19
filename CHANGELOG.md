@@ -4,6 +4,39 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-19
+
+#### RFC-004 Phase 2: Progressive Saving for M1
+- **New Tool:** `save_m1_progress` - Progressive saving for all M1 stages
+  - `add_material` action: Save after each PDF during Stage 0
+  - `save_stage` action: Save completed stage output (Stage 0-5)
+  - `finalize_m1` action: Mark M1 complete, ready for M2
+  - All saves go to single document: `01_methodology/m1_analysis.md`
+- **Updated Tool:** `read_materials` - Two modes for controlled reading
+  - List mode (`filename=null`): Returns file metadata without content
+  - Read mode (`filename="X.pdf"`): Returns content of ONE specific file
+  - Enables progressive analysis without loading all materials at once
+- **Updated Tool:** `load_stage` - Fixed M1 stage numbering
+  - `stage=0` now loads Material Analysis (60-90 min, the long stage)
+  - `stage=1-5` load Validation through Learning Objectives
+  - Removed Introduction stage (was stage=0, now integrated)
+  - M1 now has 6 stages (0-5) instead of 8
+- **Key Decisions (RFC-004):**
+  - Single document strategy: All M1 stages save to one `m1_analysis.md`
+  - Progressive saving during Stage 0 (after each PDF analyzed)
+  - Stage-completion saves for dialogue stages (1-5)
+- **Files added:**
+  - `packages/qf-scaffolding/src/tools/save_m1_progress.ts` (324 lines)
+- **Files modified:**
+  - `packages/qf-scaffolding/src/tools/read_materials.ts` - filename param
+  - `packages/qf-scaffolding/src/tools/load_stage.ts` - stage mapping fix
+  - `packages/qf-scaffolding/src/index.ts` - registered new tool
+  - `packages/qf-scaffolding/package.json` - added yaml dependency
+- **Documentation:**
+  - `docs/rfcs/RFC-004-m1-methodology-tools.md` - Phase 2 design complete
+  - `docs/workflows/m1_complete_workflow.md` - Rewritten (v3.0) for single-doc
+- **Tests:** All 190 tests pass, TypeScript build clean
+
 ### Added - 2026-01-17 (Night)
 
 #### Tool Hints in load_stage Response
