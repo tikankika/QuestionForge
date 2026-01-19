@@ -1,6 +1,6 @@
 # QuestionForge Roadmap
 
-**Senast uppdaterad:** 2026-01-17
+**Senast uppdaterad:** 2026-01-19
 
 ---
 
@@ -173,10 +173,11 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 ---
 
-## Fas 5: qf-scaffolding 🔶 DELVIS KLAR
+## Fas 5: qf-scaffolding 🔶 M1 IMPLEMENTATION KLAR
 
 **Beskrivning:** TypeScript MCP för pedagogisk scaffolding (M1-M4)
 
+### Grundläggande Setup ✅
 | Uppgift | Status | Datum |
 |---------|--------|-------|
 | MVP: `load_stage` tool | ✅ Klar | 2026-01-14 |
@@ -184,13 +185,43 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 | `requiresApproval` field | ✅ Klar | 2026-01-16 |
 | Methodology files imported (28 filer) | ✅ Klar | 2026-01-14 |
 | TypeScript logger (RFC-001) | ✅ Klar | 2026-01-17 |
-| TIER 1-2 logging (tool_start/end/error, stage_complete) | ✅ Klar | 2026-01-17 |
-| User decision logging (TIER 3) | ⬜ Planerad | |
+| TIER 1-2 logging | ✅ Klar | 2026-01-17 |
+
+### RFC-004: M1 Methodology Tools ✅
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| Phase 0: `load_stage` path fix | ✅ Klar | 2026-01-17 |
+| Phase 1: `read_materials`, `read_reference` | ✅ Klar | 2026-01-17 |
+| Phase 2: `save_m1_progress` tool | ✅ Klar | 2026-01-19 |
+| Phase 2: `read_materials` filename param | ✅ Klar | 2026-01-19 |
+| Phase 2: `load_stage` stage numbering fix | ✅ Klar | 2026-01-19 |
+| Workflow dokumentation (v3.0) | ✅ Klar | 2026-01-19 |
+
+**RFC-004 Key Decisions:**
+- Single document strategy: `m1_analysis.md`
+- 6 stages (0-5) instead of 8
+- Progressive saving during Stage 0 (after each PDF)
+- Stage-completion saves for dialogue stages (1-5)
+
+### M1 Tools (komplett) ✅
+| Tool | Beskrivning |
+|------|-------------|
+| `load_stage` | Ladda metodologi för stage 0-5 |
+| `read_materials` | Lista filer (list mode) eller läs EN fil (read mode) |
+| `read_reference` | Läs kursplan etc. |
+| `save_m1_progress` | Progressiv sparning till `m1_analysis.md` |
+
+### Återstående arbete
+| Uppgift | Status |
+|---------|--------|
+| Testa M1 i riktig session | ⬜ Nästa |
+| User decision logging (TIER 3) | ⬜ Planerad |
+| M2-M4 tools implementation | ⬜ Planerad |
 
 **Methodology struktur:**
 ```
 methodology/
-├── m1/  (8 filer) - Content Analysis
+├── m1/  (6 filer) - Material Analysis (Stage 0-5)
 ├── m2/  (9 filer) - Assessment Design
 ├── m3/  (5 filer) - Question Generation
 └── m4/  (6 filer) - Quality Assurance
@@ -223,9 +254,11 @@ methodology/
 ## Prioritetsordning
 
 1. ~~**qf-scaffolding logging** - TypeScript logger per RFC-001~~ ✅ Klar
-2. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
-3. **Testa hela pipelinen** - End-to-end test med TIER 1-2 logging
-4. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
+2. ~~**RFC-004 Phase 2** - M1 progressive saving tools~~ ✅ Klar
+3. **Testa M1** - End-to-end test av M1 workflow
+4. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
+5. **M2-M4 Tools** - Implementera tools för övriga moduler
+6. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
 
 ---
 
@@ -236,6 +269,8 @@ methodology/
 | `WORKFLOW.md` | Komplett workflow-diagram |
 | `CHANGELOG.md` | Detaljerad ändringslogg |
 | `docs/rfcs/RFC-001-unified-logging.md` | Unified Logging RFC |
+| `docs/rfcs/RFC-004-m1-methodology-tools.md` | M1 Tools RFC |
+| `docs/workflows/m1_complete_workflow.md` | M1 Workflow (v3.0) |
 | `docs/acdm/` | ACDM sessionsloggar och reflektioner |
 | `docs/adr/ADR-010-step3-decision-architecture.md` | Step 3 arkitektur |
 | `docs/adr/ADR-011-question-set-builder.md` | Question Set spec |
@@ -245,4 +280,4 @@ methodology/
 
 ---
 
-*Roadmap uppdaterad 2026-01-17 (RFC-001 TIER 1-2 complete)*
+*Roadmap uppdaterad 2026-01-19 (RFC-004 Phase 2 complete)*
