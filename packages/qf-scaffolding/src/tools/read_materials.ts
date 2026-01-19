@@ -4,7 +4,11 @@
  * Reads instructional materials from the project's 00_materials/ folder.
  * Supports PDF text extraction, markdown, and text files.
  *
- * RFC-004: Phase 1 - Core Read Tools
+ * RFC-004: Phase 2 - Updated with filename parameter
+ *
+ * Two modes:
+ * - List mode (filename=null/undefined): Returns file list with metadata, NO content
+ * - Read mode (filename="X.pdf"): Returns content of ONE specific file
  */
 
 import { z } from "zod";
@@ -16,13 +20,21 @@ import { logEvent, logError } from "../utils/logger.js";
 // Input schema for read_materials tool
 export const readMaterialsSchema = z.object({
   project_path: z.string(),
-  file_pattern: z.string().optional(), // e.g., "*.pdf", "lecture*"
+  filename: z.string().nullable().optional(), // NEW: null/undefined → list, "X.pdf" → read one
+  file_pattern: z.string().optional(), // DEPRECATED: kept for backwards compatibility
   extract_text: z.boolean().optional().default(true), // Extract text from PDFs
 });
 
 export type ReadMaterialsInput = z.infer<typeof readMaterialsSchema>;
 
-// Material info type
+// File info type (for list mode - no content)
+export interface FileInfo {
+  filename: string;
+  size_bytes: number;
+  content_type: "pdf" | "md" | "txt" | "pptx" | "other";
+}
+
+// Material info type (for read mode - with content)
 export interface MaterialInfo {
   filename: string;
   path: string;
@@ -32,13 +44,24 @@ export interface MaterialInfo {
   error?: string;
 }
 
-// Result type for read_materials
+// Result type for read_materials (supports both modes)
 export interface ReadMaterialsResult {
   success: boolean;
-  materials: MaterialInfo[];
+  mode: "list" | "read";
+
+  // List mode result
+  files?: FileInfo[];
+
+  // Read mode result
+  material?: MaterialInfo;
+
+  // Common fields
   total_files: number;
   total_chars?: number;
   error?: string;
+
+  // Legacy field (for backwards compatibility)
+  materials?: MaterialInfo[];
 }
 
 /**
@@ -89,7 +112,7 @@ async function extractPdfText(filePath: string): Promise<string> {
 }
 
 /**
- * Read a single material file
+ * Read a single material file (with text extraction)
  */
 async function readMaterial(
   filePath: string,
@@ -133,15 +156,25 @@ async function readMaterial(
 
 /**
  * Read instructional materials from project's 00_materials/ folder
+ *
+ * Two modes:
+ * - filename=null/undefined: List all files (metadata only, no content)
+ * - filename="X.pdf": Read and extract text from ONE specific file
  */
 export async function readMaterials(
   input: ReadMaterialsInput
 ): Promise<ReadMaterialsResult> {
-  const { project_path, file_pattern, extract_text = true } = input;
+  const { project_path, filename, file_pattern, extract_text = true } = input;
   const startTime = Date.now();
+
+  // Determine mode
+  const isListMode = filename === null || filename === undefined;
+  const mode = isListMode ? "list" : "read";
 
   // Log tool_start (TIER 1)
   logEvent(project_path, "", "read_materials", "tool_start", "info", {
+    mode,
+    filename: filename ?? null,
     file_pattern,
     extract_text,
   });
@@ -160,54 +193,90 @@ export async function readMaterials(
         "read_materials",
         "tool_end",
         "warn",
-        { success: false, error },
+        { success: false, error, mode },
         Date.now() - startTime
       );
-      return { success: false, materials: [], total_files: 0, error };
+      return { success: false, mode, total_files: 0, error };
     }
 
-    // Read directory contents
-    const files = await readdir(materialsPath);
+    // ========== LIST MODE ==========
+    if (isListMode) {
+      const allFiles = await readdir(materialsPath);
+      const files: FileInfo[] = [];
 
-    // Filter by pattern
-    const matchedFiles = files.filter((f) => matchesPattern(f, file_pattern));
+      for (const fname of allFiles) {
+        const filePath = join(materialsPath, fname);
+        const fileStats = await stat(filePath);
 
-    if (matchedFiles.length === 0) {
-      const message = file_pattern
-        ? `No files matching pattern '${file_pattern}' in 00_materials/`
-        : `No files found in 00_materials/`;
+        // Skip directories
+        if (fileStats.isDirectory()) continue;
+
+        // Apply pattern filter if provided (backwards compatibility)
+        if (file_pattern && !matchesPattern(fname, file_pattern)) continue;
+
+        files.push({
+          filename: fname,
+          size_bytes: fileStats.size,
+          content_type: getContentType(fname),
+        });
+      }
+
+      // Sort by filename
+      files.sort((a, b) => a.filename.localeCompare(b.filename));
+
       logEvent(
         project_path,
         "",
         "read_materials",
         "tool_end",
         "info",
-        { success: true, total_files: 0, message },
+        {
+          success: true,
+          mode: "list",
+          total_files: files.length,
+          content_types: files.reduce(
+            (acc, f) => {
+              acc[f.content_type] = (acc[f.content_type] || 0) + 1;
+              return acc;
+            },
+            {} as Record<string, number>
+          ),
+        },
         Date.now() - startTime
       );
-      return { success: true, materials: [], total_files: 0 };
+
+      return {
+        success: true,
+        mode: "list",
+        files,
+        total_files: files.length,
+      };
     }
 
-    // Read each material
-    const materials: MaterialInfo[] = [];
-    let totalChars = 0;
+    // ========== READ MODE ==========
+    const filePath = join(materialsPath, filename);
 
-    for (const filename of matchedFiles) {
-      const filePath = join(materialsPath, filename);
-
-      // Skip directories
-      const fileStats = await stat(filePath);
-      if (fileStats.isDirectory()) continue;
-
-      const material = await readMaterial(filePath, filename, extract_text);
-      materials.push(material);
-
-      if (material.text_content) {
-        totalChars += material.text_content.length;
-      }
+    // Check if file exists
+    try {
+      await stat(filePath);
+    } catch {
+      const error = `File not found: ${filename}`;
+      logEvent(
+        project_path,
+        "",
+        "read_materials",
+        "tool_end",
+        "warn",
+        { success: false, error, mode: "read", filename },
+        Date.now() - startTime
+      );
+      return { success: false, mode: "read", total_files: 0, error };
     }
 
-    // Log tool_end with success (TIER 1)
+    // Read the specific file
+    const material = await readMaterial(filePath, filename, extract_text);
+    const totalChars = material.text_content?.length ?? 0;
+
     logEvent(
       project_path,
       "",
@@ -216,23 +285,21 @@ export async function readMaterials(
       "info",
       {
         success: true,
-        total_files: materials.length,
+        mode: "read",
+        filename,
+        content_type: material.content_type,
+        size_bytes: material.size_bytes,
         total_chars: totalChars,
-        content_types: materials.reduce(
-          (acc, m) => {
-            acc[m.content_type] = (acc[m.content_type] || 0) + 1;
-            return acc;
-          },
-          {} as Record<string, number>
-        ),
+        has_error: !!material.error,
       },
       Date.now() - startTime
     );
 
     return {
       success: true,
-      materials,
-      total_files: materials.length,
+      mode: "read",
+      material,
+      total_files: 1,
       total_chars: totalChars,
     };
   } catch (error) {
@@ -246,12 +313,12 @@ export async function readMaterials(
       "read_materials",
       error instanceof Error ? error.constructor.name : "UnknownError",
       errorMessage,
-      { stack: errorStack }
+      { stack: errorStack, mode, filename }
     );
 
     return {
       success: false,
-      materials: [],
+      mode,
       total_files: 0,
       error: `Failed to read materials: ${errorMessage}`,
     };

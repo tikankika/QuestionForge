@@ -1,723 +1,619 @@
-Document Information
-Version: 2.0
-Last Updated: 2026-01-19
-Purpose: Complete workflow documentation for M1 (all 8 stages)
-Audience: Developers implementing qf-scaffolding MCP
+# M1 Complete Workflow
 
-Table of Contents
+> **Document Information**
+> - Version: 3.0
+> - Last Updated: 2026-01-19
+> - Purpose: Complete workflow documentation for M1 (6 stages)
+> - Audience: Developers implementing qf-scaffolding MCP
+> - **Canonical Source:** [RFC-004](../rfcs/RFC-004-m1-methodology-tools.md)
 
-Overview
-Methodology vs Workflow Separation
-M1 Complete Process Flow
-Stage-by-Stage Workflows
-Session Management
-Common Patterns
-Troubleshooting
+---
 
+## Table of Contents
 
-Overview
-What is M1?
-M1: Material Analysis is the first module in the QuestionForge framework. It transforms instructional materials (lectures, slides, transcripts) into pedagogically grounded content architecture through systematic teacher-AI dialogue.
-Duration
-Total: 160-240 minutes (2.5-4 hours)
+1. [Overview](#overview)
+2. [Key Decisions (RFC-004)](#key-decisions-rfc-004)
+3. [M1 Process Flow](#m1-process-flow)
+4. [Single Document Strategy](#single-document-strategy)
+5. [Stage-by-Stage Workflows](#stage-by-stage-workflows)
+6. [MCP Tools Reference](#mcp-tools-reference)
+7. [Session Management](#session-management)
+8. [Resume Capability](#resume-capability)
+9. [Troubleshooting](#troubleshooting)
 
-Can be completed in one session
-Can be paused/resumed between stages
-Progressive saving ensures no data loss
+---
 
-Key Principles
+## Overview
 
-Teacher Authority - Teacher makes all pedagogical decisions
-AI Execution - Claude handles systematic analysis and documentation
-Progressive Building - Each stage builds on previous outputs
-Validation Gates - Teacher approves before advancing
-One Output Per Stage - Clear file structure, no overwhelming docs
+### What is M1?
 
+M1: Material Analysis transforms instructional materials (lectures, slides, transcripts) into pedagogically grounded content architecture through systematic teacher-AI dialogue.
 
-Methodology vs Workflow Separation
-Critical Distinction
-┌─────────────────────────────────────────────────────────┐
-│                    ARCHITECTURE                         │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌──────────────────────┐      ┌──────────────────┐   │
-│  │   METHODOLOGY        │      │    WORKFLOW      │   │
-│  │   (What to do)       │      │  (How it works)  │   │
-│  ├──────────────────────┤      ├──────────────────┤   │
-│  │                      │      │                  │   │
-│  │ Location:            │      │ Location:        │   │
-│  │ /methodology/m1/     │      │ /docs/workflows/ │   │
-│  │                      │      │                  │   │
-│  │ Contains:            │      │ Contains:        │   │
-│  │ • FOR CLAUDE         │      │ • Process flow   │   │
-│  │ • FOR TEACHERS       │      │ • MCP tools      │   │
-│  │ • Dialogue patterns  │      │ • File outputs   │   │
-│  │ • Quality criteria   │      │ • Logs           │   │
-│  │ • Pedagogical guide  │      │ • Resume logic   │   │
-│  │                      │      │                  │   │
-│  │ Purpose:             │      │ Purpose:         │   │
-│  │ Instructs HOW to     │      │ Documents        │   │
-│  │ analyze, facilitate, │      │ MECHANICS of     │   │
-│  │ validate content     │      │ execution        │   │
-│  │                      │      │                  │   │
-│  │ Loaded BY:           │      │ Used BY:         │   │
-│  │ Workflow process     │      │ Developers       │   │
-│  │ (via load_stage)     │      │ implementing MCP │   │
-│  └──────────────────────┘      └──────────────────┘   │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-File Mapping
-Methodology Files (loaded at runtime):
-/methodology/m1/
-├── m1_0_stage0_introduction.md          → Stage 0
-├── m1_1_stage1_material_analysis.md     → Stage 1
-├── m1_2_stage2_validation.md            → Stage 2
-├── m1_3_stage3_emphasis_refinement.md   → Stage 3
-├── m1_4_stage4_example_cataloging.md    → Stage 4
-├── m1_5_stage5_misconception_analysis.md→ Stage 5
-├── m1_6_stage6_scope_boundaries.md      → Stage 6
-└── m1_7_stage7_learning_objectives.md   → Stage 7
-Workflow Files (this document):
-/docs/workflows/
-└── m1_complete_workflow.md              → All stages
+### Duration
 
-M1 Complete Process Flow
-Linear Progression
+**Total: 160-240 minutes (2.5-4 hours)**
+
+| Stage | Name | Duration | Type |
+|-------|------|----------|------|
+| 0 | Material Analysis | 60-90 min | Claude solo (progressive saves) |
+| 1 | Validation | 20-30 min | Dialogue |
+| 2 | Emphasis Refinement | 30-45 min | Dialogue |
+| 3 | Example Cataloging | 20-30 min | Dialogue |
+| 4 | Misconception Analysis | 20-30 min | Dialogue |
+| 5 | Learning Objectives | 45-60 min | Dialogue |
+
+### Key Principles
+
+- **Teacher Authority** - Teacher makes all pedagogical decisions
+- **AI Execution** - Claude handles systematic analysis and documentation
+- **Progressive Building** - Each stage builds on previous
+- **Single Document** - ALL stages save to ONE file (`m1_analysis.md`)
+- **Resumable** - Can pause/resume at any point
+
+---
+
+## Key Decisions (RFC-004)
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Output strategy | **Single document** `m1_analysis.md` | Easier to review, pass to M2, resume |
+| Tool name | `save_m1_progress` | General name for all M1 stages |
+| Stage numbering | `load_stage(stage=0)` = Material Analysis | Intuitive: parameter = methodology stage |
+| Stage 0 saving | Progressive (after each PDF) | 60-90 min stage, prevents data loss |
+| Stage 1-5 saving | After each dialogue completes | Shorter stages, natural save points |
+
+---
+
+## M1 Process Flow
+
+### Linear Progression (6 Stages)
+
+```
 START
   │
-  ├─→ Stage 0: Introduction (5 min)
+  ├─→ Stage 0: Material Analysis (60-90 min) ← LONGEST, progressive saves
   │     │
-  │     ├─→ Stage 1: Material Analysis (60-90 min) ✓ LONGEST
+  │     ├─→ Stage 1: Validation (20-30 min)
   │     │     │
-  │     │     ├─→ Stage 2: Validation (15-20 min)
+  │     │     ├─→ Stage 2: Emphasis Refinement (30-45 min)
   │     │     │     │
-  │     │     │     ├─→ Stage 3: Emphasis Refinement (20-30 min)
+  │     │     │     ├─→ Stage 3: Example Cataloging (20-30 min)
   │     │     │     │     │
-  │     │     │     │     ├─→ Stage 4: Example Cataloging (15-25 min)
+  │     │     │     │     ├─→ Stage 4: Misconception Analysis (20-30 min)
   │     │     │     │     │     │
-  │     │     │     │     │     ├─→ Stage 5: Misconception Analysis (15-25 min)
-  │     │     │     │     │     │     │
-  │     │     │     │     │     │     ├─→ Stage 6: Scope Boundaries (10-15 min)
-  │     │     │     │     │     │     │     │
-  │     │     │     │     │     │     │     └─→ Stage 7: Learning Objectives (20-30 min)
-  │     │     │     │     │     │     │           │
-  └─────┴─────┴─────┴─────┴─────┴─────┴───────────┘
-                                                  │
-                                                END
-                                           (M1 Complete)
-                                                  │
-                                                  └─→ Ready for M2
-Cumulative Outputs
-Stage 0 → (Expectations set)
-Stage 1 → m1_stage1_working_notes.md
-Stage 2 → m1_stage2_validation.md
-Stage 3 → m1_stage3_emphasis_patterns.md
-Stage 4 → m1_stage4_examples.md
-Stage 5 → m1_stage5_misconceptions.md
-Stage 6 → m1_stage6_scope.md
-Stage 7 → m1_stage7_learning_objectives.md ← FINAL OUTPUT
-Each stage:
+  │     │     │     │     │     └─→ Stage 5: Learning Objectives (45-60 min)
+  │     │     │     │     │           │
+  └─────┴─────┴─────┴─────┴───────────┘
+                                      │
+                                    END
+                               (M1 Complete)
+                                      │
+                                      └─→ Ready for M2
+```
 
-Reads previous stage outputs
-Produces ONE new output document
-Updates session state
-Logs progress
-Can be resumed if interrupted
+### Output: ONE Document
 
+```
+project/
+├── 01_methodology/
+│   └── m1_analysis.md      ← ALL M1 data in ONE file
+└── session.yaml            ← Tracks progress
+```
 
-Stage-by-Stage Workflows
-Stage 0: Introduction
-Duration: 5 minutes
-Purpose: Set expectations, explain process
-Pattern: Load → Present → Confirm
-Workflow
-┌──────────────────────────┐
-│  USER: "Börja M1"        │
-└──────────┬───────────────┘
-           │
-           ↓
-┌─────────────────────────────────────┐
-│  Claude anropar:                    │
-│  TOOL: load_stage                   │
-│    module: "m1"                     │
-│    stage: 0                         │
-│    project_path: "..."              │
-└───────┬─────────────────────────────┘
-        │
-        ↓
-┌────────────────────────────────────┐
-│  MCP läser:                        │
-│  methodology/m1/                   │
-│  m1_0_stage0_introduction.md       │
-│                                    │
-│  Returnerar till Claude            │
-└───────┬────────────────────────────┘
-        │
-        ↓
-┌─────────────────────────────────────┐
-│  Claude läser och presenterar:     │
-│  "Välkommen till M1!                │
-│                                     │
-│   M1 består av 8 stages:            │
-│   0. Introduction (detta)           │
-│   1. Material Analysis (längst)     │
-│   2. Validation                     │
-│   3. Emphasis Refinement            │
-│   4. Example Cataloging             │
-│   5. Misconception Analysis         │
-│   6. Scope Boundaries               │
-│   7. Learning Objectives            │
-│                                     │
-│   Total tid: 2.5-4 timmar           │
-│   Kan pausas mellan stages          │
-│                                     │
-│   Redo att börja?"                  │
-└───────┬─────────────────────────────┘
-        │
-        ↓
-┌──────────────────┐
-│  USER: "Ja"      │
-└───────┬──────────┘
-        │
-        ↓
-Logs:
-jsonl{"event": "m1_start", "timestamp": "08:00:00"}
-{"event": "stage_load", "module": "m1", "stage": 0}
-{"event": "stage_complete", "module": "m1", "stage": 0}
-Session State:
-yamlmethodology:
-  m1:
-    status: in_progress
-    current_stage: 0
-    stage0:
-      status: complete
-Output: None (expectations set verbally)
+**NOT multiple files** - all stages append to the same document.
 
-Stage 1: Material Analysis
-Duration: 60-90 minutes (LONGEST stage)
-Purpose: Interactive analysis of all instructional materials
-Pattern: Load → List → [Loop: Read → Analyze → Discuss → Save] → Finalize
-Workflow Overview
-Load instructions
-    │
-List materials (read_materials with filename: null)
-    │
-FOR EACH material:
-    │
-    ├─→ Read text (read_materials with filename: "X")
-    ├─→ Analyze content (Claude internal process)
-    ├─→ Present findings to teacher
-    ├─→ Teacher validates/corrects
-    ├─→ Save progress (update_stage1_working)
-    └─→ Confirm & continue
-    │
-Finalize (update_stage1_working with action: "finalize")
-Detailed Flow
-Part A: Initialize
-load_stage(module: "m1", stage: 1, project_path: "...")
-  ↓
-MCP returns methodology content
-  ↓
-Claude reads instructions:
-  - Emphasis signals (repetition, time, explicit priority)
-  - Tier definitions (1-4)
-  - Analysis framework
-  - Dialogue patterns
-Part B: List Materials
-read_materials(project_path: "...", filename: null)
-  ↓
-MCP returns: {files: ["file1.pdf", "file2.pdf", ...]}
-  ↓
-Claude presents: "Jag ser N materials. Börjar med första?"
-Part C: Analysis Loop (FOR EACH material)
-C.1: read_materials(filename: "X.pdf")
-     ↓
-     MCP extracts text → Claude receives content
-     
-C.2: Claude analyzes (3-8 min, internal):
-     - Identifies topics
-     - Detects emphasis signals
-     - Suggests tier classifications
-     - Notes examples
-     - Spots misconceptions
-     
-C.3: Claude presents findings (30 sec):
-     "Topics: [...], Tiers: [...], Examples: [...]"
-     
-C.4: Teacher validates (1-2 min):
-     "Correct / Move X from Tier 2 → Tier 1"
-     
-C.5: Claude updates working memory (10 sec)
-
-C.6: update_stage1_working(
-       action: "add_material",
-       data: {
-         material_name: "X.pdf",
-         topics: [...],
-         tiers: {...},
-         examples: [...],
-         misconceptions: [...],
-         teacher_feedback: "..."
-       }
-     )
-     ↓
-     MCP appends to working_notes.md
-     Updates YAML frontmatter
-     Updates running synthesis
-     Logs progress
-     
-C.7: Claude confirms: "✅ Material N/M analyzed. Nästa?"
-Part D: Finalize
-After all materials analyzed:
-  ↓
-Claude summarizes totals
-  ↓
-Teacher confirms
-  ↓
-update_stage1_working(action: "finalize")
-  ↓
-MCP adds FINAL SYNTHESIS section
-Updates status: complete
-MCP Tools Used
-ToolCallsPurposeload_stage1×Load methodologyread_materialsN+1×List (1×) + Extract each material (N×)update_stage1_workingN+1×Save after each (N×) + Finalize (1×)
-Total tool calls: ~(2N + 3) where N = number of materials
-Output
-File: 01_methodology/m1_stage1_working_notes.md
-Structure:
-markdown---
-stage: 1
-module: m1
-session_id: xxx
-started: [timestamp]
-last_updated: [timestamp]
-status: complete
-
-materials:
-  total: N
-  analyzed: N
-  completed: [list]
-
-outputs:
-  topics: X
-  examples: Y
-  misconceptions: Z
-  tiers: {tier1: A, tier2: B, tier3: C, tier4: D}
 ---
 
-# Stage 1: Material Analysis Working Notes
+## Single Document Strategy
 
-## Material 1/N: [filename] ✅
-[Full analysis]
+### Why Single Document?
 
-## Material 2/N: [filename] ✅
-[Full analysis]
+1. **Stage 0 is long (60-90 min)** - needs progressive saves during stage
+2. **Easier to review** - teacher sees complete picture in one place
+3. **Simpler handoff to M2** - one file contains everything
+4. **Clear resume** - document + session.yaml shows exact state
+
+### Document Structure
+
+```markdown
+---
+qf_type: m1_analysis
+qf_version: "1.0"
+created: "2026-01-19T10:00:00Z"
+updated: "2026-01-19T14:30:00Z"  # Updated on EVERY save
+session_id: "de4d725a-..."
+
+# Progress tracking
+status: in_progress | complete
+current_stage: 2
+stages_completed: [0, 1]
+
+# Stage 0 specific
+materials_analyzed: 5
+total_materials: 5
+---
+
+# M1: Material Analysis
+
+## Stage 0: Material Analysis ✅
+*Completed: 2026-01-19T11:30:00Z*
+
+### Material 1/5: lecture_week1.pdf
+**Summary:** ...
+**Key Topics:** ...
+**Tier Classification:**
+- Tier 1 (Core): ...
+- Tier 2 (Important): ...
+- Tier 3 (Supplementary): ...
+- Tier 4 (Reference): ...
+**Examples Found:** ...
+**Potential Misconceptions:** ...
+
+### Material 2/5: lecture_week2.pdf
+...
+
+### Stage 0 Synthesis
+**Cross-Material Patterns:** ...
+**Initial Tier Overview:** ...
+
+---
+
+## Stage 1: Validation ✅
+*Completed: 2026-01-19T12:00:00Z*
+
+**Validated Tier Structure:**
+...
+**Teacher Corrections:**
+...
+
+---
+
+## Stage 2: Emphasis Refinement ⏳
+*In Progress*
 
 ...
 
 ---
 
-## RUNNING SYNTHESIS
-[Updated after each material]
+## Stage 3: Example Cataloging
+*Not started*
 
 ---
 
-## FINAL SYNTHESIS
-[Complete breakdown added at finalization]
-Size: ~800-1200 lines (depends on material count and analysis depth)
-Logs
-jsonl{"event": "stage_load", "module": "m1", "stage": 1}
-{"event": "materials_list", "count": N, "files": [...]}
-{"event": "material_analyzed", "filename": "X.pdf", "duration_min": Y}
-{"event": "progress_saved", "materials_analyzed": M, "total": N}
-...
-{"event": "stage_finalized", "module": "m1", "stage": 1}
-{"event": "stage_complete", "module": "m1", "stage": 1, "duration_min": Z}
-Session State
-yamlmethodology:
-  m1:
-    current_stage: 1
-    stage1:
-      status: complete
-      completed_at: [timestamp]
-      materials_analyzed: N
-      duration_min: Z
-      output: "01_methodology/m1_stage1_working_notes.md"
-    stage2:
-      status: not_started
-Common Issues
-Issue: Material text extraction fails
+## Stage 4: Misconception Analysis
+*Not started*
 
-Cause: Encrypted PDF, image-based, non-standard encoding
-Solution: Teacher provides text manually (copy-paste)
-Document: Note in working_notes: "Text provided manually"
+---
 
-Issue: Session interrupted mid-analysis
+## Stage 5: Learning Objectives
+*Not started*
 
-Check: working_notes.md YAML: materials.analyzed: M
-Resume: Claude reads working notes, continues from material M+1
-Prevention: Progressive saving ensures no data loss
+---
 
-Issue: Teacher changes mind about tiers later
+## M1 Final Summary
+*Added when finalize_m1 is called*
+```
 
-Normal: Expected part of iterative process
-Solution: Claude updates working memory, re-saves section
-Document: Change noted in teacher feedback
+---
 
+## Stage-by-Stage Workflows
 
-Stage 2: Validation
-Duration: 15-20 minutes
-Purpose: Teacher reviews and validates entire tier structure
-Pattern: Load → Present → Validate → Save
-Workflow
-load_stage(module: "m1", stage: 2)
-  ↓
-Claude reads Stage 1 output (working_notes.md)
-  ↓
-Claude presents complete tier structure for review
-  ↓
-Teacher validates or requests changes
-  ↓
-Claude documents validated structure
-  ↓
-Save validation output
-Output
-File: 01_methodology/m1_stage2_validation.md
-Contains:
+### Stage 0: Material Analysis
 
-Validated tier structure (Tier 1-4)
-Any corrections from teacher
-Approval timestamp
+**Duration:** 60-90 minutes (LONGEST)
+**Type:** Claude solo work with progressive saves
+**Purpose:** Analyze all instructional materials
 
+#### Workflow
 
-Stage 3: Emphasis Refinement
-Duration: 20-30 minutes
-Purpose: Deep dive into WHY certain topics are prioritized
-Pattern: Load → Question → Document → Save
-Workflow
-load_stage(module: "m1", stage: 3)
-  ↓
-Claude reads Stage 2 validated tiers
-  ↓
-FOR EACH Tier 1 topic:
-  Claude asks: "Why is this Tier 1?"
-  Teacher explains pedagogical rationale
-  Claude documents reasoning
-  ↓
-Save emphasis patterns
-Output
-File: 01_methodology/m1_stage3_emphasis_patterns.md
-Contains:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 0: Material Analysis                                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ 1. load_stage(module="m1", stage=0, project_path="...")         │
+│    → Returns: How to analyze materials, tier definitions        │
+│                                                                 │
+│ 2. read_materials(project_path="...", filename=null)            │
+│    → Returns: List of files in 00_materials/                    │
+│    Claude: "Jag ser N filer. Börjar med första?"                │
+│                                                                 │
+│ 3. read_reference(project_path="...")                           │
+│    → Returns: Kursplan content                                  │
+│                                                                 │
+│ 4. FOR EACH material file:                                      │
+│                                                                 │
+│    a. read_materials(filename="lecture1.pdf")                   │
+│       → Returns: Text content of ONE file                       │
+│                                                                 │
+│    b. Claude analyzes (3-8 min):                                │
+│       → Identifies topics                                       │
+│       → Classifies into Tiers 1-4                               │
+│       → Notes examples                                          │
+│       → Spots potential misconceptions                          │
+│                                                                 │
+│    c. Claude presents to teacher:                               │
+│       "Topics: [...], Tiers: [...], Exempel: [...]"             │
+│                                                                 │
+│    d. Teacher validates/corrects (1-2 min)                      │
+│                                                                 │
+│    e. save_m1_progress(                                         │
+│         stage=0,                                                │
+│         action="add_material",                                  │
+│         data={ material: {...} }                                │
+│       )                                                         │
+│       → APPENDS to m1_analysis.md                               │
+│       → Updates YAML: materials_analyzed: N                     │
+│       → Session can resume if interrupted!                      │
+│                                                                 │
+│    f. Claude: "✅ Material N/M klar. Nästa?"                    │
+│                                                                 │
+│ 5. After ALL materials:                                         │
+│    save_m1_progress(                                            │
+│      stage=0,                                                   │
+│      action="save_stage",                                       │
+│      data={ stage_output: { synthesis... } }                    │
+│    )                                                            │
+│    → Adds "Stage 0 Synthesis" section                           │
+│    → Marks Stage 0 complete                                     │
+│                                                                 │
+│ 6. Claude presents synthesis to teacher                         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-Tier 1 topics with rationale
-Pedagogical reasoning
-Priority patterns identified
+#### Tool Calls (Stage 0)
 
+| Tool | Calls | Purpose |
+|------|-------|---------|
+| `load_stage` | 1× | Load methodology |
+| `read_materials` | N+1× | List (1×) + Read each file (N×) |
+| `read_reference` | 1× | Load kursplan |
+| `save_m1_progress` | N+1× | Save after each material (N×) + stage complete (1×) |
 
-Stage 4: Example Cataloging
-Duration: 15-25 minutes
-Purpose: Document effective instructional examples
-Pattern: Load → Review → Catalog → Save
-Workflow
-load_stage(module: "m1", stage: 4)
-  ↓
-Claude presents examples from Stage 1
-  ↓
-Teacher selects most effective examples
-  ↓
-Claude catalogs with effectiveness notes
-  ↓
-Save example catalog
-Output
-File: 01_methodology/m1_stage4_examples.md
-Contains:
+**Total calls:** ~(2N + 4) where N = number of materials
 
-Example ID, title, topic
-Context of use
-Effectiveness notes
-Usage recommendations
+---
 
+### Stage 1: Validation
 
-Stage 5: Misconception Analysis
-Duration: 15-25 minutes
-Purpose: Identify common student errors and confusions
-Pattern: Load → Review → Classify → Save
-Workflow
-load_stage(module: "m1", stage: 5)
-  ↓
-Claude presents misconceptions from Stage 1
-  ↓
-Teacher classifies by severity (critical/moderate/minor)
-  ↓
-Teacher provides correction strategies
-  ↓
-Save misconception registry
-Output
-File: 01_methodology/m1_stage5_misconceptions.md
-Contains:
+**Duration:** 20-30 minutes
+**Type:** Dialogue
+**Purpose:** Teacher validates complete tier structure
 
-Misconception description
-Severity level
-Correction strategy
-Persistence notes
+#### Workflow
 
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 1: Validation                                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ 1. load_stage(module="m1", stage=1, project_path="...")         │
+│    → Returns: Validation instructions                           │
+│                                                                 │
+│ 2. Claude reads Stage 0 from m1_analysis.md                     │
+│                                                                 │
+│ 3. Claude presents complete tier structure:                     │
+│    "Här är sammanställningen av alla Tier 1 ämnen..."           │
+│                                                                 │
+│ 4. Teacher validates or requests changes:                       │
+│    "Flytta X från Tier 2 → Tier 1"                              │
+│                                                                 │
+│ 5. Claude documents validated structure                         │
+│                                                                 │
+│ 6. save_m1_progress(                                            │
+│      stage=1,                                                   │
+│      action="save_stage",                                       │
+│      data={ stage_output: {...} }                               │
+│    )                                                            │
+│    → APPENDS Stage 1 section to m1_analysis.md                  │
+│    → Updates: stages_completed: [0, 1]                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-Stage 6: Scope Boundaries
-Duration: 10-15 minutes
-Purpose: Define clear IN/OUT boundaries
-Pattern: Load → Define → Document → Save
-Workflow
-load_stage(module: "m1", stage: 6)
-  ↓
-Claude reviews all topics (Tier 1-4)
-  ↓
-Teacher explicitly states:
-  - What IS in scope (Tier 1-3)
-  - What is OUT of scope (Tier 4)
-  - Boundary cases
-  ↓
-Save scope document
-Output
-File: 01_methodology/m1_stage6_scope.md
-Contains:
+---
 
-IN SCOPE (explicit list)
-OUT OF SCOPE (explicit list)
-Boundary notes
-Rationale for exclusions
+### Stage 2: Emphasis Refinement
 
+**Duration:** 30-45 minutes
+**Type:** Dialogue
+**Purpose:** Deep dive into WHY Tier 1 topics are prioritized
 
-Stage 7: Learning Objectives
-Duration: 20-30 minutes
-Purpose: Synthesize validated learning objectives
-Pattern: Load → Synthesize → Validate → Finalize
-Workflow
-load_stage(module: "m1", stage: 7)
-  ↓
-Claude reads ALL previous stage outputs
-  ↓
-Claude synthesizes learning objectives:
-  - Based on Tier 1 topics (foundational)
-  - Informed by emphasis patterns
-  - Grounded in examples
-  - Aware of misconceptions
-  - Within defined scope
-  ↓
-Teacher validates objectives
-  ↓
-Claude creates final M1 output
-  ↓
-M1 COMPLETE
-Output
-File: 01_methodology/m1_stage7_learning_objectives.md ← FINAL M1 OUTPUT
-Contains:
+#### Workflow
 
-Validated learning objectives
-Cognitive levels (Bloom's)
-Assessment recommendations
-References to supporting materials
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 2: Emphasis Refinement                                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ 1. load_stage(module="m1", stage=2, project_path="...")         │
+│                                                                 │
+│ 2. Claude reads validated tiers from m1_analysis.md             │
+│                                                                 │
+│ 3. FOR EACH Tier 1 topic:                                       │
+│    Claude: "Varför är [topic] Tier 1?"                          │
+│    Teacher: Explains pedagogical rationale                      │
+│    Claude: Documents reasoning                                  │
+│                                                                 │
+│ 4. save_m1_progress(stage=2, action="save_stage", data={...})   │
+│    → APPENDS Stage 2 section to m1_analysis.md                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
+---
 
-Session Management
-Session State (session.yaml)
-yamlproject:
+### Stage 3: Example Cataloging
+
+**Duration:** 20-30 minutes
+**Type:** Dialogue
+**Purpose:** Curate effective instructional examples
+
+#### Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 3: Example Cataloging                                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ 1. load_stage(module="m1", stage=3, project_path="...")         │
+│                                                                 │
+│ 2. Claude presents examples found in Stage 0                    │
+│                                                                 │
+│ 3. Teacher selects most effective examples                      │
+│    Teacher: "Exempel A är bra för nybörjare, Exempel B..."      │
+│                                                                 │
+│ 4. Claude catalogs with effectiveness notes                     │
+│                                                                 │
+│ 5. save_m1_progress(stage=3, action="save_stage", data={...})   │
+│    → APPENDS Stage 3 section to m1_analysis.md                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Stage 4: Misconception Analysis
+
+**Duration:** 20-30 minutes
+**Type:** Dialogue
+**Purpose:** Classify misconceptions by severity
+
+#### Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 4: Misconception Analysis                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ 1. load_stage(module="m1", stage=4, project_path="...")         │
+│                                                                 │
+│ 2. Claude presents misconceptions found in Stage 0              │
+│                                                                 │
+│ 3. Teacher classifies by severity:                              │
+│    - Critical (blocks learning)                                 │
+│    - Moderate (causes confusion)                                │
+│    - Minor (occasional error)                                   │
+│                                                                 │
+│ 4. Teacher provides correction strategies                       │
+│                                                                 │
+│ 5. save_m1_progress(stage=4, action="save_stage", data={...})   │
+│    → APPENDS Stage 4 section to m1_analysis.md                  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Stage 5: Learning Objectives
+
+**Duration:** 45-60 minutes
+**Type:** Dialogue
+**Purpose:** Synthesize validated learning objectives
+
+#### Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 5: Learning Objectives                                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ 1. load_stage(module="m1", stage=5, project_path="...")         │
+│                                                                 │
+│ 2. Claude reads ALL previous stages from m1_analysis.md         │
+│                                                                 │
+│ 3. Claude synthesizes learning objectives:                      │
+│    - Based on Tier 1 topics                                     │
+│    - Informed by emphasis patterns (Stage 2)                    │
+│    - Grounded in examples (Stage 3)                             │
+│    - Aware of misconceptions (Stage 4)                          │
+│                                                                 │
+│ 4. Teacher validates objectives                                 │
+│                                                                 │
+│ 5. save_m1_progress(stage=5, action="save_stage", data={...})   │
+│    → APPENDS Stage 5 section to m1_analysis.md                  │
+│                                                                 │
+│ 6. save_m1_progress(action="finalize_m1", data={...})           │
+│    → Adds "M1 Final Summary" section                            │
+│    → Updates: status: complete                                  │
+│    → M1 COMPLETE!                                               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## MCP Tools Reference
+
+### Tools Used in M1
+
+| Tool | Package | Purpose |
+|------|---------|---------|
+| `load_stage` | qf-scaffolding | Load methodology for stage N |
+| `read_materials` | qf-scaffolding | Read from 00_materials/ |
+| `read_reference` | qf-scaffolding | Read kursplan etc. |
+| `save_m1_progress` | qf-scaffolding | **NEW** Save to m1_analysis.md |
+
+### `save_m1_progress` Actions
+
+| Action | When Used | Effect |
+|--------|-----------|--------|
+| `add_material` | Stage 0, after each PDF | Appends material analysis |
+| `save_stage` | Stage 0-5, when stage completes | Appends stage section |
+| `finalize_m1` | After Stage 5 | Marks M1 complete |
+
+### `read_materials` Modes
+
+| Parameter | Mode | Returns |
+|-----------|------|---------|
+| `filename=null` | List | File names + metadata (no content) |
+| `filename="X.pdf"` | Read | Content of ONE specific file |
+
+---
+
+## Session Management
+
+### session.yaml Structure
+
+```yaml
+project:
   name: "AI Course 2026"
   created: "2026-01-18T08:00:00Z"
-  last_updated: "2026-01-18T12:00:00Z"
+  last_updated: "2026-01-18T14:30:00Z"
 
 methodology:
   m1:
     status: in_progress  # not_started | in_progress | complete
-    current_stage: 3
-    started_at: "2026-01-18T08:00:00Z"
-    
-    stage0:
-      status: complete
-      completed_at: "2026-01-18T08:05:00Z"
-    
-    stage1:
-      status: complete
-      completed_at: "2026-01-18T09:30:00Z"
-      materials_analyzed: 9
-      duration_min: 70
-      output: "01_methodology/m1_stage1_working_notes.md"
-    
-    stage2:
-      status: complete
-      completed_at: "2026-01-18T09:50:00Z"
-      output: "01_methodology/m1_stage2_validation.md"
-    
-    stage3:
-      status: in_progress
-      started_at: "2026-01-18T09:55:00Z"
-    
-    stage4:
-      status: not_started
-    
-    stage5:
-      status: not_started
-    
-    stage6:
-      status: not_started
-    
-    stage7:
-      status: not_started
-Session Logs (logs/session.jsonl)
-Purpose:
+    current_stage: 2
+    stages_completed: [0, 1]
+    output: "01_methodology/m1_analysis.md"
 
-Track exact progress within M1
-Enable resume if interrupted
-Document duration per stage
-Audit trail of all events
+    # Stage 0 specific
+    materials_analyzed: 5
+    total_materials: 5
+```
 
-Format: One JSON object per line
-Example:
-jsonl{"event": "m1_start", "timestamp": "2026-01-18T08:00:00Z"}
-{"event": "stage_load", "module": "m1", "stage": 0, "timestamp": "08:00:15"}
-{"event": "stage_complete", "module": "m1", "stage": 0, "timestamp": "08:05:00"}
-{"event": "stage_load", "module": "m1", "stage": 1, "timestamp": "08:05:30"}
-{"event": "materials_list", "count": 9, "files": [...], "timestamp": "08:06:00"}
-{"event": "material_analyzed", "filename": "Vad är AI.pdf", "duration_min": 8, "timestamp": "08:14:00"}
-{"event": "progress_saved", "materials_analyzed": 1, "total": 9, "timestamp": "08:14:05"}
+### Log Events (logs/session.jsonl)
+
+```jsonl
+{"event": "m1_start", "timestamp": "2026-01-18T08:00:00Z"}
+{"event": "stage_load", "module": "m1", "stage": 0}
+{"event": "materials_list", "count": 5, "files": [...]}
+{"event": "material_analyzed", "filename": "lecture1.pdf", "index": 1}
+{"event": "progress_saved", "stage": 0, "action": "add_material", "materials_analyzed": 1}
 ...
-{"event": "stage_finalized", "module": "m1", "stage": 1, "timestamp": "09:30:00"}
-{"event": "stage_complete", "module": "m1", "stage": 1, "duration_min": 85, "timestamp": "09:30:05"}
-Resume Capability
-Scenario: Session interrupted at Stage 1, material 5/9
-Resume Process:
+{"event": "stage_complete", "module": "m1", "stage": 0}
+{"event": "stage_load", "module": "m1", "stage": 1}
+{"event": "stage_complete", "module": "m1", "stage": 1}
+...
+{"event": "m1_complete", "timestamp": "2026-01-18T14:30:00Z"}
+```
 
-Read session.yaml:
+---
 
-yaml   stage1:
+## Resume Capability
+
+### Scenario: Session interrupted at Stage 0, material 3/5
+
+**Resume Process:**
+
+1. **Read session.yaml:**
+   ```yaml
+   m1:
      status: in_progress
-     materials_analyzed: 5
+     current_stage: 0
+     materials_analyzed: 3
+     total_materials: 5
+   ```
 
-Read logs/session.jsonl (last events):
+2. **Read m1_analysis.md YAML frontmatter:**
+   ```yaml
+   current_stage: 0
+   materials_analyzed: 3
+   ```
 
-jsonl   {"event": "material_analyzed", "filename": "Hallucinationer.pdf", ...}
-   {"event": "progress_saved", "materials_analyzed": 5, "total": 9}
+3. **Read m1_analysis.md content:**
+   - Material 1 ✅
+   - Material 2 ✅
+   - Material 3 ✅
+   - Material 4 (not present)
+   - Material 5 (not present)
 
-Read m1_stage1_working_notes.md YAML:
+4. **Resume:** Claude continues from material 4/5
 
-yaml   materials:
-     analyzed: 5
-     completed: ["Vad är AI.pdf", "Bias.pdf", ...]
-     pending: ["Hållbarhet.pdf", "AI-ordbok.pdf", ...]
+**No data loss** - progressive saving ensures all completed work is preserved.
 
-Claude continues from material 6/9
-No data loss (progressive saving)
+---
 
+## Troubleshooting
 
-Common Patterns
-Pattern 1: Load → Process → Save
-All stages follow:
-1. load_stage(module, stage, project_path)
-2. Claude reads methodology instructions
-3. Claude processes (reads previous outputs, dialogues with teacher)
-4. Claude saves output
-5. Session state updated
-6. Logs written
-Pattern 2: Progressive Outputs
-Stage 1 output → Stage 2 input
-Stage 2 output → Stage 3 input
-Stage 3 output → Stage 4 input
-...
-All outputs → Stage 7 synthesis
-Pattern 3: Teacher Validation Gates
-Every stage:
+### Issue: "Claude can't find methodology files"
 
-Claude presents findings/proposals
-Teacher validates or corrects
-Claude saves approved version
-No automatic progression without approval
+**Symptom:** `load_stage` returns error
 
-Pattern 4: One Output Per Stage
-Principle: Each stage produces EXACTLY ONE output document
-Why:
+**Solution:**
+1. Check `project_path` is absolute
+2. Verify `methodology/m1/` exists in project
+3. Check file names match expected pattern
 
-Avoids overwhelming documentation
-Clear file structure
-Easy to track progress
-Simple to reference
+### Issue: "Session state out of sync"
 
-Exception: Stage 0 (no output, just orientation)
+**Symptom:** session.yaml shows different progress than m1_analysis.md
 
-Troubleshooting
-Issue: "Claude can't find methodology files"
-Symptom: load_stage returns error
-Cause: Methodology files not in expected location
-Solution:
+**Solution:**
+1. Read m1_analysis.md YAML frontmatter (source of truth)
+2. Update session.yaml to match document state
+3. Resume from document state
 
-Check: /methodology/m1/m1_X_stageX_*.md exists
-Verify qf-scaffolding MCP configured correctly
-Check project_path is absolute
+### Issue: "PDF text extraction fails"
 
-Issue: "Session state out of sync"
-Symptom: session.yaml says stage 3, but outputs only exist for stage 1
-Cause: Manual file deletion or editing
-Solution:
+**Symptom:** `read_materials` returns error for specific file
 
-Check which output files actually exist in 01_methodology/
-Update session.yaml to match reality
-Resume from last existing output
+**Solution:**
+1. Check if PDF is encrypted or image-based
+2. Teacher can provide text manually (copy-paste)
+3. Document: Note in analysis that text was provided manually
 
-Issue: "Can't resume after interruption"
-Symptom: Claude doesn't know where to continue
-Solution:
+### Issue: "Working memory overflow in Stage 0"
 
-Read session.yaml: methodology.m1.current_stage
-Read logs: Last stage_complete event
-Read working_notes.md YAML: status field
-Resume from last completed stage + 1
+**Symptom:** Claude loses track with 15+ materials
 
-Issue: "Working memory overflow in long stages"
-Symptom: Claude loses track in Stage 1 with 15+ materials
-Cause: Too much data accumulated
-Solution:
+**Solution:**
+1. Progressive saving already mitigates this
+2. Claude can re-read m1_analysis.md to refresh context
+3. Consider splitting materials into batches
 
-Progressive saving mitigates this (after each material)
-Claude can re-read working_notes.md if needed
-Running Synthesis provides quick reference
-Consider splitting materials into smaller batches
+---
 
+## Summary
 
-Next Steps After M1 Complete
-When Stage 7 finishes:
-M1 Status: complete
-Output: m1_stage7_learning_objectives.md
+### M1 Essence
 
-Ready for → M2: Assessment Design
-M2 will use:
+- **6 stages**, 2.5-4 hours total
+- **ONE output document** (`m1_analysis.md`)
+- Progressive saving during Stage 0
+- Teacher validation at every step
+- Resumable via session.yaml + document state
 
-M1 Stage 7: Learning objectives
-M1 Stage 3: Emphasis patterns
-M1 Stage 4: Examples
-M1 Stage 5: Misconceptions
-M1 Stage 6: Scope boundaries
+### Critical Success Factors
 
-M1 provides the pedagogical foundation for all subsequent modules.
+- ✅ Teacher actively engaged throughout
+- ✅ Progressive saving after each material (Stage 0)
+- ✅ ALL stages save to SAME document
+- ✅ Logs track progress for audit trail
+- ✅ `save_m1_progress` handles all saving
 
-Summary
-M1 Essence:
+### Output
 
-8 stages, 2.5-4 hours total
-Progressive building, each stage builds on previous
-Teacher validation at every step
-One output document per stage
-Resumable via logs and session state
-Methodology guides WHAT to do, workflow documents HOW it executes
+```
+project/
+└── 01_methodology/
+    └── m1_analysis.md    ← ONE document (~1500-2500 lines)
+```
 
-Critical Success Factors:
-✅ Teacher actively engaged throughout
-✅ Progressive saving after each material (Stage 1)
-✅ Claude presents findings, teacher validates
-✅ Logs track progress for resume capability
-✅ Methodology and workflow clearly separated
-✅ One output per stage prevents overwhelm
-Total Outputs: 7 files in 01_methodology/
-m1_stage1_working_notes.md           (~1000 lines)
-m1_stage2_validation.md              (~100 lines)
-m1_stage3_emphasis_patterns.md       (~150 lines)
-m1_stage4_examples.md                (~200 lines)
-m1_stage5_misconceptions.md          (~200 lines)
-m1_stage6_scope.md                   (~100 lines)
-m1_stage7_learning_objectives.md     (~300 lines) ← FINAL
+**Ready for M2** when `status: complete` in document frontmatter.
+
+---
+
+*Synced with [RFC-004](../rfcs/RFC-004-m1-methodology-tools.md) on 2026-01-19*

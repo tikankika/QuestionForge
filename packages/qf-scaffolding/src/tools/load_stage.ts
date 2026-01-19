@@ -34,7 +34,7 @@ interface StageInfo {
 
 // Maximum stage index for each module
 const MAX_STAGES: Record<string, number> = {
-  m1: 7,  // 0-7 (8 files)
+  m1: 5,  // 0-5 (6 stages) - RFC-004 update
   m2: 8,  // 0-8 (9 files)
   m3: 4,  // 0-4 (5 files)
   m4: 5,  // 0-5 (6 files)
@@ -48,62 +48,50 @@ const MODULE_NAMES: Record<string, string> = {
   m4: "M4 (Quality Assurance)",
 };
 
+// RFC-004: Stage numbering updated - stage=0 is Material Analysis
+// This matches the intuitive expectation: load_stage(stage=0) = first real stage
 const M1_STAGES: Record<number, StageInfo> = {
   0: {
-    filename: "m1_0_intro.md",
-    name: "Introduction",
-    description: "Framework overview and principles for Material Analysis",
-    estimatedTime: "15 min read",
-    requiresApproval: false,
+    filename: "m1_0_stage0_material_analysis.md",
+    name: "Stage 0: Material Analysis",
+    description: "AI analyzes instructional materials (AI solo phase with progressive saves)",
+    estimatedTime: "60-90 min",
+    requiresApproval: false, // AI solo work, uses save_m1_progress
   },
   1: {
-    filename: "m1_0_stage0_material_analysis.md", // Renamed: file number matches stage number
-    name: "Stage 0: Material Analysis",
-    description: "AI analyzes instructional materials (AI solo phase)",
-    estimatedTime: "60-90 min",
-    requiresApproval: false, // AI solo work
-  },
-  2: {
-    filename: "m1_1_stage1_validation.md", // Renamed: file number matches stage number
-    name: "Stage 1: Initial Validation",
+    filename: "m1_1_stage1_validation.md",
+    name: "Stage 1: Validation",
     description: "Teacher validates AI's material analysis",
     estimatedTime: "20-30 min",
     requiresApproval: true,
   },
-  3: {
-    filename: "m1_2_stage2_emphasis.md", // Renamed: file number matches stage number
+  2: {
+    filename: "m1_2_stage2_emphasis.md",
     name: "Stage 2: Emphasis Refinement",
     description: "Deep dive into teaching priorities and emphasis",
     estimatedTime: "30-45 min",
     requiresApproval: true,
   },
-  4: {
-    filename: "m1_3_stage3_examples.md", // Renamed: file number matches stage number
-    name: "Stage 3: Example Catalog",
+  3: {
+    filename: "m1_3_stage3_examples.md",
+    name: "Stage 3: Example Cataloging",
     description: "Document effective examples from teaching",
     estimatedTime: "20-30 min",
     requiresApproval: true,
   },
-  5: {
-    filename: "m1_4_stage4_misconceptions.md", // Renamed: file number matches stage number
+  4: {
+    filename: "m1_4_stage4_misconceptions.md",
     name: "Stage 4: Misconception Analysis",
     description: "Identify and document common student misconceptions",
     estimatedTime: "20-30 min",
     requiresApproval: true,
   },
-  6: {
-    filename: "m1_5_stage5_objectives.md", // Renamed: file number matches stage number
-    name: "Stage 5: Scope & Objectives",
+  5: {
+    filename: "m1_5_stage5_objectives.md",
+    name: "Stage 5: Learning Objectives",
     description: "Finalize learning objectives from analysis",
     estimatedTime: "45-60 min",
     requiresApproval: true,
-  },
-  7: {
-    filename: "m1_6_best_practices.md", // Renamed: was m1_7
-    name: "Best Practices",
-    description: "Facilitation principles and guidelines",
-    estimatedTime: "15 min read",
-    requiresApproval: false, // Reference material
   },
 };
 
@@ -635,19 +623,19 @@ export interface ToolHint {
  *
  * Returns an array of tools that should be used for this stage,
  * helping Claude know which MCP tools to call.
+ *
+ * RFC-004: Updated to use save_m1_progress for M1
  */
 export function getToolHintsForStage(module: string, stage: number): ToolHint[] {
-  // M1 tool hints
+  // M1 tool hints - RFC-004 update
   if (module === "m1") {
     switch (stage) {
-      case 0: // Introduction
-        return []; // No tools needed for reading intro
-      case 1: // Stage 0: Material Analysis (Claude's solo work)
+      case 0: // Stage 0: Material Analysis (Claude's solo work with progressive saves)
         return [
           {
             tool: "read_materials",
-            description: "Läs undervisningsmaterial från 00_materials/",
-            example: 'read_materials(project_path="<project>", extract_text=true)',
+            description: "Lista filer i 00_materials/ (filename=null) eller läs en specifik fil",
+            example: 'read_materials(project_path="<project>") // List mode\nread_materials(project_path="<project>", filename="lecture1.pdf") // Read mode',
           },
           {
             tool: "read_reference",
@@ -655,37 +643,30 @@ export function getToolHintsForStage(module: string, stage: number): ToolHint[] 
             example: 'read_reference(project_path="<project>")',
           },
           {
-            tool: "complete_stage",
-            description: "Spara material_analysis output när analysen är klar",
-            example: 'complete_stage(project_path="<project>", module="m1", stage=0, output={type: "material_analysis", data: {...}})',
+            tool: "save_m1_progress",
+            description: "Spara efter varje material (action=add_material) och när stage är klar (action=save_stage)",
+            example: 'save_m1_progress(project_path="<project>", stage=0, action="add_material", data={material: {...}})',
           },
         ];
-      case 2: // Stage 1: Initial Validation
-      case 3: // Stage 2: Emphasis Refinement
-      case 4: // Stage 3: Example Catalog
-      case 5: // Stage 4: Misconception Analysis
-      case 6: // Stage 5: Scope & Objectives
-        // These are dialogue stages - primarily complete_stage for output
-        const outputTypes: Record<number, string> = {
-          2: "emphasis_patterns",
-          3: "emphasis_patterns",
-          4: "examples",
-          5: "misconceptions",
-          6: "learning_objectives",
-        };
-        const outputType = outputTypes[stage];
-        if (outputType) {
-          return [
-            {
-              tool: "complete_stage",
-              description: `Spara ${outputType} output efter lärarens godkännande`,
-              example: `complete_stage(project_path="<project>", module="m1", stage=${stage - 1}, output={type: "${outputType}", data: {...}})`,
-            },
-          ];
-        }
-        return [];
-      case 7: // Best Practices
-        return []; // Reference material, no tools needed
+      case 1: // Stage 1: Validation
+      case 2: // Stage 2: Emphasis Refinement
+      case 3: // Stage 3: Example Cataloging
+      case 4: // Stage 4: Misconception Analysis
+        return [
+          {
+            tool: "save_m1_progress",
+            description: `Spara Stage ${stage} output efter lärarens godkännande`,
+            example: `save_m1_progress(project_path="<project>", stage=${stage}, action="save_stage", data={stage_output: {...}})`,
+          },
+        ];
+      case 5: // Stage 5: Learning Objectives (final stage)
+        return [
+          {
+            tool: "save_m1_progress",
+            description: "Spara Stage 5 och sedan finalize_m1 för att markera M1 komplett",
+            example: 'save_m1_progress(stage=5, action="save_stage", data={...})\nsave_m1_progress(action="finalize_m1", data={final_summary: {...}})',
+          },
+        ];
       default:
         return [];
     }

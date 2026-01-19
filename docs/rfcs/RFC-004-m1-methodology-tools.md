@@ -2,11 +2,21 @@
 
 | Field | Value |
 |-------|-------|
-| **Status** | Phase 0-1 Complete, Phase 2-3 Draft |
+| **Status** | Phase 0-1 Complete, Phase 2 Design Complete |
 | **Created** | 2026-01-17 |
-| **Updated** | 2026-01-17 |
+| **Updated** | 2026-01-19 |
 | **Author** | Niklas Karlsson |
 | **Relates to** | qf-scaffolding, RFC-001 (logging), RFC-002 (QFMD), SPEC_M1_M4_OUTPUTS_FULL.md |
+
+## Key Decisions (2026-01-19)
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Output strategy | **Single document** `m1_analysis.md` | Easier to review, pass to M2, resume |
+| Tool name | `save_m1_progress` | General name for all M1 stages |
+| Stage numbering | `load_stage(stage=0)` = Material Analysis | Intuitive: stage parameter = methodology stage |
+| Stage 0 saving | Progressive (after each PDF) | 60-90 min stage, prevents data loss |
+| Stage 1-5 saving | After each dialogue completes | Shorter stages, natural save points |
 
 ## Summary
 
@@ -172,30 +182,50 @@ Add the following tools to qf-scaffolding:
 ```typescript
 interface ReadMaterialsInput {
   project_path: string;
-  file_pattern?: string;  // e.g., "*.pdf", "lecture*.md"
-  extract_text?: boolean; // For PDFs: extract text content
+  filename?: string | null;  // null → list files only, "X.pdf" → read specific file
+  file_pattern?: string;     // e.g., "*.pdf" - DEPRECATED, use filename instead
+  extract_text?: boolean;    // For PDFs: extract text content (default: true)
 }
 
 interface ReadMaterialsResult {
   success: boolean;
-  materials: Array<{
+  // When filename=null (list mode):
+  files?: Array<{
+    filename: string;
+    size_bytes: number;
+    content_type: "pdf" | "md" | "txt" | "pptx" | "other";
+  }>;
+  // When filename="X.pdf" (read mode):
+  material?: {
     filename: string;
     path: string;
     content_type: "pdf" | "md" | "txt" | "pptx" | "other";
     size_bytes: number;
     text_content?: string;  // If extract_text=true
     error?: string;         // If extraction failed
-  }>;
+  };
   total_files: number;
   total_chars?: number;
 }
 ```
 
 **Purpose:** Read instructional materials from the project's 00_materials/ folder.
-- Supports PDF text extraction (built-in, no external tools needed)
+- **List mode** (`filename=null`): Returns list of available files without reading content
+- **Read mode** (`filename="X.pdf"`): Reads and extracts text from a specific file
+- Supports PDF text extraction (built-in via `pdf-parse`)
 - Supports markdown, text, and other formats
 - Returns content within MCP response (no file copying needed)
 - Logs read operations (RFC-001 compliant)
+
+**Usage pattern for Stage 1:**
+```
+1. read_materials(filename=null)     → List all files in 00_materials/
+2. read_materials(filename="A.pdf")  → Read first file
+3. Analyze and save progress
+4. read_materials(filename="B.pdf")  → Read next file
+5. Analyze and save progress
+... repeat for each material
+```
 
 #### 2. `read_reference` - Read reference documents (kursplan, etc.)
 
@@ -243,7 +273,218 @@ interface GetMethodologyResult {
 - Includes Zod schema so Claude knows exact output structure
 - Optionally includes example outputs
 
-### M1 Complete Workflow (Correct)
+#### 4. `save_m1_progress` - Progressive saving for ALL M1 stages
+
+```typescript
+interface SaveM1ProgressInput {
+  project_path: string;
+  stage: 0 | 1 | 2 | 3 | 4 | 5;  // Which M1 stage
+  action: "add_material" | "save_stage" | "finalize_m1";
+  data: M1ProgressData;
+}
+
+interface M1ProgressData {
+  // For action="add_material" (Stage 0 only - after each PDF)
+  material?: {
+    filename: string;
+    summary: string;
+    key_topics: string[];
+    tier_classification: {
+      tier1_core: string[];
+      tier2_important: string[];
+      tier3_supplementary: string[];
+      tier4_reference: string[];
+    };
+    examples_found: Array<{
+      topic: string;
+      example: string;
+      location: string;
+    }>;
+    potential_misconceptions: string[];
+  };
+
+  // For action="save_stage" (Stage 0-5 - after dialogue completes)
+  stage_output?: {
+    stage_name: string;
+    content: string;           // Markdown content for this stage
+    teacher_approved: boolean;
+  };
+
+  // For action="finalize_m1" (after Stage 5)
+  final_summary?: {
+    total_materials: number;
+    learning_objectives_count: number;
+    ready_for_m2: boolean;
+  };
+}
+
+interface SaveM1ProgressResult {
+  success: boolean;
+  current_stage: number;
+  stages_completed: number[];
+  document_path: string;  // Always "01_methodology/m1_analysis.md"
+}
+```
+
+**Purpose:** Single tool for ALL M1 saving - both progressive (during Stage 0) and stage-completion saves.
+
+**Three actions:**
+1. **`add_material`** (Stage 0 only): Appends one material's analysis during the long PDF analysis phase
+2. **`save_stage`** (Stage 0-5): Saves a completed stage's output to the document
+3. **`finalize_m1`** (after Stage 5): Marks M1 complete, ready for M2
+
+**All saves go to ONE document:** `01_methodology/m1_analysis.md`
+
+**Usage patterns:**
+
+```
+Stage 0 (Material Analysis - 60-90 min):
+  FOR EACH PDF:
+    1. read_materials(filename="X.pdf")
+    2. Claude analyzes
+    3. save_m1_progress(stage=0, action="add_material", data={material: {...}})
+  AFTER ALL PDFs:
+    4. save_m1_progress(stage=0, action="save_stage", data={stage_output: {...}})
+
+Stage 1-5 (Dialogues - 15-45 min each):
+  1. load_stage(module="m1", stage=N)
+  2. Teacher-Claude dialogue
+  3. Teacher approves
+  4. save_m1_progress(stage=N, action="save_stage", data={stage_output: {...}})
+
+After Stage 5:
+  save_m1_progress(action="finalize_m1", data={final_summary: {...}})
+```
+
+### Output Strategy: Single Document with Progressive Saving
+
+**Key Decision:** M1 produces ONE output document (`m1_analysis.md`) that grows progressively through all 6 stages.
+
+**Rationale:**
+- Stage 0 (Material Analysis) takes 60-90 minutes - needs in-stage saves
+- Single document is easier to review and pass to M2
+- Clear audit trail via YAML frontmatter (updated on each save)
+- Session can resume from any point
+
+**Output Document Structure:**
+```markdown
+---
+qf_type: m1_analysis
+qf_version: "1.0"
+created: "2026-01-19T10:00:00Z"
+updated: "2026-01-19T14:30:00Z"  # Updated on EVERY save
+session_id: "de4d725a-..."
+
+# Progress tracking
+status: in_progress | complete
+current_stage: 2
+stages_completed: [0, 1]
+
+# Stage 0 specific
+materials_analyzed: 5
+total_materials: 5
+---
+
+# M1: Material Analysis
+
+## Stage 0: Material Analysis ✅
+*Completed: 2026-01-19T11:30:00Z*
+
+### Material 1/5: lecture_week1.pdf
+**Summary:** ...
+**Key Topics:** ...
+**Tier Classification:**
+- Tier 1 (Core): ...
+- Tier 2 (Important): ...
+- Tier 3 (Supplementary): ...
+- Tier 4 (Reference): ...
+**Examples Found:** ...
+**Potential Misconceptions:** ...
+
+### Material 2/5: lecture_week2.pdf
+...
+
+### Stage 0 Synthesis
+**Cross-Material Patterns:** ...
+**Initial Tier Overview:** ...
+
+---
+
+## Stage 1: Validation ✅
+*Completed: 2026-01-19T12:00:00Z*
+
+**Validated Tier Structure:**
+...
+**Teacher Corrections:**
+...
+
+---
+
+## Stage 2: Emphasis Refinement ⏳
+*In Progress*
+
+**Tier 1 Topic Rationales:**
+...
+
+---
+
+## Stage 3: Example Cataloging
+*Not started*
+
+---
+
+## Stage 4: Misconception Analysis
+*Not started*
+
+---
+
+## Stage 5: Learning Objectives
+*Not started*
+
+---
+
+## M1 Final Summary
+*Added when finalize_m1 is called*
+```
+
+**File Locations:**
+```
+project/
+├── 01_methodology/
+│   └── m1_analysis.md      ← SINGLE output document for ALL M1 stages
+├── session.yaml            ← Tracks m1.status
+└── logs/session.jsonl      ← Audit trail (RFC-001)
+```
+
+**session.yaml Updates:**
+```yaml
+methodology:
+  m1:
+    status: in_progress     # → complete when finalize_m1 called
+    current_stage: 2        # Which stage we're on
+    stages_completed: [0, 1]
+    output: "01_methodology/m1_analysis.md"
+
+    # Stage 0 specific (Material Analysis)
+    materials_analyzed: 5
+    total_materials: 5
+```
+
+**Important:** There is only ONE output file for M1. All 6 stages (0-5) save to the same `m1_analysis.md` document.
+
+### M1 Complete Workflow
+
+**Stage Numbering (IMPORTANT):**
+```
+load_stage(stage=N) loads methodology for Stage N
+
+Stage 0: Material Analysis   (60-90 min, Claude solo, progressive saves)
+Stage 1: Validation          (20-30 min, dialogue)
+Stage 2: Emphasis Refinement (30-45 min, dialogue)
+Stage 3: Example Cataloging  (20-30 min, dialogue)
+Stage 4: Misconception Analysis (20-30 min, dialogue)
+Stage 5: Learning Objectives (45-60 min, dialogue)
+```
 
 **Pre-requisites (qf-pipeline):**
 ```
@@ -257,80 +498,105 @@ step0_start(
 Creates:
 project/
 ├── 00_materials/           ← Copies from materials_folder
-├── 01_methodology/         ← Empty (for outputs)
+├── 01_methodology/         ← Empty (for m1_analysis.md output)
 ├── methodology/            ← Copies M1-M4 from QuestionForge
 │   └── m1/
-│       ├── m1_0_intro.md
-│       ├── m1_1_stage0_material_analysis.md
+│       ├── m1_0_material_analysis.md
+│       ├── m1_1_validation.md
 │       └── ...
 ├── session.yaml
-├── kursplan.md             ← Fetched from URL (NEW: RFC-004 fix)
+├── kursplan.md             ← Fetched from URL
 └── logs/
 ```
 
 **M1 Workflow (qf-scaffolding):**
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ STAGE 0: Introduction                                           │
+│ STAGE 0: Material Analysis (Claude solo, 60-90 min)             │
 ├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
 │ 1. load_stage(module="m1", stage=0, project_path="...")         │
-│    → Reads project/methodology/m1/m1_0_intro.md                 │
-│    → Returns: Framework overview, principles                    │
+│    → Returns: How to analyze materials, tier definitions        │
 │                                                                 │
-│ 2. Teacher reads introduction                                   │
-│ 3. Teacher says "fortsätt"                                      │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│ STAGE 1: Material Analysis (Claude's solo work)                 │
-├─────────────────────────────────────────────────────────────────┤
-│ 1. load_stage(module="m1", stage=1, project_path="...")         │
-│    → Reads project/methodology/m1/m1_1_stage0_material_analysis │
-│    → Returns: How to analyze materials, output format           │
-│                                                                 │
-│ 2. read_materials(project_path="...", extract_text=true)        │
-│    → Returns: All PDF/MD content from 00_materials/             │
+│ 2. read_materials(project_path="...", filename=null)            │
+│    → Returns: List of files in 00_materials/                    │
 │                                                                 │
 │ 3. read_reference(project_path="...")                           │
 │    → Returns: Kursplan content                                  │
 │                                                                 │
-│ 4. Claude analyzes (NO filesystem tools needed)                 │
-│    → Identifies Tier 1-4 topics                                 │
-│    → Catalogs examples                                          │
-│    → Notes misconceptions                                       │
+│ 4. FOR EACH material file:                                      │
+│    a. read_materials(filename="lecture1.pdf")                   │
+│       → Returns: Text content of ONE file                       │
 │                                                                 │
-│ 5. Claude presents findings to teacher                          │
+│    b. Claude analyzes (identifies topics, tiers, examples)      │
 │                                                                 │
-│ 6. complete_stage(                                              │
-│      project_path="...",                                        │
-│      module="m1",                                               │
-│      stage=0,  ← Stage 0 OUTPUT                                 │
-│      output={                                                   │
-│        type: "material_analysis",                               │
-│        data: { ... }  ← Validated against MaterialAnalysisSchema│
-│      }                                                          │
+│    c. save_m1_progress(                                         │
+│         stage=0,                                                │
+│         action="add_material",                                  │
+│         data={ material: {...} }                                │
+│       )                                                         │
+│       → SAVES to m1_analysis.md                                 │
+│       → Session can resume if interrupted!                      │
+│                                                                 │
+│ 5. After ALL materials:                                         │
+│    save_m1_progress(                                            │
+│      stage=0,                                                   │
+│      action="save_stage",                                       │
+│      data={ stage_output: { synthesis... } }                    │
 │    )                                                            │
-│    → Saves: 01_methodology/m1_material_analysis.md              │
-│    → Updates: session.yaml                                      │
+│    → Adds Stage 0 synthesis                                     │
+│    → Marks Stage 0 complete                                     │
+│                                                                 │
+│ 6. Claude presents findings to teacher                          │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│ STAGE 2-5: Dialogue with Teacher                                │
+│ STAGE 1-5: Dialogue Stages (15-45 min each)                     │
 ├─────────────────────────────────────────────────────────────────┤
-│ Similar pattern:                                                │
-│ 1. load_stage → Get instructions                                │
-│ 2. Dialogue with teacher                                        │
-│ 3. complete_stage → Save output (if applicable)                 │
 │                                                                 │
-│ Stages and Outputs:                                             │
-│ ├── Stage 2 (Emphasis)     → m1_emphasis_patterns.md            │
-│ ├── Stage 3 (Examples)     → m1_examples.md                     │
-│ ├── Stage 4 (Misconceptions)→ m1_misconceptions.md              │
-│ └── Stage 5 (Objectives)   → m1_learning_objectives.md          │
+│ FOR EACH stage N (1 to 5):                                      │
+│                                                                 │
+│   1. load_stage(module="m1", stage=N, project_path="...")       │
+│      → Returns: Stage instructions                              │
+│                                                                 │
+│   2. Claude facilitates dialogue with teacher                   │
+│      → Stage 1: Validate tier structure                         │
+│      → Stage 2: Refine emphasis rationales                      │
+│      → Stage 3: Catalog effective examples                      │
+│      → Stage 4: Analyze misconceptions                          │
+│      → Stage 5: Synthesize learning objectives                  │
+│                                                                 │
+│   3. Teacher approves                                           │
+│                                                                 │
+│   4. save_m1_progress(                                          │
+│        stage=N,                                                 │
+│        action="save_stage",                                     │
+│        data={ stage_output: {...} }                             │
+│      )                                                          │
+│      → APPENDS to m1_analysis.md (same document!)               │
+│      → Marks Stage N complete                                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ FINALIZE M1                                                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ save_m1_progress(                                               │
+│   action="finalize_m1",                                         │
+│   data={ final_summary: {...} }                                 │
+│ )                                                               │
+│ → Adds final summary section                                    │
+│ → Marks M1 complete in session.yaml                             │
+│ → Ready for M2                                                  │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │ M1 COMPLETE → Continue to M2                                    │
+│                                                                 │
+│ Output: 01_methodology/m1_analysis.md (ONE document, all data)  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -356,14 +622,16 @@ AFTER (fixed):
 
 | Existing Tool | Change Needed |
 |---------------|---------------|
-| `load_stage` | Keep as-is (returns instructions text) |
-| `complete_stage` | Already validates schema, generates QFMD output |
+| `load_stage` | Update stage numbering: stage=0 → Material Analysis |
+| `complete_stage` | Keep for M2-M4; M1 uses `save_m1_progress` instead |
+| `read_materials` | Add `filename` parameter (Phase 2) |
+| `read_reference` | Keep as-is ✅ |
 
 | New Tool | Purpose |
 |----------|---------|
-| `read_materials` | Read content from 00_materials/ |
-| `read_reference` | Read reference docs from project root |
-| `get_methodology` | Load instructions + schema together |
+| `save_m1_progress` | **NEW** All M1 saving (progressive + stage completion) |
+
+**Note:** `get_methodology` is optional and may not be needed since `load_stage` already provides instructions.
 
 ### File Handling Principles
 
@@ -389,19 +657,35 @@ project/
 - Markdown content returned directly
 - No intermediate files needed
 
-### Output Format: QFMD Compliance
+### Output Format: Single Document (QFMD Compliant)
 
-All M1 outputs use the schemas we already implemented:
+**M1 produces ONE output document** that grows through all 6 stages:
 
-| Stage | Output Type | Schema |
-|-------|-------------|--------|
-| 0 | `material_analysis` | MaterialAnalysisSchema |
-| 2 | `emphasis_patterns` | EmphasisPatternsSchema |
-| 3 | `examples` | ExamplesSchema |
-| 4 | `misconceptions` | MisconceptionsSchema |
-| 5 | `learning_objectives` | LearningObjectivesSchema |
+| Output | File | Tool |
+|--------|------|------|
+| All M1 data | `01_methodology/m1_analysis.md` | `save_m1_progress` |
 
-`complete_stage` already validates against these schemas and generates YAML frontmatter + Markdown body.
+**Document sections (added progressively):**
+
+| Stage | Section Added |
+|-------|---------------|
+| 0 | Material-by-material analysis, tier classifications, examples, misconceptions |
+| 1 | Validated tier structure, teacher corrections |
+| 2 | Emphasis rationales for Tier 1 topics |
+| 3 | Curated example catalog |
+| 4 | Misconception registry with severity levels |
+| 5 | Final learning objectives |
+| finalize | M1 summary, ready-for-M2 checklist |
+
+**YAML frontmatter tracks progress:**
+```yaml
+qf_type: m1_analysis
+status: in_progress | complete
+current_stage: 2
+stages_completed: [0, 1]
+materials_analyzed: 5
+total_materials: 5
+```
 
 ### Logging (RFC-001 Compliance)
 
@@ -449,11 +733,47 @@ New tools log events:
 
 3. **Tool descriptions** updated in index.ts for Claude.ai prompting
 
-### Phase 2: Methodology Integration
-1. `get_methodology` - Combined instructions + output schema
-2. Ensure `load_stage` is always called with `project_path`
+### Phase 2: Progressive Saving & Interface Updates (DESIGN COMPLETE)
 
-### Phase 3: Documentation
+**2a. Update `read_materials` interface:**
+```typescript
+interface ReadMaterialsInput {
+  project_path: string;
+  filename?: string | null;  // NEW: null → list files, "X.pdf" → read one file
+  file_pattern?: string;     // DEPRECATED: kept for backwards compatibility
+  extract_text?: boolean;
+}
+```
+- `filename=null` (or omitted): Returns file list with metadata (no content)
+- `filename="X.pdf"`: Returns content of ONE specific file
+- Deprecate `file_pattern` in favor of `filename`
+
+**2b. Implement `save_m1_progress` tool:**
+```typescript
+save_m1_progress(
+  project_path: string,
+  stage: 0 | 1 | 2 | 3 | 4 | 5,
+  action: "add_material" | "save_stage" | "finalize_m1",
+  data: M1ProgressData
+)
+```
+- Creates/updates `01_methodology/m1_analysis.md`
+- `add_material`: Progressive saves during Stage 0 (after each PDF)
+- `save_stage`: Saves completed stage output (Stage 0-5)
+- `finalize_m1`: Marks M1 complete, ready for M2
+- Updates `session.yaml` with current_stage and stages_completed
+
+**2c. Update `load_stage` mappings:**
+- Fix stage numbering: `load_stage(stage=0)` = Material Analysis
+- Update tool hints to reference `save_m1_progress`
+
+**2d. Update methodology file names (optional):**
+- Consider renaming to match stage numbers:
+  - `m1_0_material_analysis.md` (Stage 0)
+  - `m1_1_validation.md` (Stage 1)
+  - etc.
+
+### Phase 3: Testing & Documentation
 1. Update WORKFLOW.md with correct tool usage
 2. Add Claude.ai prompt guidance for M1 workflow
 3. Create example M1 session transcript showing correct flow
@@ -461,16 +781,18 @@ New tools log events:
 ### Dependency Graph
 
 ```
-Phase 0: Fix load_stage
+Phase 0: Fix load_stage path ✅ DONE
     ↓
-Phase 1: read_materials, read_reference
+Phase 1: read_materials, read_reference ✅ DONE
     ↓
-Phase 2: get_methodology (optional enhancement)
+Phase 2: save_m1_progress + read_materials filename param ← NEXT
     ↓
-Phase 3: Documentation
+Phase 3: Update load_stage mappings + tool hints
+    ↓
+Phase 4: Testing & Documentation
 ```
 
-**Phase 0 is a blocker** - without it, the intended workflow cannot function.
+**Phase 2 is the current blocker** - without `save_m1_progress`, M1 sessions cannot save progress.
 
 ## Alternatives Considered
 
@@ -507,21 +829,74 @@ do_m1_stage(project_path, stage) → automatically reads materials, generates ou
 - [x] RFC-001 compliant logging in both tools
 - [x] **Tool hints in load_stage response** - Claude sees which tools to use per stage
 
+### Phase 2 (Progressive Saving) 📋 DESIGN COMPLETE
+- [ ] `read_materials` updated with `filename` parameter (list vs read mode)
+- [ ] `save_m1_progress` tool implemented with three actions:
+  - [ ] `add_material` - progressive saves during Stage 0
+  - [ ] `save_stage` - saves completed stage (0-5)
+  - [ ] `finalize_m1` - marks M1 complete
+- [ ] Single output document `m1_analysis.md` grows through all stages
+- [ ] `load_stage` updated: stage=0 → Material Analysis
+- [ ] Tool hints reference `save_m1_progress`
+
 ### Full Implementation
 - [ ] M1 session completes using ONLY qf-scaffolding tools (no Filesystem tools)
-- [ ] All outputs follow QFMD standard with proper YAML frontmatter
-- [ ] No files created outside project directory
-- [ ] Session can be resumed from session.yaml state
+- [ ] All 6 stages save to ONE document (`m1_analysis.md`)
+- [ ] YAML frontmatter tracks: current_stage, stages_completed, materials_analyzed
+- [ ] Session can resume from any point via session.yaml + document state
 - [ ] Logs capture full audit trail (RFC-001)
 
 ### Verification Test
 ```
-1. Create project with step0_start (copies methodology)
-2. Modify project/methodology/m1/m1_0_intro.md (add marker text)
-3. Call load_stage(module="m1", stage=0, project_path="...")
-4. Verify returned content contains marker text
-5. If marker NOT found → bug still exists
+Phase 2 Verification:
+
+1. Create project with step0_start
+2. Call read_materials(project_path, filename=null)
+   → Should return file list WITHOUT content
+3. Call read_materials(project_path, filename="lecture1.pdf")
+   → Should return content of ONE file
+4. Call save_m1_progress(stage=0, action="add_material", data={...})
+   → Should create/update m1_analysis.md
+5. Call save_m1_progress(stage=0, action="save_stage", data={...})
+   → Should mark Stage 0 complete in document
+6. Repeat for stages 1-5
+7. Call save_m1_progress(action="finalize_m1", data={...})
+   → Should mark M1 complete, ready for M2
 ```
+
+## Next Steps (Implementation Order)
+
+### Immediate (Phase 2 Implementation)
+
+1. **Update `read_materials.ts`:**
+   - Add `filename` parameter
+   - `filename=null/undefined` → list mode (no content)
+   - `filename="X.pdf"` → single file read mode
+   - Keep `file_pattern` for backwards compatibility but mark deprecated
+
+2. **Create `save_m1_progress.ts`:**
+   - New tool file in `packages/qf-scaffolding/src/tools/`
+   - Implement three actions: `add_material`, `save_stage`, `finalize_m1`
+   - Handle m1_analysis.md creation and updating
+   - Update session.yaml tracking
+
+3. **Update `load_stage.ts`:**
+   - Change M1_STAGES mapping so stage=0 loads Material Analysis
+   - Update tool hints to reference `save_m1_progress`
+
+4. **Register new tool in `index.ts`:**
+   - Add `save_m1_progress` to TOOLS array
+   - Add handler in CallToolRequestSchema
+
+### Then (Phase 3)
+
+5. **Update `m1_complete_workflow.md`:**
+   - Align with RFC-004 single-doc strategy
+   - Update tool names and workflow diagrams
+
+6. **Testing:**
+   - Create integration test for full M1 workflow
+   - Test progressive saving and resume capability
 
 ## Related Documents
 
@@ -529,3 +904,4 @@ do_m1_stage(project_path, stage) → automatically reads materials, generates ou
 - [RFC-002: QFMD Naming](RFC-002-markdown-format-naming.md)
 - [SPEC_M1_M4_OUTPUTS_FULL.md](../specs/SPEC_M1_M4_OUTPUTS_FULL.md)
 - [ADR-007: Tool Naming Convention](../adr/ADR-007-tool-naming-convention.md)
+- [m1_complete_workflow.md](../workflows/m1_complete_workflow.md) - Needs sync with this RFC

@@ -26,6 +26,7 @@ import { loadStage, loadStageSchema, getModuleName, getToolHintsForStage, format
 import { completeStage, completeStageSchema } from "./tools/complete_stage.js";
 import { readMaterials, readMaterialsSchema } from "./tools/read_materials.js";
 import { readReference, readReferenceSchema } from "./tools/read_reference.js";
+import { saveM1Progress, saveM1ProgressSchema } from "./tools/save_m1_progress.js";
 import { getStageOutputType } from "./outputs/index.js";
 
 // Server version
@@ -141,9 +142,9 @@ const TOOLS: Tool[] = [
     name: "read_materials",
     description:
       `Read instructional materials from the project's 00_materials/ folder. ` +
-      `Supports PDF text extraction, markdown, and text files. ` +
-      `Use this to access teaching materials for analysis in M1 Material Analysis. ` +
-      `Returns content within the response - no file copying needed.`,
+      `Two modes: (1) List mode (filename=null): returns file list with metadata, no content; ` +
+      `(2) Read mode (filename="X.pdf"): reads and extracts text from ONE specific file. ` +
+      `Use list mode first to see available files, then read mode for each file during M1 analysis.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -151,17 +152,23 @@ const TOOLS: Tool[] = [
           type: "string",
           description: "Absolute path to the project folder.",
         },
+        filename: {
+          type: ["string", "null"],
+          description:
+            "File to read. null/omit = list mode (returns file names only). " +
+            "'X.pdf' = read mode (returns content of specific file).",
+        },
         file_pattern: {
           type: "string",
           description:
-            "Optional glob pattern to filter files (e.g., '*.pdf', 'lecture*'). " +
-            "If omitted, all files are returned.",
+            "DEPRECATED: Use filename instead. " +
+            "Optional glob pattern to filter files in list mode.",
         },
         extract_text: {
           type: "boolean",
           description:
             "Extract text content from files. Default: true. " +
-            "Set to false to only get file metadata.",
+            "Only applies in read mode.",
           default: true,
         },
       },
@@ -189,6 +196,62 @@ const TOOLS: Tool[] = [
         },
       },
       required: ["project_path"],
+    },
+  },
+  {
+    name: "save_m1_progress",
+    description:
+      `Save M1 (Material Analysis) progress to 01_methodology/m1_analysis.md. ` +
+      `Three actions: (1) add_material - progressive saves during Stage 0 after each PDF; ` +
+      `(2) save_stage - saves completed stage output (Stage 0-5); ` +
+      `(3) finalize_m1 - marks M1 complete, ready for M2. ` +
+      `All stages save to ONE document that grows progressively.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder.",
+        },
+        stage: {
+          type: "number",
+          minimum: 0,
+          maximum: 5,
+          description:
+            "M1 stage number (0-5). Required for add_material and save_stage actions.",
+        },
+        action: {
+          type: "string",
+          enum: ["add_material", "save_stage", "finalize_m1"],
+          description:
+            "add_material = save after each PDF in Stage 0; " +
+            "save_stage = save completed stage output; " +
+            "finalize_m1 = mark M1 complete.",
+        },
+        data: {
+          type: "object",
+          description:
+            "Data to save. Structure depends on action: " +
+            "add_material needs {material: {...}}; " +
+            "save_stage needs {stage_output: {...}}; " +
+            "finalize_m1 needs {final_summary: {...}}.",
+          properties: {
+            material: {
+              type: "object",
+              description: "Material analysis data (for add_material action).",
+            },
+            stage_output: {
+              type: "object",
+              description: "Stage output data (for save_stage action).",
+            },
+            final_summary: {
+              type: "object",
+              description: "Final summary data (for finalize_m1 action).",
+            },
+          },
+        },
+      },
+      required: ["project_path", "action", "data"],
     },
   },
 ];
@@ -330,7 +393,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
-  // Handle read_materials
+  // Handle read_materials (RFC-004: updated with list/read modes)
   if (name === "read_materials") {
     try {
       // Validate input
@@ -340,32 +403,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const result = await readMaterials(validatedInput);
 
       if (result.success) {
-        // Format response with material info
-        const lines: string[] = [
-          `# Materials from 00_materials/`,
-          ``,
-          `**Total files:** ${result.total_files}`,
-          result.total_chars ? `**Total characters:** ${result.total_chars.toLocaleString()}` : '',
-          ``,
-        ];
+        const lines: string[] = [];
 
-        if (result.materials.length === 0) {
-          lines.push(`*No materials found.*`);
-        } else {
-          for (const material of result.materials) {
-            lines.push(`## ${material.filename}`);
-            lines.push(`- **Type:** ${material.content_type}`);
-            lines.push(`- **Size:** ${material.size_bytes.toLocaleString()} bytes`);
+        if (result.mode === "list") {
+          // List mode response
+          lines.push(`# Materials in 00_materials/`);
+          lines.push(``);
+          lines.push(`**Mode:** List (file metadata only)`);
+          lines.push(`**Total files:** ${result.total_files}`);
+          lines.push(``);
 
-            if (material.error) {
-              lines.push(`- **Error:** ${material.error}`);
-            } else if (material.text_content) {
-              lines.push(``);
-              lines.push(`### Content`);
-              lines.push(``);
-              lines.push(material.text_content);
-            }
+          if (result.files && result.files.length > 0) {
+            lines.push(`| # | Filename | Type | Size |`);
+            lines.push(`|---|----------|------|------|`);
+            result.files.forEach((f, i) => {
+              lines.push(`| ${i + 1} | ${f.filename} | ${f.content_type} | ${f.size_bytes.toLocaleString()} bytes |`);
+            });
             lines.push(``);
+            lines.push(`*Use read_materials(filename="X.pdf") to read a specific file.*`);
+          } else {
+            lines.push(`*No materials found in 00_materials/*`);
+          }
+        } else {
+          // Read mode response
+          lines.push(`# Material: ${result.material?.filename}`);
+          lines.push(``);
+          lines.push(`**Mode:** Read (single file)`);
+          lines.push(`**Type:** ${result.material?.content_type}`);
+          lines.push(`**Size:** ${result.material?.size_bytes?.toLocaleString()} bytes`);
+          if (result.total_chars) {
+            lines.push(`**Characters:** ${result.total_chars.toLocaleString()}`);
+          }
+          lines.push(``);
+
+          if (result.material?.error) {
+            lines.push(`**Error:** ${result.material.error}`);
+          } else if (result.material?.text_content) {
+            lines.push(`---`);
+            lines.push(``);
+            lines.push(result.material.text_content);
           }
         }
 
@@ -373,7 +449,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: lines.filter(l => l !== '').join("\n"),
+              text: lines.join("\n"),
             },
           ],
         };
@@ -467,12 +543,76 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
+  // Handle save_m1_progress (RFC-004: new tool)
+  if (name === "save_m1_progress") {
+    try {
+      // Validate input
+      const validatedInput = saveM1ProgressSchema.parse(args);
+
+      // Save progress
+      const result = await saveM1Progress(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+        const action = validatedInput.action;
+
+        if (action === "add_material") {
+          lines.push(`✅ Material saved to m1_analysis.md`);
+          lines.push(``);
+          lines.push(`**Materials analyzed:** ${result.materials_analyzed}/${result.total_materials}`);
+        } else if (action === "save_stage") {
+          lines.push(`✅ Stage ${validatedInput.stage} saved to m1_analysis.md`);
+          lines.push(``);
+          lines.push(`**Stages completed:** ${result.stages_completed.join(", ")}`);
+        } else if (action === "finalize_m1") {
+          lines.push(`🎉 M1 Complete!`);
+          lines.push(``);
+          lines.push(`**All stages completed:** ${result.stages_completed.join(", ")}`);
+          lines.push(`**Ready for M2:** Yes`);
+        }
+
+        lines.push(``);
+        lines.push(`**Document:** ${result.document_path}`);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: lines.join("\n"),
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error saving M1 progress: ${result.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Validation error: ${errorMessage}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
   // Unknown tool
   return {
     content: [
       {
         type: "text",
-        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference`,
+        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress`,
       },
     ],
     isError: true,
