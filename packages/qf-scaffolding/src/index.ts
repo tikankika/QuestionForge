@@ -275,9 +275,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (result.success && result.content) {
         // Format response with stage info and content
         const moduleName = result.stage?.module ? getModuleName(result.stage.module) : "Unknown";
+
+        // Special warning for M1 Stage 0 (RFC-007: User-driven workflow)
+        const m1Stage0Warning = (validatedInput.module === "m1" && validatedInput.stage === 0)
+          ? `⚠️ **VIKTIGT: ONE FILE AT A TIME!** Följ "QUICK START FOR TEACHERS" nedan. Analysera EN fil, presentera, vänta på feedback, spara. ALDRIG flera filer samtidigt!\n\n`
+          : "";
+
         const header = [
           `# ${result.stage?.name}`,
           ``,
+          m1Stage0Warning,
           `**Modul:** ${moduleName}`,
           `**Stage:** ${result.stage?.index} av ${result.progress?.totalStages}`,
           `**Estimerad tid:** ${result.stage?.estimatedTime}`,

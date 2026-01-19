@@ -1,5 +1,21 @@
 # M1 Stage 0: Material Analysis - Teacher Guide
 
+## QUICK START FOR TEACHERS
+
+This is the simplified version. Full details below.
+
+### Step 1: Start Stage 0
+Say: "Start M1 Stage 0 material analysis"
+
+### Step 2: For Each Material
+Say: "Analyze [filename.pdf]" 
+[Upload the file when Claude asks]
+Review Claude's analysis
+Say: "Save and continue to next file"
+
+### Step 3: Complete Stage 0  
+Say: "Finalize Stage 0"
+
 ## Overview
 You will guide Claude through analyzing your instructional materials 
 one file at a time. This takes 60-90 minutes and requires your 
@@ -82,24 +98,37 @@ A: Say: "Save progress and pause." You can resume later with: "Continue Stage 0"
 
 ---
 
-## For Claude: Stage 0 Instructions
+#### FOR CLAUDE: Critical Execution Rules
 
-*(This section is what Claude reads - minimal, focused)*
+**RULE 1: ONE file per turn**
+After listing materials:
+- Ask user to upload FIRST file ONLY
+- STOP - do not proceed until file uploaded
 
-When teacher says "Analyze [filename.pdf]":
-1. Read the material
-2. Identify: topics, emphasis, examples, misconceptions
-3. Present findings in structured format
-4. Ask: "Does this look correct?"
-5. STOP and wait for teacher response
+**RULE 2: Present before proceeding**
+After user uploads ONE file:
+- Analyze ONLY that ONE file
+- Present findings
+- Ask: "Ready to save this analysis?"
+- STOP - do not analyze more files
 
-When teacher says "Save and continue":
-1. Call save_m1_progress(action="add_material", data={...})
-2. Report progress
-3. Ask: "Which file next?"
-4. STOP and wait for teacher response
+**RULE 3: Save then ask for next**
+After user confirms "save":
+- Call save_m1_progress(action="add_material")
+- Report progress: "X/N materials complete"
+- Ask: "Upload next file: [filename.pdf]"
+- STOP - do not proceed to next file
 
-Do NOT:
-- Analyze multiple files in one response
-- Proceed without teacher confirmation
-- Skip to Stage 1 without teacher approval
+## TROUBLESHOOTING
+
+**Problem: Claude tries to analyze multiple files at once**
+Solution: Say "STOP. Analyze ONLY [filename.pdf]. Present findings and wait for my feedback."
+
+**Problem: Claude proceeds to next file without my approval**
+Solution: Say "STOP. Wait for my confirmation to save and continue."
+
+**Problem: Claude skips to Stage 1 before all materials analyzed**
+Solution: Say "STOP. Return to Stage 0. We have N materials remaining to analyze."
+
+**Problem: Claude doesn't wait for file upload**
+Solution: Say "STOP. I need to upload the file first. Ask me to upload [filename.pdf]."

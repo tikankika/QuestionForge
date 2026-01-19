@@ -449,8 +449,11 @@ export async function loadStage(input: LoadStageInput): Promise<LoadStageResult>
     // Determine next action based on module and stage
     let nextAction: string;
 
-    if (stage === 0) {
-      // Introduction stage
+    if (module === "m1" && stage === 0) {
+      // M1 Stage 0: Material Analysis - Teacher-driven workflow (RFC-007 Option A)
+      nextAction = `FÖLJ TEACHER GUIDE OVAN! Steg: (1) Lista material med read_materials(), (2) Be läraren ladda upp första filen, (3) Analysera EN fil, (4) Presentera och vänta på feedback, (5) Spara med save_m1_progress(action="add_material").`;
+    } else if (stage === 0) {
+      // Other modules: Introduction stage
       const nextStage = stages[1];
       nextAction = `Läs igenom introduktionen. Säg 'fortsätt' när du är redo för ${nextStage?.name || 'nästa steg'}.`;
     } else if (stage === maxStageForModule) {
