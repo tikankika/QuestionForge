@@ -1,7 +1,7 @@
-# BUILDING BLOCK 1: CONTENT ANALYSIS (v2.0 - ENHANCED)
+# BUILDING BLOCK 1: CONTENT ANALYSIS (v2.1 - ENHANCED)
 ## Dynamic Dialogue Process for Understanding Conducted Instruction
 
-**Version:** 2.0 Enhanced (November 2025)  
+**Version:** 2.1 Enhanced (January 2026)  
 **Classification:** 🔷 AI-Facilitated with Teacher Co-Creation  
 **Duration:** 2.5-3.5 hours  
 **Process Nature:** Structured dialogue with adaptive inquiry  
