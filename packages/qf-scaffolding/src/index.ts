@@ -141,10 +141,9 @@ const TOOLS: Tool[] = [
   {
     name: "read_materials",
     description:
-      `Read instructional materials from the project's 00_materials/ folder. ` +
-      `Two modes: (1) List mode (filename=null): returns file list with metadata, no content; ` +
-      `(2) Read mode (filename="X.pdf"): reads and extracts text from ONE specific file. ` +
-      `Use list mode first to see available files, then read mode for each file during M1 analysis.`,
+      `⚠️ PRIMÄRT för att LISTA filer i 00_materials/ (filename=null). ` +
+      `För PDF-analys: Be användaren LADDA UPP filen till chatten istället - Claude.ai har bättre PDF-läsning! ` +
+      `Read mode (filename="X.pdf") är endast FALLBACK om användaren inte kan ladda upp.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -155,8 +154,8 @@ const TOOLS: Tool[] = [
         filename: {
           type: ["string", "null"],
           description:
-            "File to read. null/omit = list mode (returns file names only). " +
-            "'X.pdf' = read mode (returns content of specific file).",
+            "null/omit = LIST mode (returnerar filnamn). " +
+            "'X.pdf' = READ mode (FALLBACK - be användaren ladda upp istället!).",
         },
         file_pattern: {
           type: "string",

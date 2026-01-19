@@ -634,8 +634,8 @@ export function getToolHintsForStage(module: string, stage: number): ToolHint[] 
         return [
           {
             tool: "read_materials",
-            description: "Lista filer i 00_materials/ (filename=null) eller läs en specifik fil",
-            example: 'read_materials(project_path="<project>") // List mode\nread_materials(project_path="<project>", filename="lecture1.pdf") // Read mode',
+            description: "⚠️ ENDAST för att LISTA filer (filename=null). Be användaren LADDA UPP varje PDF till chatten istället!",
+            example: 'read_materials(project_path="<project>") // Lista filer\n// OBS: Använd INTE read_materials för att läsa PDF! Be användaren ladda upp filen.',
           },
           {
             tool: "read_reference",

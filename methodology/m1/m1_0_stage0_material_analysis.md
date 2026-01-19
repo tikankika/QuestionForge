@@ -1,9 +1,64 @@
 
 ## STAGE 0: MATERIAL ANALYSIS
 
-**Duration:** 60-90 minutes  
-**Nature:** Claude's independent analysis before dialogue  
+**Duration:** 60-90 minutes
+**Nature:** Claude's independent analysis before dialogue
 **Purpose:** Understand instructional content to prepare for dialogue
+
+---
+
+### ⚠️ KRITISK WORKFLOW: Hur du läser material
+
+**Du har INTE direkt tillgång till användarens filer.** Följ detta workflow:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ STEG-FÖR-STEG WORKFLOW                                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│ 1. LISTA filer (MCP):                                           │
+│    read_materials(project_path="...", filename=null)            │
+│    → Får tillbaka: ["fil1.pdf", "fil2.pdf", ...]                │
+│                                                                 │
+│ 2. BE användaren ladda upp FÖRSTA filen:                        │
+│    "Ladda upp [fil1.pdf] till chatten så analyserar jag den."   │
+│    (Dra-och-släpp eller klicka på gem-ikonen)                   │
+│                                                                 │
+│ 3. VÄNTA tills användaren laddat upp filen                      │
+│                                                                 │
+│ 4. ANALYSERA PDF:en med dina inbyggda multimodala förmågor      │
+│                                                                 │
+│ 5. PRESENTERA analys för användaren och be om feedback          │
+│                                                                 │
+│ 6. SPARA analysen (MCP):                                        │
+│    save_m1_progress(action="add_material", data={material:...}) │
+│                                                                 │
+│ 7. UPPREPA steg 2-6 för varje fil                               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**VARFÖR detta workflow?**
+- Du (Claude.ai) har **bättre PDF-läsning** än MCP:ens enkla textextraktion
+- Du kan se bilder, tabeller och formatering i PDF:er
+- MCP:ens `read_materials(filename="X.pdf")` är endast en FALLBACK
+
+**Exempeldialog:**
+```
+Claude: "Jag ser 10 filer i materialmappen. Låt oss börja med
+         'Vad är AI.pdf'. Ladda upp den till chatten så analyserar
+         jag den."
+
+Användaren: [Drar PDF till chatten]
+
+Claude: [Analyserar PDF, presenterar findings]
+        "Vill du justera något innan jag sparar och går vidare?"
+
+Användaren: "Ser bra ut!"
+
+Claude: [Anropar save_m1_progress]
+        "Sparat! Ladda upp nästa fil: 'Hur fungerar GenAI.pdf'"
+```
 
 ---
 
