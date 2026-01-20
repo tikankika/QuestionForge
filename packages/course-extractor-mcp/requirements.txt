@@ -1,4 +1,0 @@
-fastmcp>=2.0.0,<3
-pymupdf4llm>=0.0.17
-PyMuPDF>=1.23.0
-pytest>=7.0.0
