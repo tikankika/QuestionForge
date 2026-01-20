@@ -4,6 +4,35 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-20
+
+#### course-extractor-mcp: PDF Extraction MCP Server (NEW)
+- **Package:** Created `packages/course-extractor-mcp/` - Minimal MCP for PDF extraction
+- **Features:**
+  - Extracts text and images from PDF course materials
+  - Uses pymupdf4llm for high-quality extraction
+  - Production-ready security (timeout, path whitelist, encryption check)
+  - Swedish error messages
+- **Platform:** Unix-only (macOS/Linux) due to `signal.SIGALRM` timeout
+- **License:** AGPL 3.0 (due to PyMuPDF dependency)
+- **Tests:** 5/6 tests passing (1 skipped - needs sample.pdf)
+- **Code Reviews:** 2 complete reviews, 13 issues fixed
+- **RFCs:** RFC-001-CourseExtractor-MCP v4.0-v4.2 (iterative refinement)
+- **Files:**
+  - `packages/course-extractor-mcp/server.py` (~200 lines)
+  - `packages/course-extractor-mcp/tests/test_pdf.py`
+  - `docs/rfcs/RFC-001-CourseExtractor-MCP-v4.2-FINAL.md`
+  - `docs/handoffs/IMPLEMENT_CourseExtractor_MCP_v4.2_FINAL.md`
+
+#### MarkItDown MCP: Roadmap Documentation
+- **Docs:** Added MarkItDown MCP integration to roadmap (Fas 6)
+- **Guide:** Created `docs/guides/markitdown-mcp-installation.md` (600+ lines)
+  - Complete installation guide for Microsoft's MarkItDown MCP
+  - Security best practices (read-only mounts, localhost binding)
+  - Troubleshooting section
+- **Timeline:** Q1-Q4 2026 (future backup/comparison solution)
+- **Purpose:** Alternative/complement to course-extractor-mcp for 29+ formats
+
 ### Added - 2026-01-19
 
 #### RFC-004 Phase 2: Progressive Saving for M1
@@ -413,7 +442,8 @@ QuestionForge/
 ├── packages/
 │   ├── qf-scaffolding/          ✅ MVP (load_stage for M1)
 │   ├── qf-pipeline/             ✅ MCP server active
-│   └── qti-core/                ✅ Standalone QTI logic
+│   ├── qti-core/                ✅ Standalone QTI logic
+│   └── course-extractor-mcp/    ✅ PDF extraction (AGPL)
 ├── qf-specifications/           🔶 Partially created
 │   └── logging/                 ✅ RFC-001 schema + examples
 └── docs/rfcs/                   ✅ RFC-001 unified logging
