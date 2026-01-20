@@ -1,6 +1,6 @@
 # QuestionForge Roadmap
 
-**Senast uppdaterad:** 2026-01-19
+**Senast uppdaterad:** 2026-01-20
 
 ---
 
@@ -271,6 +271,54 @@ methodology/
 
 ---
 
+## Fas 6: MarkItDown MCP Integration ⏳ FRAMTIDA
+
+**Beskrivning:** Microsoft's officiella MCP-server för filkonvertering (29+ format → Markdown)
+
+**Syfte:**
+- Backup-lösning om egen PDF-läsning behöver kompletteras
+- Stöd för fler filformat (DOCX, PPTX, XLSX, EPUB, etc.)
+- Learning opportunity för att jämföra med egen implementation
+
+### Stödda Format
+| Kategori | Format |
+|----------|--------|
+| Office | PDF, DOCX, PPTX, XLSX |
+| Media | JPG, PNG, MP3, WAV (med OCR/transkription) |
+| Webb | HTML, RSS, Wikipedia |
+| Data | CSV, JSON, XML, ZIP |
+| Publicering | EPUB, Jupyter notebooks |
+
+### Roadmap
+
+| Fas | Uppgift | Status | Timeline |
+|-----|---------|--------|----------|
+| **Kort-sikt** | Dokumentation klar | ✅ Klar | 2026-01-20 |
+| | Installation (~30-45 min) | ⏳ Pending | Q1 2026 |
+| | Initial testning med kursmaterial | ⏳ Pending | Q1 2026 |
+| **Mellan-sikt** | Jämför med egen MCP | ⏳ Pending | Q2 2026 |
+| | Utvärdera: Vilken lösning för vilka use cases? | ⏳ Pending | Q2 2026 |
+| | Dokumentera best practices | ⏳ Pending | Q2 2026 |
+| **Lång-sikt** | Hybrid-lösning (egen MCP + MarkItDown) | ⏳ Pending | Q3-Q4 2026 |
+| | Bidra till MarkItDown vid förbättringar | ⏳ Pending | Q3-Q4 2026 |
+
+### Installationsmetoder
+1. **Standard Python** (enklast) - uv + virtuell miljö
+2. **Docker** (säkrast) - isolerad körning med read-only mounts
+
+### Säkerhetskrav
+- `:ro` (read-only) volume mounts obligatoriskt
+- Begränsa folder access till specifika mappar
+- Endast localhost binding (`127.0.0.1`)
+- Disable plugins om osäker
+
+### Resurser
+- GitHub: https://github.com/microsoft/markitdown
+- MCP Package: https://github.com/microsoft/markitdown/tree/main/packages/markitdown-mcp
+- Komplett installationsguide: `docs/guides/markitdown-mcp-installation.md`
+
+---
+
 ## Prioritetsordning
 
 1. ~~**qf-scaffolding logging** - TypeScript logger per RFC-001~~ ✅ Klar
@@ -280,6 +328,7 @@ methodology/
 5. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
 6. **M2-M4 Tools** - Implementera tools för övriga moduler
 7. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
+8. **MarkItDown MCP** - Installation och testning (Q1 2026)
 
 ---
 
@@ -300,7 +349,8 @@ methodology/
 | `docs/adr/ADR-014-shared-session.md` | Shared Session arkitektur |
 | `docs/specs/STEP1_REBUILD_INTERACTIVE.md` | Step 1 spec |
 | `docs/DISCOVERY_BRIEF.md` | Ursprunglig vision |
+| `docs/guides/markitdown-mcp-installation.md` | **NEW** MarkItDown MCP installationsguide |
 
 ---
 
-*Roadmap uppdaterad 2026-01-19 (RFC-007 complete, Option A workflow)*
+*Roadmap uppdaterad 2026-01-20 (MarkItDown MCP integration planerad)*
