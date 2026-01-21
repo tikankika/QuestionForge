@@ -198,20 +198,32 @@ def extract_field_sections(block: str) -> Dict[str, str]:
         if re.match(r'^#{2,4}\s+', line):
             continue
 
-        # Check for @@field: start (subfield, v6.5)
-        subfield_match = re.match(r'^@@field:\s*(\w+)', line)
+        # Check for @@field: or @subfield: start (subfield, v6.5)
+        # Accepts both @@field: and @subfield: formats
+        subfield_match = re.match(r'^(?:@@field|@subfield):\s*(\w+)\s*(.*)', line)
         if subfield_match:
-            field_stack.append({'id': subfield_match.group(1), 'content': []})
+            field_id = subfield_match.group(1)
+            same_line_content = subfield_match.group(2).strip()
+            field_stack.append({'id': field_id, 'content': []})
+            # Handle content on same line as @subfield:
+            if same_line_content:
+                field_stack[-1]['content'].append(same_line_content)
             continue
 
         # Check for @field: start (top-level)
-        field_match = re.match(r'^@field:\s*(\w+)', line)
+        # Also captures any content on the same line
+        field_match = re.match(r'^@field:\s*(\w+)\s*(.*)', line)
         if field_match:
-            field_stack.append({'id': field_match.group(1), 'content': []})
+            field_id = field_match.group(1)
+            same_line_content = field_match.group(2).strip()
+            field_stack.append({'id': field_id, 'content': []})
+            # Handle content on same line as @field:
+            if same_line_content:
+                field_stack[-1]['content'].append(same_line_content)
             continue
 
-        # Check for @@end_field (subfield end, v6.5)
-        if line.strip() == '@@end_field':
+        # Check for @@end_field or @end_subfield (subfield end, v6.5)
+        if line.strip() in ('@@end_field', '@end_subfield'):
             if field_stack:
                 completed = field_stack.pop()
                 sections[completed['id']] = '\n'.join(completed['content']).strip()
@@ -316,22 +328,24 @@ def validate_question_block(block: str, q_num: int, identifiers: Set[str], verbo
     # Extract ^ metadata from header section (before first ##)
     header_section = block.split('\n##')[0] if '\n##' in block else block
 
-    # Extract ^type (v6.5 format)
-    type_match = re.search(r'^\^type\s+(\S+)', header_section, re.MULTILINE)
+    # Extract ^type (v6.5 format) - accepts optional colon, anywhere on line
+    # Handles both "^type value" and "^type: value" formats
+    type_match = re.search(r'\^type:?\s+(\S+)', header_section, re.MULTILINE)
     q_type = type_match.group(1).strip() if type_match else None
 
-    # Extract ^identifier (v6.5 format)
-    id_match = re.search(r'^\^identifier\s+(\S+)', header_section, re.MULTILINE)
+    # Extract ^identifier (v6.5 format) - accepts optional colon, anywhere on line
+    # Handles multi-field lines like "^type: X ^identifier: Y ^points: Z"
+    id_match = re.search(r'\^identifier:?\s+(\S+)', header_section, re.MULTILINE)
     q_id = id_match.group(1).strip() if id_match else q_code
 
-    # Extract ^points (v6.5 format)
-    points_match = re.search(r'^\^points\s+(\d+)', header_section, re.MULTILINE)
+    # Extract ^points (v6.5 format) - accepts optional colon, anywhere on line
+    points_match = re.search(r'\^points:?\s+(\d+)', header_section, re.MULTILINE)
 
-    # Extract ^labels (v6.5 format) - Inspera "Labels"
-    labels_match = re.search(r'^\^labels\s+(.+)$', header_section, re.MULTILINE)
+    # Extract ^labels (v6.5 format) - Inspera "Labels", accepts optional colon
+    labels_match = re.search(r'\^labels:?\s+(.+?)(?=\^|$)', header_section, re.MULTILINE)
 
-    # Extract ^tags (alternative to ^labels) - use as fallback
-    tags_match = re.search(r'^\^tags\s+(.+)$', header_section, re.MULTILINE)
+    # Extract ^tags (alternative to ^labels) - accepts optional colon
+    tags_match = re.search(r'\^tags:?\s+(.+?)(?=\^|$)', header_section, re.MULTILINE)
 
     # Use ^tags as labels if ^labels not present
     if not labels_match and tags_match:

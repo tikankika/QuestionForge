@@ -29,12 +29,14 @@ class Issue:
 
 
 # Required metadata for ALL question types
+# Patterns accept both "^field value" and "^field: value" formats
+# Also accepts ^labels as alias for ^tags (both are valid)
 REQUIRED_METADATA = [
-    ('^question', r'^\^question\s+Q\d{3}', 'Fråge-ID (Q001, Q002, etc.)'),
-    ('^type', r'^\^type\s+\w+', 'Frågetyp'),
-    ('^identifier', r'^\^identifier\s+\w+', 'Unik identifierare'),
-    ('^points', r'^\^points\s+\d+', 'Poäng'),
-    ('^tags', r'^\^tags\s+.+', 'Etiketter med Bloom och Difficulty'),
+    ('^question', r'^\^question:?\s+Q\d{3}', 'Fråge-ID (Q001, Q002, etc.)'),
+    ('^type', r'\^type:?\s+\w+', 'Frågetyp'),
+    ('^identifier', r'\^identifier:?\s+\w+', 'Unik identifierare'),
+    ('^points', r'\^points:?\s+\d+', 'Poäng'),
+    ('^tags', r'\^(tags|labels):?\s+.+', 'Etiketter med Bloom och Difficulty'),
 ]
 
 # Required fields per question type
