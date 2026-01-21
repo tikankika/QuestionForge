@@ -301,14 +301,15 @@ methodology/
 
 ---
 
-## Fas 6: MarkItDown MCP Integration ⏳ FRAMTIDA
+## Fas 6: MarkItDown MCP Integration 🔶 NÄSTA
 
 **Beskrivning:** Microsoft's officiella MCP-server för filkonvertering (29+ format → Markdown)
 
-**Syfte:**
-- Backup-lösning om egen PDF-läsning behöver kompletteras
-- Stöd för fler filformat (DOCX, PPTX, XLSX, EPUB, etc.)
-- Learning opportunity för att jämföra med egen implementation
+**Beslut (2026-01-21):** Använder MarkItDown MCP istället för egen `course-extractor-mcp`.
+- ✅ Officiellt underhållen av Microsoft
+- ✅ 29+ format (inte bara PDF)
+- ✅ MIT-licens (ingen AGPL-komplikation)
+- ✅ Production-ready
 
 ### Stödda Format
 | Kategori | Format |
@@ -321,16 +322,13 @@ methodology/
 
 ### Roadmap
 
-| Fas | Uppgift | Status | Timeline |
-|-----|---------|--------|----------|
-| **Kort-sikt** | Dokumentation klar | ✅ Klar | 2026-01-20 |
-| | Installation (~30-45 min) | ⏳ Pending | Q1 2026 |
-| | Initial testning med kursmaterial | ⏳ Pending | Q1 2026 |
-| **Mellan-sikt** | Jämför med egen MCP | ⏳ Pending | Q2 2026 |
-| | Utvärdera: Vilken lösning för vilka use cases? | ⏳ Pending | Q2 2026 |
-| | Dokumentera best practices | ⏳ Pending | Q2 2026 |
-| **Lång-sikt** | Hybrid-lösning (egen MCP + MarkItDown) | ⏳ Pending | Q3-Q4 2026 |
-| | Bidra till MarkItDown vid förbättringar | ⏳ Pending | Q3-Q4 2026 |
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| Dokumentation klar | ✅ Klar | 2026-01-20 |
+| Beslut: Använd MarkItDown (ej egen MCP) | ✅ Klar | 2026-01-21 |
+| Installation (~30-45 min) | ⬜ Nästa | - |
+| Testa med kursmaterial (PDF) | ⬜ Planerad | - |
+| Konfigurera för QuestionForge workflow | ⬜ Planerad | - |
 
 ### Installationsmetoder
 1. **Standard Python** (enklast) - uv + virtuell miljö
@@ -347,6 +345,11 @@ methodology/
 - MCP Package: https://github.com/microsoft/markitdown/tree/main/packages/markitdown-mcp
 - Komplett installationsguide: `docs/guides/markitdown-mcp-installation.md`
 
+### Deprecated: course-extractor-mcp
+- Flyttad till separat repo (AGPL-isolation)
+- **Status:** Arkiverad - använd MarkItDown istället
+- **Anledning:** Microsoft's lösning är bättre underhållen och har fler format
+
 ---
 
 ## Prioritetsordning
@@ -354,11 +357,11 @@ methodology/
 1. ~~**qf-scaffolding logging** - TypeScript logger per RFC-001~~ ✅ Klar
 2. ~~**RFC-004 Phase 2** - M1 progressive saving tools~~ ✅ Klar
 3. ~~**RFC-007** - LLM Workflow Control Patterns + Option A~~ ✅ Klar
-4. **Testa M1 Option A** - End-to-end test med teacher-driven workflow
-5. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
-6. **M2-M4 Tools** - Implementera tools för övriga moduler
-7. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
-8. **MarkItDown MCP** - Installation och testning (Q1 2026)
+4. **MarkItDown MCP** - Installation och konfiguration ⬅️ NÄSTA
+5. **Testa M1 med MarkItDown** - End-to-end test med PDF-extraktion
+6. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
+7. **M2-M4 Tools** - Implementera tools för övriga moduler
+8. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
 
 ---
 
@@ -384,4 +387,4 @@ methodology/
 
 ---
 
-*Roadmap uppdaterad 2026-01-21 (write_m1_stage tool, RFC-009 M3 Conversation Capture)*
+*Roadmap uppdaterad 2026-01-21 (MarkItDown MCP prioriterad, course-extractor-mcp arkiverad)*

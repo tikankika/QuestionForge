@@ -38,12 +38,17 @@ All notable changes to QuestionForge will be documented in this file.
 - **Updated:** M1 Stage 0 methodology with explicit save format instructions
 - **Updated:** Tool hints in `load_stage.ts` to show correct format
 
-#### RFC-008: Course Extractor Integration (Draft)
-- **New RFC:** `docs/rfcs/RFC-008-course-extractor-integration.md`
-- **Approach:** Claude Orchestration - two separate MCPs
-  - `course-extractor-mcp` (Python/AGPL) → text + images from PDF
-  - `qf-scaffolding` (TypeScript/MIT) → M1 workflow
-- **Status:** Draft - waiting for implementation
+#### Decision: Use MarkItDown MCP (Microsoft) for PDF Extraction
+- **Decision:** Use Microsoft's MarkItDown MCP instead of custom `course-extractor-mcp`
+- **Reasons:**
+  - Officially maintained by Microsoft
+  - 29+ formats (not just PDF)
+  - MIT license (no AGPL complications)
+  - Production-ready
+- **Impact:**
+  - `course-extractor-mcp` → Archived (moved to separate repo)
+  - RFC-008 → Superseded by MarkItDown approach
+- **Next:** Install MarkItDown MCP following `docs/guides/markitdown-mcp-installation.md`
 
 ### Added - 2026-01-20
 
