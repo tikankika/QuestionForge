@@ -4,6 +4,29 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-21
+
+#### qf-scaffolding: New `write_m1_stage` Tool
+- **New Tool:** `write_m1_stage` - Direct file writing for M1 stages
+- **Principle:** "What Claude writes = what gets saved" (no transformation)
+- **Features:**
+  - Separate files per stage: `m1_stage0_materials.md` through `m1_stage5_objectives.md`
+  - Auto-updates `m1_progress.yaml` for progress tracking
+  - Safety: Won't overwrite existing files without explicit `overwrite=true`
+- **Branch:** `feature/m1-direct-file-writing`
+- **Files added:**
+  - `packages/qf-scaffolding/src/tools/write_m1_stage.ts` (260 lines)
+- **Files modified:**
+  - `packages/qf-scaffolding/src/index.ts` - registered new tool
+
+#### RFC-009: M3 Conversation Capture (Draft)
+- **New RFC:** `docs/rfcs/RFC-009-m3-conversation-capture.md`
+- **Problem:** M3 (Question Generation) needs different saving pattern than M1/M2
+  - M1/M2: Stage-based → save complete document at once
+  - M3: Iterative conversation → accumulate questions incrementally
+- **Proposed Solution:** `append_m3_question` tool for incremental question saving
+- **Status:** Draft - design phase
+
 ### Changed - 2026-01-21
 
 #### qf-scaffolding: Simplified save_m1_progress Tool

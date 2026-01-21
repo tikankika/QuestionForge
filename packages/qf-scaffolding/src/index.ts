@@ -27,6 +27,7 @@ import { completeStage, completeStageSchema } from "./tools/complete_stage.js";
 import { readMaterials, readMaterialsSchema } from "./tools/read_materials.js";
 import { readReference, readReferenceSchema } from "./tools/read_reference.js";
 import { saveM1Progress, saveM1ProgressSchema } from "./tools/save_m1_progress.js";
+import { writeM1Stage, writeM1StageSchema } from "./tools/write_m1_stage.js";
 import { getStageOutputType } from "./outputs/index.js";
 
 // Server version
@@ -251,6 +252,44 @@ const TOOLS: Tool[] = [
         },
       },
       required: ["project_path", "action", "data"],
+    },
+  },
+  {
+    name: "write_m1_stage",
+    description:
+      `Write content directly to an M1 stage file. ` +
+      `Each stage gets its own file (m1_stage0_materials.md, m1_stage1_validation.md, etc.). ` +
+      `What you write = what gets saved. No transformation. ` +
+      `Safe: Won't overwrite existing files unless overwrite=true. ` +
+      `Progress is tracked automatically in m1_progress.yaml.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder.",
+        },
+        stage: {
+          type: "number",
+          minimum: 0,
+          maximum: 5,
+          description:
+            "M1 stage number (0-5). " +
+            "0=Materials, 1=Validation, 2=Emphasis, 3=Examples, 4=Misconceptions, 5=Objectives.",
+        },
+        content: {
+          type: "string",
+          description:
+            "Raw markdown content to write. This is saved EXACTLY as provided. " +
+            "Include all analysis, examples, misconceptions, etc. in markdown format.",
+        },
+        overwrite: {
+          type: "boolean",
+          description: "Set to true to overwrite existing stage file. Default: false (safe).",
+          default: false,
+        },
+      },
+      required: ["project_path", "stage", "content"],
     },
   },
 ];
@@ -630,12 +669,66 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
+  // Handle write_m1_stage
+  if (name === "write_m1_stage") {
+    try {
+      // Validate input
+      const validatedInput = writeM1StageSchema.parse(args);
+
+      // Write stage
+      const result = await writeM1Stage(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`✅ Stage ${validatedInput.stage} written to ${result.file_path}`);
+        lines.push(``);
+        lines.push(`**Stage:** ${result.stage_name}`);
+        lines.push(`**Characters:** ${result.char_count?.toLocaleString()}`);
+        lines.push(``);
+        lines.push(`**Progress:**`);
+        lines.push(`- Completed: ${result.progress?.completed.join(", ") || "none"}`);
+        lines.push(`- Pending: ${result.progress?.pending.join(", ") || "none"}`);
+        lines.push(`- Status: ${result.progress?.status}`);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: lines.join("\n"),
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error writing stage: ${result.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Validation error: ${errorMessage}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
   // Unknown tool
   return {
     content: [
       {
         type: "text",
-        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress`,
+        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage`,
       },
     ],
     isError: true,

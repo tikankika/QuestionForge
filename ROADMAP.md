@@ -1,6 +1,6 @@
 # QuestionForge Roadmap
 
-**Senast uppdaterad:** 2026-01-20
+**Senast uppdaterad:** 2026-01-21
 
 ---
 
@@ -210,6 +210,20 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 | `read_materials` | Lista filer (list mode) eller läs EN fil (read mode) |
 | `read_reference` | Läs kursplan etc. |
 | `save_m1_progress` | Progressiv sparning till `m1_analysis.md` |
+| `write_m1_stage` | **NEW** Direkt filskrivning per stage (separata filer) |
+
+### write_m1_stage Tool ✅ (2026-01-21)
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| Tool implementation | ✅ Klar | 2026-01-21 |
+| Separate files per stage (0-5) | ✅ Klar | 2026-01-21 |
+| m1_progress.yaml tracking | ✅ Klar | 2026-01-21 |
+| Overwrite protection | ✅ Klar | 2026-01-21 |
+
+**Princip:** "What Claude writes = what gets saved"
+- Varje stage får egen fil: `m1_stage0_materials.md`, `m1_stage1_validation.md`, etc.
+- Automatisk progress-tracking i `m1_progress.yaml`
+- Säkerhet: Skriver inte över utan explicit `overwrite=true`
 
 ### RFC-007: LLM Workflow Control Patterns ✅
 | Uppgift | Status | Datum |
@@ -231,12 +245,28 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 - Teacher says: "Analyze [file]" → Claude analyzes → "Save and continue"
 - Methodology rewritten as teacher guide
 
+### RFC-009: M3 Conversation Capture 📋 DRAFT
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| Problem analysis (M3 vs M1/M2 patterns) | ✅ Klar | 2026-01-21 |
+| RFC-009 draft created | ✅ Klar | 2026-01-21 |
+| `append_m3_question` tool design | 📋 Draft | - |
+| Implementation | ⬜ Planerad | - |
+
+**RFC-009 Key Insight:**
+- M1/M2: Stage-based → save complete document at once
+- M3: Iterative conversation → accumulate questions incrementally
+- M3 needs different tooling than `write_m1_stage`
+
 ### Återstående arbete
 | Uppgift | Status |
 |---------|--------|
 | Testa M1 med Option A workflow | ⬜ Nästa |
+| Update M1 methodology for `write_m1_stage` | ⬜ Nästa |
 | User decision logging (TIER 3) | ⬜ Planerad |
-| M2-M4 tools implementation | ⬜ Planerad |
+| M2 tools (kan använda write_m1_stage) | ⬜ Planerad |
+| M3 tools (RFC-009: append_m3_question) | ⬜ Planerad |
+| M4 tools implementation | ⬜ Planerad |
 
 **Methodology struktur:**
 ```
@@ -340,7 +370,8 @@ methodology/
 | `CHANGELOG.md` | Detaljerad ändringslogg |
 | `docs/rfcs/RFC-001-unified-logging.md` | Unified Logging RFC |
 | `docs/rfcs/RFC-004-m1-methodology-tools.md` | M1 Tools RFC |
-| `docs/rfcs/RFC-007-llm-workflow-control-patterns.md` | **NEW** LLM Workflow Control |
+| `docs/rfcs/RFC-007-llm-workflow-control-patterns.md` | LLM Workflow Control |
+| `docs/rfcs/RFC-009-m3-conversation-capture.md` | **NEW** M3 Conversation Capture |
 | `docs/workflows/m1_complete_workflow.md` | M1 Workflow (v3.1) |
 | `methodology/m1/m1_0_stage0_material_analysis.md` | **NEW** Teacher Guide for Stage 0 |
 | `docs/acdm/` | ACDM sessionsloggar och reflektioner |
@@ -353,4 +384,4 @@ methodology/
 
 ---
 
-*Roadmap uppdaterad 2026-01-20 (MarkItDown MCP integration planerad)*
+*Roadmap uppdaterad 2026-01-21 (write_m1_stage tool, RFC-009 M3 Conversation Capture)*
