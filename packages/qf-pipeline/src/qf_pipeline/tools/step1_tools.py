@@ -411,7 +411,7 @@ async def step1_next(direction: str = "forward") -> Dict[str, Any]:
         direction: "forward", "back", or question_id
 
     Returns:
-        New current question info
+        New current question info with analysis
     """
     if not _step1_session:
         return {"error": "No active session"}
@@ -432,8 +432,19 @@ async def step1_next(direction: str = "forward") -> Dict[str, Any]:
     current = _step1_session.get_current_question()
     progress = _step1_session.get_progress()
 
+    # Analyze current question (like step1_start does for first question)
+    issues = analyze_question(current.raw_content, current.detected_type)
+    auto_fixable = get_auto_fixable_issues(issues)
+
     return {
         "current_question": current.question_id,
+        "current_index": _step1_session.current_index,
+        "total_questions": len(_step1_session.questions),
+        "question_type": current.detected_type,
+        "question_title": current.title,
+        "issues_count": len(issues),
+        "auto_fixable": len(auto_fixable),
+        "issues_summary": format_issue_summary(issues),
         "position": f"{progress['current']} av {progress['total']}",
         "progress": progress
     }

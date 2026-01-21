@@ -396,6 +396,20 @@ async def list_tools() -> List[Tool]:
                 "properties": {},
             },
         ),
+        Tool(
+            name="step1_next",
+            description="Navigate to next/previous question or jump to specific question ID",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "direction": {
+                        "type": "string",
+                        "description": "Navigation: 'forward', 'back', or a question_id (e.g. 'Q005')",
+                        "default": "forward",
+                    },
+                },
+            },
+        ),
         # Cross-step utility
         Tool(
             name="list_types",
@@ -525,6 +539,8 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_step1_preview(arguments)
         elif name == "step1_finish":
             return await handle_step1_finish()
+        elif name == "step1_next":
+            return await handle_step1_next(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except WrapperError as e:
@@ -1968,6 +1984,42 @@ async def handle_step1_skip(arguments: dict) -> List[TextContent]:
     return [TextContent(
         type="text",
         text=result.get("message", "Hoppade över")
+    )]
+
+
+async def handle_step1_next(arguments: dict) -> List[TextContent]:
+    """Handle step1_next - navigate to next/previous question."""
+    direction = arguments.get("direction", "forward")
+
+    result = await step1_next(direction)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    # Format progress bar
+    progress = result.get("progress", {})
+    progress_pct = progress.get("percent", 0)
+    filled = int(progress_pct / 5)
+    bar = "█" * filled + "░" * (20 - filled)
+
+    # Build output
+    current_idx = result.get('current_index', 0)
+    total = result.get('total_questions', '?')
+    q_id = result.get('current_question', '?')
+    q_type = result.get('question_type', '?')
+    q_title = result.get('question_title', '')
+    issues = result.get('issues_count', 0)
+    auto_fix = result.get('auto_fixable', 0)
+    summary = result.get('issues_summary', '')
+
+    return [TextContent(
+        type="text",
+        text=f"Navigerade till {q_id} - {q_title}\n\n"
+             f"[{bar}] {progress_pct}%\n"
+             f"Fråga {current_idx + 1} av {total}\n\n"
+             f"Typ: {q_type}\n"
+             f"Problem: {issues} ({auto_fix} auto-fixbara)\n\n"
+             f"{summary}"
     )]
 
 
