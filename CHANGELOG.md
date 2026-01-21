@@ -4,6 +4,19 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed - 2026-01-21
+
+#### qf-pipeline: step1_start accepts all file formats (Bug Fix)
+- **Bug:** `step1_start` rejected files as "semi-structured" instead of trying to fix them
+  - Claude Desktop went into loops trying workarounds
+  - Files from M3 were incorrectly classified and rejected
+- **Fix:** `step1_start` now accepts ALL file formats
+  - Warns about format issues but proceeds with parsing
+  - Counts severe issues and recommends M1-M4 if too many
+  - No longer blocks on SEMI_STRUCTURED or UNSTRUCTURED formats
+- **Files modified:**
+  - `packages/qf-pipeline/src/qf_pipeline/tools/step1_tools.py`
+
 ### Added - 2026-01-21
 
 #### qf-scaffolding: General Project File Tools (Bug Fix)

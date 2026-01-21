@@ -96,35 +96,46 @@ async def step1_start(
 
     # Detect format
     format_level = detect_format(content)
+    format_warning = None
 
+    # Accept ALL formats - only warn, don't reject
     if format_level == FormatLevel.UNSTRUCTURED:
-        return {
-            "error": "File is unstructured",
-            "recommendation": "Use M3 (Question Generation) or qf-scaffolding first",
-            "format": format_level.value,
-            "format_description": get_format_description(format_level)
+        format_warning = {
+            "level": "severe",
+            "message": "Filen saknar tydlig struktur. Step 1 försöker ändå.",
+            "recommendation": "Om många fel uppstår, överväg M1-M4 för att strukturera innehållet först."
         }
-
-    if format_level == FormatLevel.QFMD:
-        return {
-            "message": "File is already in QFMD format",
-            "recommendation": "Go directly to Step 2 (validate)",
-            "format": format_level.value
+    elif format_level == FormatLevel.QFMD:
+        # Already QFMD - still allow step1 to run for any remaining fixes
+        format_warning = {
+            "level": "info",
+            "message": "Filen är redan i QFMD-format.",
+            "recommendation": "Kör step2_validate direkt, eller fortsätt här för eventuella justeringar."
         }
-
-    if format_level == FormatLevel.SEMI_STRUCTURED:
-        return {
-            "error": "File is semi-structured",
-            "recommendation": "Step 1 handles Legacy Syntax → QFMD. Use qf-scaffolding for semi-structured files.",
-            "format": format_level.value,
-            "format_description": get_format_description(format_level)
+    elif format_level == FormatLevel.SEMI_STRUCTURED:
+        format_warning = {
+            "level": "moderate",
+            "message": "Filen är semi-strukturerad. Step 1 försöker fixa.",
+            "recommendation": "Om många strukturella fel, överväg M3 för omgenerering."
         }
 
     # Parse questions
     questions = parse_file(content)
 
     if not questions:
-        return {"error": "Inga frågor hittades i filen"}
+        # If no questions found and format is problematic, give helpful guidance
+        if format_level in [FormatLevel.UNSTRUCTURED, FormatLevel.UNKNOWN]:
+            return {
+                "error": "Inga frågor hittades i filen",
+                "format": format_level.value,
+                "recommendation": "Filen verkar sakna frågestruktur. Använd M3 (Question Generation) för att skapa frågor från ditt material.",
+                "format_warning": format_warning
+            }
+        return {
+            "error": "Inga frågor hittades i filen",
+            "format": format_level.value,
+            "recommendation": "Kontrollera att filen innehåller frågor med # Q001 eller liknande headers."
+        }
 
     _parsed_questions = questions
 
@@ -152,13 +163,32 @@ async def step1_start(
     issues = analyze_question(first_question.raw_content, first_question.detected_type)
     _step1_session.questions[0].issues_found = len(issues)
 
+    # Count total issues across all questions for severity assessment
+    total_issues = 0
+    severe_issues = 0
+    for q in questions:
+        q_issues = analyze_question(q.raw_content, q.detected_type)
+        total_issues += len(q_issues)
+        # Count severe issues (missing required fields)
+        severe_issues += sum(1 for i in q_issues if hasattr(i, 'severity') and i.severity.value == 'error')
+
+    # Build recommendation based on issue count
+    if severe_issues > len(questions) * 3:  # More than 3 severe issues per question on average
+        m1m4_recommendation = f"Filen har {severe_issues} allvarliga problem. Överväg M1-M4 för bättre struktur."
+    else:
+        m1m4_recommendation = None
+
     return {
         "session_id": _step1_session.session_id,
         "source_file": source_file,
         "working_file": _step1_session.working_file,
         "format": format_level.value,
         "format_description": get_format_description(format_level),
+        "format_warning": format_warning,
         "total_questions": len(questions),
+        "total_issues": total_issues,
+        "severe_issues": severe_issues,
+        "m1m4_recommendation": m1m4_recommendation,
         "first_question": {
             "id": first_question.question_id,
             "title": first_question.title,
@@ -168,7 +198,7 @@ async def step1_start(
             "auto_fixable": len(get_auto_fixable_issues(issues)),
             "issues_summary": format_issue_summary(issues)
         },
-        "message": f"Session started! {len(questions)} questions in Legacy Syntax. Run step1_transform to convert all to QFMD."
+        "message": f"Session started! {len(questions)} frågor hittades. Kör step1_analyze eller step1_transform för att fixa."
     }
 
 
