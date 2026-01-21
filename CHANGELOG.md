@@ -6,6 +6,17 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-21
 
+#### qf-scaffolding: General Project File Tools (Bug Fix)
+- **Bug:** Claude Desktop couldn't read files outside `00_materials/` or `00_reference/`
+- **New Tool:** `read_project_file` - Read any file within project directory
+  - Example: `read_project_file(project_path="...", relative_path="05/questions.md")`
+  - Security: Path traversal protection (can't read outside project)
+- **New Tool:** `write_project_file` - Write any file within project directory
+  - Creates parent directories automatically
+  - Overwrite protection option
+- **Files added:**
+  - `packages/qf-scaffolding/src/tools/project_files.ts` (240 lines)
+
 #### qf-scaffolding: New `write_m1_stage` Tool
 - **New Tool:** `write_m1_stage` - Direct file writing for M1 stages
 - **Principle:** "What Claude writes = what gets saved" (no transformation)

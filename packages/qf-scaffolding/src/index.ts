@@ -28,6 +28,12 @@ import { readMaterials, readMaterialsSchema } from "./tools/read_materials.js";
 import { readReference, readReferenceSchema } from "./tools/read_reference.js";
 import { saveM1Progress, saveM1ProgressSchema } from "./tools/save_m1_progress.js";
 import { writeM1Stage, writeM1StageSchema } from "./tools/write_m1_stage.js";
+import {
+  readProjectFile,
+  readProjectFileSchema,
+  writeProjectFile,
+  writeProjectFileSchema,
+} from "./tools/project_files.js";
 import { getStageOutputType } from "./outputs/index.js";
 
 // Server version
@@ -290,6 +296,68 @@ const TOOLS: Tool[] = [
         },
       },
       required: ["project_path", "stage", "content"],
+    },
+  },
+  {
+    name: "read_project_file",
+    description:
+      `Read any file within the project directory. ` +
+      `Use this when you need to read files outside of 00_materials/ or 00_reference/. ` +
+      `For example: questions in 03_questions/, outputs in 05/, etc. ` +
+      `Security: Only allows reading files within the project directory.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder.",
+        },
+        relative_path: {
+          type: "string",
+          description:
+            "Path relative to project folder. Examples: " +
+            "'05/questions.md', '03_questions/draft.md', 'session.yaml'",
+        },
+      },
+      required: ["project_path", "relative_path"],
+    },
+  },
+  {
+    name: "write_project_file",
+    description:
+      `Write any file within the project directory. ` +
+      `Use this when you need to create or update files outside standard folders. ` +
+      `Creates parent directories automatically. ` +
+      `Security: Only allows writing files within the project directory.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder.",
+        },
+        relative_path: {
+          type: "string",
+          description:
+            "Path relative to project folder. Examples: " +
+            "'05/questions.md', '03_questions/draft.md'",
+        },
+        content: {
+          type: "string",
+          description: "Content to write to the file.",
+        },
+        create_dirs: {
+          type: "boolean",
+          description: "Create parent directories if they don't exist. Default: true.",
+          default: true,
+        },
+        overwrite: {
+          type: "boolean",
+          description: "Overwrite if file exists. Default: true.",
+          default: true,
+        },
+      },
+      required: ["project_path", "relative_path", "content"],
     },
   },
 ];
@@ -723,12 +791,111 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
+  // Handle read_project_file
+  if (name === "read_project_file") {
+    try {
+      const validatedInput = readProjectFileSchema.parse(args);
+      const result = await readProjectFile(validatedInput);
+
+      if (result.success && result.content) {
+        const lines: string[] = [];
+        lines.push(`# File: ${result.relative_path}`);
+        lines.push(``);
+        lines.push(`**Size:** ${result.size_bytes?.toLocaleString()} bytes`);
+        lines.push(`**Path:** ${result.file_path}`);
+        lines.push(``);
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(result.content);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: lines.join("\n"),
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error reading file: ${result.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Validation error: ${errorMessage}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle write_project_file
+  if (name === "write_project_file") {
+    try {
+      const validatedInput = writeProjectFileSchema.parse(args);
+      const result = await writeProjectFile(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`✅ File written: ${result.relative_path}`);
+        lines.push(``);
+        lines.push(`**Bytes written:** ${result.bytes_written?.toLocaleString()}`);
+        lines.push(`**Full path:** ${result.file_path}`);
+        if (result.created_dirs) {
+          lines.push(`**Created directories:** Yes`);
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: lines.join("\n"),
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error writing file: ${result.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Validation error: ${errorMessage}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
   // Unknown tool
   return {
     content: [
       {
         type: "text",
-        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage`,
+        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file`,
       },
     ],
     isError: true,
