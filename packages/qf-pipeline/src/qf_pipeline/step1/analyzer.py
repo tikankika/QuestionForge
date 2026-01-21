@@ -54,6 +54,35 @@ TYPE_REQUIRED_FIELDS = {
 BLOOM_LEVELS = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create']
 DIFFICULTY_LEVELS = ['Easy', 'Medium', 'Hard']
 
+# Type name aliases that need normalization
+TYPE_NAME_ALIASES = {
+    'multiple_choice': 'multiple_choice_single',
+    'mc': 'multiple_choice_single',
+    'mcq': 'multiple_choice_single',
+    'mr': 'multiple_response',
+    'tf': 'true_false',
+}
+
+# Valid type names (QTI-exportable)
+VALID_TYPE_NAMES = {
+    'multiple_choice_single',
+    'multiple_response',
+    'true_false',
+    'text_entry',
+    'text_entry_math',
+    'text_entry_numeric',
+    'inline_choice',
+    'match',
+    'hotspot',
+    'graphicgapmatch_v2',
+    'text_entry_graphic',
+    'text_area',
+    'essay',
+    'audio_record',
+    'composite_editor',
+    'nativehtml',
+}
+
 
 def analyze_question(content: str, question_type: Optional[str] = None) -> List[Issue]:
     """
@@ -86,6 +115,12 @@ def analyze_question(content: str, question_type: Optional[str] = None) -> List[
 
     # 6. Check field structure (@end_field)
     issues.extend(_check_field_structure(content))
+
+    # 7. Check type name validity
+    issues.extend(_check_type_name(content))
+
+    # 8. Check type-specific structure requirements
+    issues.extend(_check_type_structure(content, question_type))
 
     return issues
 
@@ -304,6 +339,102 @@ def _check_field_structure(content: str) -> List[Issue]:
             auto_fixable=True,
             transform_id='nested_field_syntax'
         ))
+
+    return issues
+
+
+def _check_type_name(content: str) -> List[Issue]:
+    """Check that ^type uses valid QTI-exportable type name."""
+    issues = []
+
+    # Extract type value
+    type_match = re.search(r'\^type:?\s+(\S+)', content, re.MULTILINE)
+    if type_match:
+        type_value = type_match.group(1)
+
+        # Check if it's an alias that needs normalization
+        if type_value.lower() in TYPE_NAME_ALIASES:
+            correct_type = TYPE_NAME_ALIASES[type_value.lower()]
+            issues.append(Issue(
+                severity=Severity.CRITICAL,
+                category='invalid_type',
+                field='^type',
+                message=f"Typnamn '{type_value}' → '{correct_type}'",
+                current_value=type_value,
+                suggested_value=correct_type,
+                auto_fixable=True,
+                transform_id='normalize_type_names'
+            ))
+        elif type_value not in VALID_TYPE_NAMES:
+            # Unknown type - might need manual review
+            issues.append(Issue(
+                severity=Severity.CRITICAL,
+                category='invalid_type',
+                field='^type',
+                message=f"Okänd frågetyp '{type_value}' - kontrollera manuellt",
+                current_value=type_value,
+                prompt_key='unknown_type'
+            ))
+
+    return issues
+
+
+def _check_type_structure(content: str, question_type: Optional[str]) -> List[Issue]:
+    """Check type-specific structure requirements."""
+    issues = []
+
+    if not question_type:
+        # Try to detect from content
+        type_match = re.search(r'\^type:?\s+(\S+)', content, re.MULTILINE)
+        if type_match:
+            question_type = type_match.group(1)
+            # Normalize if alias
+            question_type = TYPE_NAME_ALIASES.get(question_type.lower(), question_type)
+
+    if not question_type:
+        return issues
+
+    # Multiple response needs correct_answers section
+    if question_type == 'multiple_response':
+        has_correct_answers = bool(re.search(
+            r'@field:\s*correct_answers|###\s*Correct\s*Answers',
+            content, re.IGNORECASE
+        ))
+        # Check if [correct] markers exist in options (can be extracted)
+        has_correct_markers = bool(re.search(r'\[correct\]', content, re.IGNORECASE))
+
+        if not has_correct_answers and has_correct_markers:
+            issues.append(Issue(
+                severity=Severity.CRITICAL,
+                category='missing_structure',
+                field='correct_answers',
+                message="multiple_response: [correct] markerare → @field: correct_answers",
+                auto_fixable=True,
+                transform_id='extract_correct_answers'
+            ))
+        elif not has_correct_answers and not has_correct_markers:
+            issues.append(Issue(
+                severity=Severity.CRITICAL,
+                category='missing_structure',
+                field='correct_answers',
+                message="multiple_response: Saknar correct_answers sektion",
+                prompt_key='add_correct_answers'
+            ))
+
+    # Text entry needs blank placeholder and blanks section
+    if question_type in ('text_entry', 'text_entry_math', 'text_entry_numeric'):
+        has_placeholder = bool(re.search(r'\{\{blank_\d+\}\}', content, re.IGNORECASE))
+        has_blanks_field = bool(re.search(r'@field:\s*blanks', content, re.IGNORECASE))
+
+        if not has_placeholder or not has_blanks_field:
+            issues.append(Issue(
+                severity=Severity.CRITICAL,
+                category='missing_structure',
+                field='blanks',
+                message="text_entry: Saknar {{blank_1}} placeholder och/eller @field: blanks",
+                auto_fixable=True,
+                transform_id='restructure_text_entry'
+            ))
 
     return issues
 
