@@ -20,27 +20,11 @@ import { logEvent, logError } from "../utils/logger.js";
 import * as yaml from "yaml";
 
 // Material analysis data (for add_material action)
+// SIMPLIFIED: Just filename + raw markdown content
+// What Claude presents = what gets saved (no transformation)
 const MaterialDataSchema = z.object({
   filename: z.string(),
-  summary: z.string(),
-  key_topics: z.array(z.string()),
-  tier_classification: z.object({
-    tier1_core: z.array(z.string()),
-    tier2_important: z.array(z.string()),
-    tier3_supplementary: z.array(z.string()),
-    tier4_reference: z.array(z.string()),
-  }),
-  examples_found: z
-    .array(
-      z.object({
-        topic: z.string(),
-        example: z.string(),
-        location: z.string().optional(),
-      })
-    )
-    .optional(),
-  potential_misconceptions: z.array(z.string()).optional(),
-  teacher_feedback: z.string().optional(),
+  content: z.string(), // Raw markdown - saved exactly as provided
 });
 
 // Stage output data (for save_stage action)
@@ -165,60 +149,15 @@ function createInitialDocument(sessionId: string): string {
 
 /**
  * Format material analysis as markdown
+ * SIMPLIFIED: Just adds header, passes content through as-is
  */
 function formatMaterialMarkdown(
   material: z.infer<typeof MaterialDataSchema>,
   index: number,
   total: number
 ): string {
-  const lines: string[] = [];
-
-  lines.push(`### Material ${index}/${total}: ${material.filename}`);
-  lines.push("");
-  lines.push(`**Summary:** ${material.summary}`);
-  lines.push("");
-  lines.push(`**Key Topics:** ${material.key_topics.join(", ")}`);
-  lines.push("");
-  lines.push("**Tier Classification:**");
-  lines.push(
-    `- Tier 1 (Core): ${material.tier_classification.tier1_core.join(", ") || "None"}`
-  );
-  lines.push(
-    `- Tier 2 (Important): ${material.tier_classification.tier2_important.join(", ") || "None"}`
-  );
-  lines.push(
-    `- Tier 3 (Supplementary): ${material.tier_classification.tier3_supplementary.join(", ") || "None"}`
-  );
-  lines.push(
-    `- Tier 4 (Reference): ${material.tier_classification.tier4_reference.join(", ") || "None"}`
-  );
-
-  if (material.examples_found && material.examples_found.length > 0) {
-    lines.push("");
-    lines.push("**Examples Found:**");
-    for (const ex of material.examples_found) {
-      lines.push(`- ${ex.topic}: "${ex.example}"${ex.location ? ` (${ex.location})` : ""}`);
-    }
-  }
-
-  if (
-    material.potential_misconceptions &&
-    material.potential_misconceptions.length > 0
-  ) {
-    lines.push("");
-    lines.push("**Potential Misconceptions:**");
-    for (const misc of material.potential_misconceptions) {
-      lines.push(`- ${misc}`);
-    }
-  }
-
-  if (material.teacher_feedback) {
-    lines.push("");
-    lines.push(`**Teacher Feedback:** ${material.teacher_feedback}`);
-  }
-
-  lines.push("");
-  return lines.join("\n");
+  // Header + raw content (no transformation)
+  return `### Material ${index}/${total}: ${material.filename}\n\n${material.content}\n`;
 }
 
 /**

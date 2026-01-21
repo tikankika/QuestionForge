@@ -1,5 +1,5 @@
 
-DEL 1: Header och Översikt
+# DEL 1: Header och Översikt
 markdown# M1 Material Analysis - Detaljerat Flöde
 
 ## Översikt
@@ -53,35 +53,133 @@ Detta dokument beskriver det exakta flödet för M1 Material Analysis, inklusive
          └─────────────────────┘
 ```
 
-DEL 2: M1 Start
-markdown## STEG 1: M1 Material Analysis Start
+# DEL 2: M1 Start
 
-### 1.1 Load Stage 0 (Introduction)
+## M1 MATERIAL ANALYSIS
+
+### Stage 0: Material Analysis Instructions (1.0)
 ```
 ┌──────────────────────────┐
 │  USER: "Börja M1"        │
 └──────────┬───────────────┘
            │
            ↓
-   ┌───────────────────┐
-   │  load_stage       │
-   │  module: m1       │
-   │  stage: 0         │
-   └───────┬───────────┘
+   ┌─────────────────────────────────────┐
+   │  TOOL: load_stage                   │
+   │  ────────────────────────────────   │
+   │  INPUT: {                           │
+   │    module: "m1",                    │
+   │    stage: 0,                        │
+   │    project_path: "..."              │
+   │  }                                  │
+   └───────┬─────────────────────────────┘
            │
            ↓
-   ┌────────────────────────────┐
-   │  Läser m1_0_intro.md       │
-   │  Uppdaterar session.yaml   │
-   └───────┬────────────────────┘
+   ┌────────────────────────────────────────┐
+   │  TOOL INTERNAL OPERATIONS:             │
+   │  ────────────────────────────────────  │
+   │  1. READ FILE:                         │
+   │     methodology/m1/                    │
+   │     m1_0_stage0_material_analysis.md   │
+   │                                        │
+   │  2. UPDATE STATE (session.yaml):       │
+   │     methodology.m1.current_stage = 0   │
+   │     methodology.m1.status = in_progress│
+   │                                        │
+   │  3. LOG EVENT (session.jsonl):         │
+   │     {event: "stage_load", module: "m1",│
+   │      stage: 0, timestamp: "..."}      │
+   └───────┬────────────────────────────────┘
            │
            ↓
-   ┌────────────────────────────┐
-   │  CLAUDE: Visar intro       │
-   │  "M1: Material Analysis"   │
-   │  "Låt oss börja..."        │
-   └────────────────────────────┘
+   ┌─────────────────────────────────────────┐
+   │  TOOL OUTPUT:                           │
+   │  ─────────────────────────────────────  │
+   │  {                                      │
+   │    content: "# STAGE 0: MATERIAL        │
+   │              ANALYSIS\n\n...",          │
+   │    metadata: {                          │
+   │      module: "m1",                      │
+   │      stage: 0,                          │
+   │      file: "m1_0_stage0_material_       │
+   │             analysis.md"                │
+   │    },                                   │
+   │    tools_for_stage: ["read_materials"], │
+   │    next_action: "Call read_materials()  │
+   │                  to list PDFs"          │
+   │  }                                      │
+   └───────┬─────────────────────────────────┘
+           │
+           ↓
+   ┌─────────────────────────────────────────┐
+   │  CLAUDE LÄSER CONTENT OCH SER:          │
+   │  ┌───────────────────────────────────┐  │
+   │  │ ## STAGE 0: MATERIAL ANALYSIS     │  │
+   │  │ Duration: 60-90 minutes           │  │
+   │  │                                   │  │
+   │  │ ## FOR CLAUDE:                    │  │
+   │  │ Input materials:                  │  │
+   │  │ - Lectures, slides, readings      │  │
+   │  │                                   │  │
+   │  │ Systematic Analysis Process:      │  │
+   │  │ 1. Read all materials             │  │
+   │  │ 2. Identify emphasis patterns:    │  │
+   │  │    - Repetition (3+ mentions)     │  │
+   │  │    - Time allocation              │  │
+   │  │    - Explicit priority signals    │  │
+   │  │ 3. Catalog examples               │  │
+   │  │ 4. Identify misconceptions        │  │
+   │  │ 5. Establish tiers (1-4)          │  │
+   │  │                                   │  │
+   │  │ ## Tier Definitions:              │  │
+   │  │ TIER 1 - Essential:               │  │
+   │  │   Multiple emphasis signals       │  │
+   │  │ TIER 2 - Important:               │  │
+   │  │   Substantial coverage            │  │
+   │  │ TIER 3 - Supplementary:           │  │
+   │  │   Brief mentions                  │  │
+   │  │ TIER 4 - Out of Scope:            │  │
+   │  │   Explicitly excluded             │  │
+   │  │                                   │  │
+   │  │ ## Stage 0 Output Format:         │  │
+   │  │ [exempel på markdown format]      │  │
+   │  └───────────────────────────────────┘  │
+   └─────────────────────────────────────────┘
+           │
+           ↓
+   ┌─────────────────────────────────────┐
+   │  CLAUDE FÖRSTÅR:                    │
+   │  "Jag ska läsa material och         │
+   │   identifiera tiers baserat på      │
+   │   emphasis patterns.                │
+   │   Nästa tool: read_materials()"     │
+   └─────────────────────────────────────┘
 ```
+
+---
+
+#### TOOL SUMMARY för Stage 0 (1.0)
+
+**Antal tools använda:** 1
+
+**Tool detaljer:**
+
+| Tool | Syfte | Input | Output |
+|------|-------|-------|--------|
+| `load_stage` | Ladda metodologi-instruktioner för Stage 0 | module: "m1", stage: 0, project_path | content (markdown text), metadata, next tools |
+
+**Vad händer INTE i Stage 0:**
+- ❌ Ingen PDF-läsning (`read_materials` anropas ej)
+- ❌ Ingen filskrivning (`complete_stage` anropas ej)
+- ❌ Ingen användardialog (bara instruktioner laddas)
+
+**Vad händer i Stage 0:**
+- ✅ Ladda Stage 0 instruktioner från `m1_0_stage0_material_analysis.md`
+- ✅ Uppdatera session state (current_stage = 0, status = in_progress)
+- ✅ Claude läser och förstår vad som ska göras
+- ✅ Claude vet vilket nästa tool att använda (`read_materials`)
+
+---
 
 ### 1.2 Load Stage 1 (Material Analysis)
 ```
@@ -113,7 +211,8 @@ markdown## STEG 1: M1 Material Analysis Start
     └──────────────────────────────────┘
 ```
 Vill du att jag fortsätter med resten? Det blir cirka 5-6 delar till.ja12:44DEL 3: PDF-läsning Process
-markdown## STEG 2: Interaktiv PDF-läsning
+markdown
+## STEG 2: Interaktiv PDF-läsning
 
 ### 2.1 Lista Tillgängliga PDFer
 ```

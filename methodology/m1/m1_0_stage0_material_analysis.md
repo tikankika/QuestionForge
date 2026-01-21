@@ -114,10 +114,31 @@ After user uploads ONE file:
 
 **RULE 3: Save then ask for next**
 After user confirms "save":
-- Call save_m1_progress(action="add_material")
+- Call save_m1_progress with EXACT format below
 - Report progress: "X/N materials complete"
 - Ask: "Upload next file: [filename.pdf]"
 - STOP - do not proceed to next file
+
+**CRITICAL: save_m1_progress Format**
+The `content` field must contain the EXACT markdown you presented to the teacher.
+Copy the ENTIRE analysis you showed, not a summary.
+
+```json
+save_m1_progress({
+  project_path: "<project_path>",
+  action: "add_material",
+  stage: 0,
+  data: {
+    material: {
+      filename: "AI - ordboken.pdf",
+      content: "📊 Analys av Material 1: AI - ordboken\n\n**Typ:** Begreppsordbok...\n\n**Topics:**\n- Topic 1\n- Topic 2\n\n**Betoningar:**\n...\n\n**Instruktionsexempel:**\n...\n\n**Misconceptions:**\n..."
+    }
+  }
+})
+```
+
+**What you presented = What gets saved.**
+Do NOT transform or summarize. Copy the FULL analysis markdown.
 
 ## TROUBLESHOOTING
 

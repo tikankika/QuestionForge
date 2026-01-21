@@ -276,12 +276,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // Format response with stage info and content
         const moduleName = result.stage?.module ? getModuleName(result.stage.module) : "Unknown";
 
+        // RFC-007: Gate after load_stage - require user approval before proceeding
+        const stopGate = [
+          `🛑 **STOP - VÄNTA PÅ GODKÄNNANDE**`,
+          ``,
+          `Metodologin för denna stage visas nedan.`,
+          ``,
+          `**INSTRUKTION FÖR CLAUDE:**`,
+          `1. Presentera en KORT sammanfattning av vad denna stage innebär`,
+          `2. Fråga: "Ska vi börja med denna stage?"`,
+          `3. VÄNTA på att läraren säger "ok", "ja", "fortsätt" eller liknande`,
+          `4. Anropa INGA verktyg förrän läraren godkänt`,
+          ``,
+          `---`,
+          ``,
+        ].join("\n");
+
         // Special warning for M1 Stage 0 (RFC-007: User-driven workflow)
         const m1Stage0Warning = (validatedInput.module === "m1" && validatedInput.stage === 0)
           ? `⚠️ **VIKTIGT: ONE FILE AT A TIME!** Följ "QUICK START FOR TEACHERS" nedan. Analysera EN fil, presentera, vänta på feedback, spara. ALDRIG flera filer samtidigt!\n\n`
           : "";
 
         const header = [
+          stopGate,
           `# ${result.stage?.name}`,
           ``,
           m1Stage0Warning,

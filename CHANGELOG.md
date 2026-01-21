@@ -4,6 +4,24 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2026-01-21
+
+#### qf-scaffolding: Simplified save_m1_progress Tool
+- **Breaking Change:** `save_m1_progress` MaterialDataSchema simplified
+  - **Before:** Complex schema with `summary`, `key_topics`, `tier_classification`, `emphasis_patterns`, `instructional_examples`, `potential_misconceptions`
+  - **After:** Simple schema with just `filename` + `content` (raw markdown)
+- **Reason:** What Claude presents = what gets saved (no transformation)
+- **Benefit:** Eliminates mismatch between presentation and saved content
+- **Updated:** M1 Stage 0 methodology with explicit save format instructions
+- **Updated:** Tool hints in `load_stage.ts` to show correct format
+
+#### RFC-008: Course Extractor Integration (Draft)
+- **New RFC:** `docs/rfcs/RFC-008-course-extractor-integration.md`
+- **Approach:** Claude Orchestration - two separate MCPs
+  - `course-extractor-mcp` (Python/AGPL) → text + images from PDF
+  - `qf-scaffolding` (TypeScript/MIT) → M1 workflow
+- **Status:** Draft - waiting for implementation
+
 ### Added - 2026-01-20
 
 #### course-extractor-mcp: PDF Extraction MCP Server (NEW)

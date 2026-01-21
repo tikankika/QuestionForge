@@ -647,8 +647,8 @@ export function getToolHintsForStage(module: string, stage: number): ToolHint[] 
           },
           {
             tool: "save_m1_progress",
-            description: "Spara efter varje material (action=add_material) och när stage är klar (action=save_stage)",
-            example: 'save_m1_progress(project_path="<project>", stage=0, action="add_material", data={material: {...}})',
+            description: "Spara EXAKT den markdown du presenterade. content = hela analysen, inte en sammanfattning!",
+            example: 'save_m1_progress(project_path="<project>", stage=0, action="add_material", data={material: {filename: "fil.pdf", content: "📊 Analys...\\n\\n**Topics:**\\n- ...\\n\\n**Betoningar:**\\n..."}})',
           },
         ];
       case 1: // Stage 1: Validation
