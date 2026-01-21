@@ -55,6 +55,9 @@ from .tools import (
     step1_next,
     step1_preview,
     step1_finish,
+    # Project file tools
+    read_project_file,
+    write_project_file,
 )
 from .utils.logger import log_action, log_event
 
@@ -416,6 +419,57 @@ async def list_tools() -> List[Tool]:
                 }
             },
         ),
+        # Project file tools (read/write anywhere in project)
+        Tool(
+            name="read_project_file",
+            description="Read any file within a project directory. Security: prevents path traversal outside project.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Root project directory",
+                    },
+                    "relative_path": {
+                        "type": "string",
+                        "description": "Path relative to project_path, e.g. '05/questions.md'",
+                    },
+                },
+                "required": ["project_path", "relative_path"],
+            },
+        ),
+        Tool(
+            name="write_project_file",
+            description="Write any file within a project directory. Creates parent dirs by default. Security: prevents path traversal.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Root project directory",
+                    },
+                    "relative_path": {
+                        "type": "string",
+                        "description": "Path relative to project_path",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Content to write",
+                    },
+                    "create_dirs": {
+                        "type": "boolean",
+                        "description": "Create parent directories if needed (default: true)",
+                        "default": True,
+                    },
+                    "overwrite": {
+                        "type": "boolean",
+                        "description": "Overwrite if file exists (default: true)",
+                        "default": True,
+                    },
+                },
+                "required": ["project_path", "relative_path", "content"],
+            },
+        ),
     ]
 
 
@@ -441,6 +495,11 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_list_types()
         elif name == "list_projects":
             return await handle_list_projects(arguments)
+        # Project file tools
+        elif name == "read_project_file":
+            return await handle_read_project_file(arguments)
+        elif name == "write_project_file":
+            return await handle_write_project_file(arguments)
         # Step 1: Guided Build
         elif name == "step1_start":
             return await handle_step1_start(arguments)
@@ -1301,6 +1360,76 @@ async def handle_list_projects(arguments: dict) -> List[TextContent]:
     lines.append("\nTips: Anvand step0_start med source_file fran onskad mapp.")
 
     return [TextContent(type="text", text="\n".join(lines))]
+
+
+# =============================================================================
+# Project File Tools (read/write anywhere in project)
+# =============================================================================
+
+async def handle_read_project_file(arguments: dict) -> List[TextContent]:
+    """Handle read_project_file - read any file within project."""
+    project_path = arguments.get("project_path")
+    relative_path = arguments.get("relative_path")
+
+    if not project_path or not relative_path:
+        return [TextContent(
+            type="text",
+            text="Error: Both project_path and relative_path are required"
+        )]
+
+    result = await read_project_file(project_path, relative_path)
+
+    if not result.get("success"):
+        return [TextContent(
+            type="text",
+            text=f"Error: {result.get('error', 'Unknown error')}"
+        )]
+
+    # Format successful response
+    lines = [
+        f"File: {result['relative_path']}",
+        f"Size: {result['size_bytes']} bytes",
+        "-" * 40,
+        result['content']
+    ]
+
+    return [TextContent(type="text", text="\n".join(lines))]
+
+
+async def handle_write_project_file(arguments: dict) -> List[TextContent]:
+    """Handle write_project_file - write any file within project."""
+    project_path = arguments.get("project_path")
+    relative_path = arguments.get("relative_path")
+    content = arguments.get("content")
+    create_dirs = arguments.get("create_dirs", True)
+    overwrite = arguments.get("overwrite", True)
+
+    if not project_path or not relative_path or content is None:
+        return [TextContent(
+            type="text",
+            text="Error: project_path, relative_path, and content are required"
+        )]
+
+    result = await write_project_file(
+        project_path,
+        relative_path,
+        content,
+        create_dirs=create_dirs,
+        overwrite=overwrite
+    )
+
+    if not result.get("success"):
+        return [TextContent(
+            type="text",
+            text=f"Error: {result.get('error', 'Unknown error')}"
+        )]
+
+    # Format successful response
+    msg = f"Wrote {result['bytes_written']} bytes to {result['relative_path']}"
+    if result.get('created_dirs'):
+        msg += " (created parent directories)"
+
+    return [TextContent(type="text", text=msg)]
 
 
 # =============================================================================

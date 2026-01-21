@@ -17,6 +17,17 @@ All notable changes to QuestionForge will be documented in this file.
 - **Files added:**
   - `packages/qf-scaffolding/src/tools/project_files.ts` (240 lines)
 
+#### qf-pipeline: General Project File Tools (Python)
+- **Mirror of TypeScript tools:** Same functionality as qf-scaffolding version
+- **Purpose:** Both MCPs can now read/write files anywhere in project
+- **New Tool:** `read_project_file` - Read any file within project directory
+- **New Tool:** `write_project_file` - Write any file within project directory
+- **Files added:**
+  - `packages/qf-pipeline/src/qf_pipeline/tools/project_files.py` (190 lines)
+- **Files modified:**
+  - `packages/qf-pipeline/src/qf_pipeline/server.py` - registered new tools
+  - `packages/qf-pipeline/src/qf_pipeline/tools/__init__.py` - exported new tools
+
 #### qf-scaffolding: New `write_m1_stage` Tool
 - **New Tool:** `write_m1_stage` - Direct file writing for M1 stages
 - **Principle:** "What Claude writes = what gets saved" (no transformation)
