@@ -180,65 +180,95 @@ def split_questions(content: str) -> List[str]:
 
 def extract_field_sections(block: str) -> Dict[str, str]:
     """
-    Extract sections using v6.5 field boundaries.
+    Extract sections using field boundaries.
 
-    v6.5 format:
-    - @field: / @end_field for top-level fields
-    - @@field: / @@end_field for subfields (nested)
+    Supports multiple formats:
+    - Explicit: @field: / @end_field for top-level fields
+    - Explicit: @@field: or @subfield: / @@end_field for subfields
+    - Implicit: Next @field: closes previous (no @end_field needed)
+    - Implicit: --- separator closes all open fields
+    - Implicit: End of block closes all open fields
 
-    Uses stack-based parsing to handle nested fields.
     Returns dict mapping field_id -> content
     """
     sections = {}
     lines = block.split('\n')
     field_stack = []
 
+    def close_field():
+        """Close the current field and save to sections."""
+        if field_stack:
+            completed = field_stack.pop()
+            content = '\n'.join(completed['content']).strip()
+            if content:  # Only save non-empty content
+                sections[completed['id']] = content
+
+    def close_all_fields():
+        """Close all open fields (for --- separator or end of block)."""
+        while field_stack:
+            close_field()
+
     for line in lines:
         # Skip header lines (###, ####) - they're for human readability only
         if re.match(r'^#{2,4}\s+', line):
             continue
 
-        # Check for @@field: or @subfield: start (subfield, v6.5)
+        # Check for --- separator (implicit end of all open fields)
+        if line.strip() == '---':
+            close_all_fields()
+            continue
+
+        # Check for @@field: or @subfield: start (subfield)
         # Accepts both @@field: and @subfield: formats
         subfield_match = re.match(r'^(?:@@field|@subfield):\s*(\w+)\s*(.*)', line)
         if subfield_match:
             field_id = subfield_match.group(1)
             same_line_content = subfield_match.group(2).strip()
-            field_stack.append({'id': field_id, 'content': []})
-            # Handle content on same line as @subfield:
+            # Subfields with content on same line are self-contained (no close needed)
             if same_line_content:
-                field_stack[-1]['content'].append(same_line_content)
+                sections[field_id] = same_line_content
+            else:
+                field_stack.append({'id': field_id, 'content': []})
             continue
 
         # Check for @field: start (top-level)
-        # Also captures any content on the same line
         field_match = re.match(r'^@field:\s*(\w+)\s*(.*)', line)
         if field_match:
+            # Close previous top-level field (implicit end)
+            # But keep subfields open (they close with their parent or explicitly)
+            while field_stack and not field_stack[-1].get('is_subfield'):
+                close_field()
+
             field_id = field_match.group(1)
             same_line_content = field_match.group(2).strip()
-            field_stack.append({'id': field_id, 'content': []})
-            # Handle content on same line as @field:
+
+            # Always mark this field as present (even if content comes from subfields)
+            if field_id not in sections:
+                sections[field_id] = ''
+
+            # If content on same line, it's self-contained
             if same_line_content:
-                field_stack[-1]['content'].append(same_line_content)
+                sections[field_id] = same_line_content
+            else:
+                field_stack.append({'id': field_id, 'content': [], 'is_subfield': False})
             continue
 
-        # Check for @@end_field or @end_subfield (subfield end, v6.5)
+        # Check for @@end_field or @end_subfield (explicit subfield end)
         if line.strip() in ('@@end_field', '@end_subfield'):
-            if field_stack:
-                completed = field_stack.pop()
-                sections[completed['id']] = '\n'.join(completed['content']).strip()
+            close_field()
             continue
 
-        # Check for @end_field (top-level end)
+        # Check for @end_field (explicit top-level end)
         if line.strip() == '@end_field':
-            if field_stack:
-                completed = field_stack.pop()
-                sections[completed['id']] = '\n'.join(completed['content']).strip()
+            close_field()
             continue
 
         # Add content to current field
         if field_stack:
             field_stack[-1]['content'].append(line)
+
+    # Close any remaining open fields at end of block
+    close_all_fields()
 
     return sections
 
@@ -420,10 +450,16 @@ def validate_question_block(block: str, q_num: int, identifiers: Set[str], verbo
                 issues.append(ValidationIssue('ERROR', q_num, q_id, 'Missing "blanks" section or blank_N subsections'))
 
         if q_type in REQUIRES_DROPDOWNS:
-            if '{{dropdown_' not in block:
+            # Accept both {{dropdown_1}} and {{dropdown1}} placeholder formats
+            if '{{dropdown' not in block:
                 issues.append(ValidationIssue('WARNING', q_num, q_id, 'No {{dropdown_N}} placeholders found in question text'))
 
-            has_dropdowns = any(k.startswith('dropdown_') for k in sections)
+            # Accept both dropdown_N and dropdownN_options section formats
+            has_dropdowns = any(
+                k.startswith('dropdown_') or  # dropdown_1, dropdown_2
+                re.match(r'^dropdown\d+', k)   # dropdown1_options, dropdown2
+                for k in sections
+            )
             if not has_dropdowns:
                 issues.append(ValidationIssue('ERROR', q_num, q_id, 'Missing "dropdown_N" sections'))
 
@@ -432,32 +468,38 @@ def validate_question_block(block: str, q_num: int, identifiers: Set[str], verbo
                 issues.append(ValidationIssue('WARNING', q_num, q_id, f'No image reference found (expected for {q_type})'))
 
         if q_type in REQUIRES_SCORING:
-            if 'scoring' not in sections:
-                issues.append(ValidationIssue('ERROR', q_num, q_id, f'Missing "scoring" section (required for {q_type})'))
+            # Scoring can be explicit (@field: scoring) or implicit ([correct] markers in options)
+            has_explicit_scoring = 'scoring' in sections
+            has_implicit_scoring = '[correct]' in block.lower()
+
+            if not has_explicit_scoring and not has_implicit_scoring:
+                issues.append(ValidationIssue('ERROR', q_num, q_id,
+                    f'Missing scoring for {q_type} (need @field: scoring or [correct] markers)'))
 
         if q_type in REQUIRES_RUBRIC:
             if 'scoring_rubric' not in sections and 'scoring' not in sections:
                 issues.append(ValidationIssue('ERROR', q_num, q_id, f'Missing "scoring_rubric" or "scoring" section (required for {q_type})'))
 
-    # Validate feedback (v6.5: @@field: subsections are in sections dict via stack-based parsing)
+    # Validate feedback - accepts both v6.5 format (separate subsections) and simple format (correct/incorrect)
     if 'feedback' not in sections:
         issues.append(ValidationIssue('ERROR', q_num, q_id, 'Missing "feedback" section (@field: feedback)'))
     else:
-        if 'general_feedback' not in sections:
-            issues.append(ValidationIssue('ERROR', q_num, q_id, 'Missing "general_feedback" subsection (@@field: general_feedback)'))
+        # Check for feedback subsections - accept either format:
+        # Format 1 (v6.5): general_feedback, correct_feedback, incorrect_feedback, unanswered_feedback
+        # Format 2 (simple): correct, incorrect
+        has_v65_feedback = 'general_feedback' in sections or 'correct_feedback' in sections
+        has_simple_feedback = 'correct' in sections or 'incorrect' in sections
 
-        # Auto-graded questions need specific feedback subsections
+        if not has_v65_feedback and not has_simple_feedback:
+            # Only warn if no feedback format is detected
+            issues.append(ValidationIssue('WARNING', q_num, q_id,
+                'No feedback subsections found (expected @subfield: correct/@subfield: incorrect or @@field: correct_feedback)'))
+
+        # Auto-graded questions should have correct/incorrect feedback
         if q_type and q_type not in ['text_area', 'essay', 'audio_record', 'nativehtml', 'composite_editor']:
-            if 'correct_feedback' not in sections:
-                issues.append(ValidationIssue('ERROR', q_num, q_id, 'Missing "correct_feedback" subsection (@@field: correct_feedback)'))
-            if 'incorrect_feedback' not in sections:
-                issues.append(ValidationIssue('ERROR', q_num, q_id, 'Missing "incorrect_feedback" subsection (@@field: incorrect_feedback)'))
-            if 'unanswered_feedback' not in sections:
-                issues.append(ValidationIssue('ERROR', q_num, q_id, 'Missing "unanswered_feedback" subsection (@@field: unanswered_feedback)'))
-
-            if q_type in REQUIRES_PARTIAL_FEEDBACK:
-                if 'partial_feedback' not in sections:
-                    issues.append(ValidationIssue('ERROR', q_num, q_id, f'Missing "partial_feedback" subsection (required for {q_type})'))
+            if not has_v65_feedback and not has_simple_feedback:
+                issues.append(ValidationIssue('ERROR', q_num, q_id,
+                    'Missing feedback for auto-graded question (need @subfield: correct and @subfield: incorrect)'))
 
     # Validate labels content
     if labels_match:
