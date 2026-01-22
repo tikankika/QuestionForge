@@ -4,6 +4,30 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed - 2026-01-22
+
+#### qf-pipeline: Claude Desktop PYTHONPATH Configuration
+- **Bug:** MCP server couldn't find qti-core modules
+  - `step2_validate` and `step4_export` failed with import errors
+  - Parser found 0 questions despite file having valid content
+- **Cause:** PYTHONPATH in `claude_desktop_config.json` pointed to old location
+  - Old: `/Users/niklaskarlsson/QTI-Generator-for-Inspera`
+  - New: `.../QuestionForge/packages/qti-core`
+- **Fix:** Updated PYTHONPATH in Claude Desktop config
+- **Files modified:**
+  - `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Action required:** Restart Claude Desktop to apply
+
+### Added - 2026-01-22
+
+#### Roadmap: qti-core Refactoring (Future RFC)
+- **Added:** "Teknisk Skuld / Framtida Förbättringar" section to ROADMAP.md
+- **RFC-XXX:** Plan for cleaning up qti-core internal structure
+  - Currently: Files loose in root (`validate_mqg_format.py`, `main.py`)
+  - Proposed: Organized under `src/` (validator/, parser/, generator/, packager/)
+- **Priority:** Low (works now, clean up later)
+- **Note:** All existing functionality must be preserved
+
 ### Fixed - 2026-01-21
 
 #### qf-pipeline: step1_start accepts all file formats (Bug Fix)

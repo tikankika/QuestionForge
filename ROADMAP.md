@@ -365,6 +365,50 @@ methodology/
 
 ---
 
+## Teknisk Skuld / Framtida Förbättringar
+
+### RFC-XXX: qti-core Refaktorering ⬜ Planerad
+
+**Beskrivning:** Städa intern struktur i `packages/qti-core/`
+
+**Bakgrund:**
+- qti-core är ursprungligen `QTI-Generator-for-Inspera` (standalone projekt)
+- Importerades till QuestionForge som lokal package (ADR-008)
+- Fungerar utmärkt men har rörig intern struktur
+- Mycket arbete har lagts på validering och QTI-generering - får INTE förloras!
+
+**Nuvarande struktur (rörig):**
+```
+qti-core/
+├── validate_mqg_format.py   ← Löst i roten
+├── main.py                   ← Löst i roten
+├── src/parser/               ← Organiserat
+├── src/generators/           ← Organiserat
+└── scripts/                  ← CLI-verktyg
+```
+
+**Föreslaget (städat):**
+```
+qti-core/
+└── src/
+    ├── parser/          # MarkdownQuizParser (finns)
+    ├── validator/       # Flytta validate_mqg_format.py hit
+    ├── generator/       # QTI XML-generering (finns)
+    └── packager/        # ZIP-paketering
+```
+
+**Krav:**
+- [ ] Skapa RFC med migrationsplan
+- [ ] Ingen funktionalitet får försvinna
+- [ ] Wrappers i qf-pipeline måste uppdateras
+- [ ] Alla tester måste passera efter flytt
+- [ ] Dokumentera nya import-paths
+
+**Prioritet:** Låg (fungerar nu, städa senare)
+**Estimat:** 2-4 timmar
+
+---
+
 ## Relaterade dokument
 
 | Dokument | Beskrivning |
