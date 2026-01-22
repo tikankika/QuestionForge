@@ -1,6 +1,6 @@
 """
 MCP Tool implementations for Step 1: Guided Build.
-Transform v6.3 format to v6.5 format.
+Convert questions to QFMD (QuestionForge Markdown) format.
 """
 
 from pathlib import Path
@@ -96,35 +96,46 @@ async def step1_start(
 
     # Detect format
     format_level = detect_format(content)
+    format_warning = None
 
-    if format_level == FormatLevel.RAW:
-        return {
-            "error": "Filen är för ostrukturerad för Step 1",
-            "recommendation": "Använd qf-scaffolding först",
-            "format": format_level.value,
-            "format_description": get_format_description(format_level)
+    # Accept ALL formats - only warn, don't reject
+    if format_level == FormatLevel.UNSTRUCTURED:
+        format_warning = {
+            "level": "severe",
+            "message": "Filen saknar tydlig struktur. Step 1 försöker ändå.",
+            "recommendation": "Om många fel uppstår, överväg M1-M4 för att strukturera innehållet först."
         }
-
-    if format_level == FormatLevel.VALID_V65:
-        return {
-            "message": "Filen är redan i valid v6.5 format",
-            "recommendation": "Gå direkt till Step 2 (validate)",
-            "format": format_level.value
+    elif format_level == FormatLevel.QFMD:
+        # Already QFMD - still allow step1 to run for any remaining fixes
+        format_warning = {
+            "level": "info",
+            "message": "Filen är redan i QFMD-format.",
+            "recommendation": "Kör step2_validate direkt, eller fortsätt här för eventuella justeringar."
         }
-
-    if format_level == FormatLevel.SEMI_STRUCTURED:
-        return {
-            "error": "Filen är semi-strukturerad",
-            "recommendation": "Step 1 hanterar endast v6.3 → v6.5. Använd qf-scaffolding för semi-strukturerade filer.",
-            "format": format_level.value,
-            "format_description": get_format_description(format_level)
+    elif format_level == FormatLevel.SEMI_STRUCTURED:
+        format_warning = {
+            "level": "moderate",
+            "message": "Filen är semi-strukturerad. Step 1 försöker fixa.",
+            "recommendation": "Om många strukturella fel, överväg M3 för omgenerering."
         }
 
     # Parse questions
     questions = parse_file(content)
 
     if not questions:
-        return {"error": "Inga frågor hittades i filen"}
+        # If no questions found and format is problematic, give helpful guidance
+        if format_level in [FormatLevel.UNSTRUCTURED, FormatLevel.UNKNOWN]:
+            return {
+                "error": "Inga frågor hittades i filen",
+                "format": format_level.value,
+                "recommendation": "Filen verkar sakna frågestruktur. Använd M3 (Question Generation) för att skapa frågor från ditt material.",
+                "format_warning": format_warning
+            }
+        return {
+            "error": "Inga frågor hittades i filen",
+            "format": format_level.value,
+            "recommendation": "Kontrollera att filen innehåller frågor med # Q001 eller liknande headers."
+        }
 
     _parsed_questions = questions
 
@@ -152,13 +163,32 @@ async def step1_start(
     issues = analyze_question(first_question.raw_content, first_question.detected_type)
     _step1_session.questions[0].issues_found = len(issues)
 
+    # Count total issues across all questions for severity assessment
+    total_issues = 0
+    severe_issues = 0
+    for q in questions:
+        q_issues = analyze_question(q.raw_content, q.detected_type)
+        total_issues += len(q_issues)
+        # Count severe issues (missing required fields)
+        severe_issues += sum(1 for i in q_issues if hasattr(i, 'severity') and i.severity.value == 'error')
+
+    # Build recommendation based on issue count
+    if severe_issues > len(questions) * 3:  # More than 3 severe issues per question on average
+        m1m4_recommendation = f"Filen har {severe_issues} allvarliga problem. Överväg M1-M4 för bättre struktur."
+    else:
+        m1m4_recommendation = None
+
     return {
         "session_id": _step1_session.session_id,
         "source_file": source_file,
         "working_file": _step1_session.working_file,
         "format": format_level.value,
         "format_description": get_format_description(format_level),
+        "format_warning": format_warning,
         "total_questions": len(questions),
+        "total_issues": total_issues,
+        "severe_issues": severe_issues,
+        "m1m4_recommendation": m1m4_recommendation,
         "first_question": {
             "id": first_question.question_id,
             "title": first_question.title,
@@ -168,7 +198,7 @@ async def step1_start(
             "auto_fixable": len(get_auto_fixable_issues(issues)),
             "issues_summary": format_issue_summary(issues)
         },
-        "message": f"Session startad! {len(questions)} frågor i v6.3 format. Kör step1_transform för att konvertera alla till v6.5."
+        "message": f"Session started! {len(questions)} frågor hittades. Kör step1_analyze eller step1_transform för att fixa."
     }
 
 
@@ -381,7 +411,7 @@ async def step1_next(direction: str = "forward") -> Dict[str, Any]:
         direction: "forward", "back", or question_id
 
     Returns:
-        New current question info
+        New current question info with analysis
     """
     if not _step1_session:
         return {"error": "No active session"}
@@ -402,8 +432,19 @@ async def step1_next(direction: str = "forward") -> Dict[str, Any]:
     current = _step1_session.get_current_question()
     progress = _step1_session.get_progress()
 
+    # Analyze current question (like step1_start does for first question)
+    issues = analyze_question(current.raw_content, current.detected_type)
+    auto_fixable = get_auto_fixable_issues(issues)
+
     return {
         "current_question": current.question_id,
+        "current_index": _step1_session.current_index,
+        "total_questions": len(_step1_session.questions),
+        "question_type": current.detected_type,
+        "question_title": current.title,
+        "issues_count": len(issues),
+        "auto_fixable": len(auto_fixable),
+        "issues_summary": format_issue_summary(issues),
         "position": f"{progress['current']} av {progress['total']}",
         "progress": progress
     }

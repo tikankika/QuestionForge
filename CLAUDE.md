@@ -19,8 +19,8 @@ packages/qf-pipeline/      # Python - validation & export
 
 ## Project Status
 
-- **Phase:** IMPLEMENT (qf-pipeline active, Step 0-2 + Step 4 complete)
-- **Next:** Step 3 Decision Tool
+- **Phase:** IMPLEMENT (qf-pipeline active, shared session ready)
+- **Next:** qf-scaffolding (M1-M4) or Step 3 Decision Tool
 - **Created:** 2026-01-02
 - **Method:** ACDM v1.0
 - **Name Origin:** "Forge" implies craftsmanship in creating questions
@@ -95,11 +95,12 @@ nativehtml
 
 ## Related Documents
 
+- [WORKFLOW](WORKFLOW.md) - Complete workflow diagram
 - [ROADMAP](ROADMAP.md) - Current status and next steps
 - [CHANGELOG](CHANGELOG.md) - Detailed change log
 - [Discovery Brief](docs/DISCOVERY_BRIEF.md) - Problem analysis
 - [ACDM Logs](docs/acdm/) - Session logs and reflections
-- [ADRs](docs/adr/) - Architecture decisions (12 ADRs)
+- [ADRs](docs/adr/) - Architecture decisions (14 ADRs)
 - [Specs](docs/specs/) - Implementation specs
 
 ## Origins

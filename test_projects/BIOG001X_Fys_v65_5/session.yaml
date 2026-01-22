@@ -1,0 +1,14 @@
+session:
+  id: 609c3e16-6bdd-4f98-988f-9c4b6ea9c403
+  created: '2026-01-06T08:47:06.642782Z'
+  updated: '2026-01-06T08:47:06.650688Z'
+source:
+  original_path: /Users/niklaskarlsson/Nextcloud/Courses/Biologi/BIOG001x_2025/Exams/MQG_folders_biog001x_autmn_2025/biog001x_fys/BIOG001X_Fys_v65_5.md
+  filename: BIOG001X_Fys_v65_5.md
+  copied_to: 01_source/BIOG001X_Fys_v65_5.md
+working:
+  path: 02_working/BIOG001X_Fys_v65_5.md
+  last_validated: '2026-01-06T08:47:06.650683Z'
+  validation_status: invalid
+  question_count: 27
+exports: []

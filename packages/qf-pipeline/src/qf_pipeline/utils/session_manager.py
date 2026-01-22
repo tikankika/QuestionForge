@@ -4,12 +4,115 @@ Handles project structure creation, session state via session.yaml,
 and workflow tracking.
 """
 
+import logging
 import shutil
 import uuid
 import yaml
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
+
+from .methodology import copy_methodology
+from .sources import create_empty_sources_yaml, update_sources_yaml
+from .logger import log_event
+
+logger = logging.getLogger(__name__)
+
+
+# Entry point configuration for shared session
+# Named after the module they start with (M1-M4) or "pipeline" for direct export
+ENTRY_POINT_REQUIREMENTS = {
+    "m1": {
+        "requires_source_file": False,
+        "next_module": "m1",
+        "description": "Börja från undervisningsmaterial → Content Analysis",
+        "next_steps": ["M1", "M2", "M3", "M4", "Pipeline"],
+        "skips": []
+    },
+    "m2": {
+        "requires_source_file": True,
+        "next_module": "m2",
+        "description": "Börja från lärandemål → Assessment Planning",
+        "next_steps": ["M2", "M3", "M4", "Pipeline"],
+        "skips": ["M1"]
+    },
+    "m3": {
+        "requires_source_file": True,
+        "next_module": "m3",
+        "description": "Börja från blueprint → Question Generation",
+        "next_steps": ["M3", "M4", "Pipeline"],
+        "skips": ["M1", "M2"]
+    },
+    "m4": {
+        "requires_source_file": True,
+        "next_module": "m4",
+        "description": "Börja från frågor för QA → Quality Assurance",
+        "next_steps": ["M4", "Pipeline"],
+        "skips": ["M1", "M2", "M3"]
+    },
+    "pipeline": {
+        "requires_source_file": True,
+        "next_module": None,  # → Pipeline direkt
+        "description": "Validera och exportera färdiga frågor direkt",
+        "next_steps": ["Step1", "Step2", "Step3", "Step4"],
+        "skips": ["M1", "M2", "M3", "M4"]
+    }
+}
+
+
+def validate_entry_point(
+    entry_point: str,
+    source_file: Optional[str],
+    materials_folder: Optional[str] = None
+) -> None:
+    """Validate entry point and source_file/materials_folder combination.
+
+    Args:
+        entry_point: One of "m1", "m2", "m3", "m4", "pipeline"
+        source_file: Path to source file (required for m2/m3/m4/pipeline)
+        materials_folder: Path to materials folder (required for m1)
+
+    Raises:
+        ValueError: If entry_point is invalid or requirements not met
+    """
+    if entry_point not in ENTRY_POINT_REQUIREMENTS:
+        valid_options = list(ENTRY_POINT_REQUIREMENTS.keys())
+        raise ValueError(
+            f"Invalid entry point: '{entry_point}'. "
+            f"Valid options: {valid_options}"
+        )
+
+    config = ENTRY_POINT_REQUIREMENTS[entry_point]
+
+    # m1 requires materials_folder
+    if entry_point == "m1":
+        if not materials_folder:
+            raise ValueError(
+                f"Entry point 'm1' requires materials_folder.\n"
+                f"Description: {config['description']}\n"
+                f"Expected workflow: {' → '.join(config['next_steps'])}"
+            )
+        if source_file:
+            # source_file for m1 is treated as a reference document (e.g., syllabus)
+            # It will be saved to project root, not 01_source/
+            logger.info(
+                f"source_file provided for 'm1' entry point - "
+                f"will be saved as reference document in project root."
+            )
+    # Other entry points require source_file
+    elif config["requires_source_file"] and not source_file:
+        raise ValueError(
+            f"Entry point '{entry_point}' requires source_file.\n"
+            f"Description: {config['description']}\n"
+            f"Expected workflow: {' → '.join(config['next_steps'])}"
+        )
+
+    # Warn if materials_folder provided for non-m1
+    if materials_folder and entry_point != "m1":
+        logger.warning(
+            f"materials_folder provided for '{entry_point}' entry point - "
+            f"will be ignored. This parameter is only used for 'm1'."
+        )
 
 
 def get_timestamp() -> str:
@@ -31,7 +134,14 @@ class SessionManager:
         └── session.yaml        ← Metadata and state
     """
 
-    FOLDERS = ["01_source", "02_working", "03_output"]
+    FOLDERS = [
+        "00_materials",    # For entry point A (materials)
+        "01_source",       # Original source file (entry point B/C/D)
+        "02_working",      # Working copy during transformation
+        "03_output",       # Exported QTI files
+        "methodology",     # For M1-M4 methodology (copied from QuestionForge)
+        "logs",            # Session logs (shared by both MCPs)
+    ]
     SESSION_FILE = "session.yaml"
 
     def __init__(self, project_path: Optional[Path] = None):
@@ -85,48 +195,82 @@ class SessionManager:
 
     def create_session(
         self,
-        source_file: str,
         output_folder: str,
-        project_name: Optional[str] = None
-    ) -> dict:
+        source_file: Optional[str] = None,
+        project_name: Optional[str] = None,
+        entry_point: str = "pipeline",
+        materials_folder: Optional[str] = None,
+        initial_sources: Optional[List[Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
         """Create a new session with project structure.
 
         Args:
-            source_file: Absolute path to markdown file
             output_folder: Directory where project will be created
-            project_name: Optional project name (auto-generated from filename if None)
+            source_file: Path to source file (required for m2/m3/m4/pipeline)
+            project_name: Optional project name (auto-generated if not provided)
+            entry_point: One of "m1", "m2", "m3", "m4", "pipeline"
+            materials_folder: Path to folder with instructional materials (required for m1)
+            initial_sources: Optional list of initial sources for sources.yaml
+                Each source should have: path, type (optional), location (optional)
 
         Returns:
-            dict with success status and paths
+            dict with success status, paths, and next_module
         """
-        source_path = Path(source_file).resolve()
         output_base = Path(output_folder).resolve()
 
-        # Validate source file
-        if not source_path.exists():
+        # Validate entry point and source_file/materials_folder combination
+        try:
+            validate_entry_point(entry_point, source_file, materials_folder)
+        except ValueError as e:
             return {
                 "success": False,
                 "error": {
-                    "type": "file_not_found",
-                    "message": f"Source file not found: {source_file}"
+                    "type": "validation_error",
+                    "message": str(e)
                 }
             }
 
-        if not source_path.is_file():
-            return {
-                "success": False,
-                "error": {
-                    "type": "invalid_path",
-                    "message": f"Source path is not a file: {source_file}"
+        # Get entry point config
+        ep_config = ENTRY_POINT_REQUIREMENTS[entry_point]
+
+        # Handle source file if provided
+        source_path = None
+        if source_file:
+            source_path = Path(source_file).resolve()
+
+            # Validate source file exists
+            if not source_path.exists():
+                return {
+                    "success": False,
+                    "error": {
+                        "type": "file_not_found",
+                        "message": f"Source file not found: {source_file}"
+                    }
                 }
-            }
+
+            if not source_path.is_file():
+                return {
+                    "success": False,
+                    "error": {
+                        "type": "invalid_path",
+                        "message": f"Source path is not a file: {source_file}"
+                    }
+                }
 
         # Generate project name if not provided
         if not project_name:
-            project_name = source_path.stem  # filename without extension
+            if source_path:
+                project_name = source_path.stem  # filename without extension
+            else:
+                # For materials entry point, generate timestamp-based name
+                project_name = f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
         # Create project directory
-        project_path = output_base / project_name
+        # Avoid duplicate folders if output_folder already ends with project_name
+        if output_base.name == project_name:
+            project_path = output_base
+        else:
+            project_path = output_base / project_name
 
         try:
             # Create output base if needed
@@ -135,52 +279,231 @@ class SessionManager:
             # Create project structure
             project_path.mkdir(parents=True, exist_ok=True)
             for folder in self.FOLDERS:
-                (project_path / folder).mkdir(exist_ok=True)
+                folder_path = project_path / folder
+                folder_path.mkdir(exist_ok=True)
 
-            # Copy source file
-            source_dest = project_path / "01_source" / source_path.name
-            shutil.copy2(source_path, source_dest)
+                # Add README for 00_materials folder ONLY if no materials_folder provided
+                # (otherwise user's own README might be in materials_folder)
+                if folder == "00_materials" and not materials_folder:
+                    readme_path = folder_path / "README.md"
+                    readme_path.write_text(
+                        "# Undervisningsmaterial\n\n"
+                        "Ladda upp allt material från din undervisning här:\n"
+                        "- Presentationer (PDF, PPTX)\n"
+                        "- Föreläsningsanteckningar\n"
+                        "- Transkriptioner från inspelningar\n"
+                        "- Läroböcker/artiklar som använts\n",
+                        encoding="utf-8"
+                    )
 
-            # Create working copy
-            working_dest = project_path / "02_working" / source_path.name
-            shutil.copy2(source_path, working_dest)
+            # Copy materials if provided (for m1 entry point)
+            materials_copied = 0
+            if materials_folder:
+                materials_src = Path(materials_folder)
+                materials_dest = project_path / "00_materials"
+
+                logger.info(f"Copying materials from {materials_src} to {materials_dest}")
+
+                # Define junk files to ignore
+                def ignore_junk(directory, files):
+                    """Ignore junk files and hidden files."""
+                    ignored = []
+                    for f in files:
+                        # Ignore hidden files (except .md files which might be intentional)
+                        if f.startswith('.') and not f.endswith('.md'):
+                            ignored.append(f)
+                        # Ignore OS junk
+                        elif f in ('Thumbs.db', 'desktop.ini', 'ehthumbs.db'):
+                            ignored.append(f)
+                        # Ignore Office temp files
+                        elif f.startswith('~$'):
+                            ignored.append(f)
+                        # Ignore Python cache
+                        elif f == '__pycache__' or f.endswith('.pyc'):
+                            ignored.append(f)
+                    return ignored
+
+                # Copy entire tree (including subdirectories)
+                shutil.copytree(
+                    materials_src,
+                    materials_dest,
+                    dirs_exist_ok=True,  # Merge with existing (00_materials already exists)
+                    ignore=ignore_junk
+                )
+
+                # Count files recursively for reporting
+                for item in materials_dest.rglob('*'):
+                    if item.is_file():
+                        materials_copied += 1
+
+                logger.info(f"Copied {materials_copied} files to 00_materials/")
+
+            # Copy methodology from QuestionForge (makes project self-contained)
+            methodology_result = copy_methodology(project_path)
+            if not methodology_result["success"]:
+                logger.warning(f"Could not copy methodology: {methodology_result.get('error')}")
+            else:
+                logger.info(f"Copied {methodology_result['files_copied']} methodology files")
+
+            # Initialize sources.yaml
+            if initial_sources:
+                sources_result = update_sources_yaml(
+                    project_path,
+                    initial_sources,
+                    updated_by="qf-pipeline:step0_start",
+                    append=False
+                )
+                logger.info(f"Initialized sources.yaml with {sources_result.get('sources_added', 0)} sources")
+            else:
+                create_empty_sources_yaml(project_path, created_by="qf-pipeline:step0_start")
+                logger.info("Created empty sources.yaml")
+
+            # Copy source file if provided
+            source_dest = None
+            working_dest = None
+            reference_doc = None
+            if source_path:
+                if entry_point == "m1":
+                    # For m1: save source_file as reference document in project root
+                    # (e.g., syllabus/kursplan)
+                    reference_doc = project_path / source_path.name
+                    shutil.copy2(source_path, reference_doc)
+                    logger.info(f"Saved reference document: {reference_doc}")
+                else:
+                    # For m2/m3/m4/pipeline: copy to 01_source and 02_working
+                    source_dest = project_path / "01_source" / source_path.name
+                    shutil.copy2(source_path, source_dest)
+
+                    # Create working copy
+                    working_dest = project_path / "02_working" / source_path.name
+                    shutil.copy2(source_path, working_dest)
 
             # Generate session ID
             session_id = str(uuid.uuid4())
 
-            # Create session data
+            # Create session data with methodology section
+            # For m1, source is a reference document; for others, it's the working file
+            if entry_point == "m1" and reference_doc:
+                source_data = {
+                    "original_path": str(source_path) if source_path else None,
+                    "filename": source_path.name if source_path else None,
+                    "copied_to": None,  # Not in 01_source for m1
+                    "reference_doc": source_path.name if reference_doc else None,
+                }
+                working_data = {
+                    "path": None,
+                    "last_validated": None,
+                    "validation_status": "not_validated",
+                    "question_count": None,
+                }
+            else:
+                source_data = {
+                    "original_path": str(source_path) if source_path else None,
+                    "filename": source_path.name if source_path else None,
+                    "copied_to": f"01_source/{source_path.name}" if source_dest else None,
+                }
+                working_data = {
+                    "path": f"02_working/{source_path.name}" if working_dest else None,
+                    "last_validated": None,
+                    "validation_status": "not_validated",
+                    "question_count": None,
+                }
+
             self._session_data = {
                 "session": {
                     "id": session_id,
                     "created": get_timestamp(),
                     "updated": get_timestamp(),
                 },
-                "source": {
-                    "original_path": str(source_path),
-                    "filename": source_path.name,
-                    "copied_to": f"01_source/{source_path.name}",
-                },
-                "working": {
-                    "path": f"02_working/{source_path.name}",
-                    "last_validated": None,
-                    "validation_status": "not_validated",
-                    "question_count": None,
-                },
-                "exports": []
+                "source": source_data,
+                "working": working_data,
+                "exports": [],
+                # NEW: Methodology section for shared session
+                "methodology": {
+                    "entry_point": entry_point,
+                    "active_module": ep_config["next_module"],
+                    "m1": {"status": "not_started", "loaded_stages": [], "outputs": {}},
+                    "m2": {"status": "not_started", "loaded_stages": [], "outputs": {}},
+                    "m3": {"status": "not_started", "loaded_stages": [], "outputs": {}},
+                    "m4": {"status": "not_started", "loaded_stages": [], "outputs": {}},
+                }
             }
 
             self._project_path = project_path
             self._save_session()
 
-            return {
+            # Log session creation (RFC-001 compliant)
+            log_event(
+                project_path=project_path,
+                session_id=session_id,
+                tool="step0_start",
+                event="session_start",
+                level="info",
+                data={"entry_point": entry_point}
+            )
+            log_event(
+                project_path=project_path,
+                session_id=session_id,
+                tool="step0_start",
+                event="session_created",
+                level="info",
+                data={
+                    "methodology_files": methodology_result.get("files_copied", 0),
+                    "sources_count": len(initial_sources) if initial_sources else 0,
+                    "materials_copied": materials_copied
+                }
+            )
+
+            # Build response
+            response = {
                 "success": True,
                 "session_id": session_id,
                 "project_path": str(project_path),
-                "working_file": str(working_dest),
-                "source_file": str(source_dest),
                 "output_folder": str(project_path / "03_output"),
-                "message": f"Session startad. Arbetar med: {source_path.name}"
+                "entry_point": entry_point,
+                "next_module": ep_config["next_module"],
+                "pipeline_ready": entry_point == "pipeline",
+                "methodology_copied": methodology_result.get("files_copied", 0),
+                "sources_initialized": len(initial_sources) if initial_sources else 0,
+                "materials_copied": materials_copied,
             }
+
+            # Add file paths if source was provided
+            if entry_point == "m1" and materials_folder:
+                # m1 entry point with materials
+                response["working_file"] = None
+                response["source_file"] = None
+                response["materials_folder"] = str(project_path / "00_materials")
+
+                if reference_doc:
+                    # Reference document (e.g., syllabus) was also provided
+                    response["reference_doc"] = str(reference_doc)
+                    response["message"] = (
+                        f"Session startad med entry point '{entry_point}'. "
+                        f"{materials_copied} filer kopierade till 00_materials/. "
+                        f"Referensdokument sparat: {source_path.name}. "
+                        f"Nästa steg: {ep_config['next_module']} (qf-scaffolding)"
+                    )
+                else:
+                    response["message"] = (
+                        f"Session startad med entry point '{entry_point}'. "
+                        f"{materials_copied} filer kopierade till 00_materials/ (mappstruktur bevarad). "
+                        f"Nästa steg: {ep_config['next_module']} (qf-scaffolding)"
+                    )
+            elif source_path and source_dest:
+                # m2/m3/m4/pipeline with source file
+                response["working_file"] = str(working_dest)
+                response["source_file"] = str(source_dest)
+                response["message"] = f"Session startad. Arbetar med: {source_path.name}"
+            else:
+                response["working_file"] = None
+                response["source_file"] = None
+                response["message"] = (
+                    f"Session startad med entry point '{entry_point}'. "
+                    f"Nästa steg: {ep_config['next_module']} (qf-scaffolding)"
+                )
+
+            return response
 
         except PermissionError as e:
             return {
@@ -272,16 +595,34 @@ class SessionManager:
             }
 
         exports = self._session_data.get("exports", [])
-        project_path = str(self._project_path)
+        session_id = self.session_id
+        project_path = self._project_path
+        validation_status = self._session_data.get("working", {}).get("validation_status", "unknown")
+        question_count = self._session_data.get("working", {}).get("question_count", 0)
+
+        # Log session_end (TIER 2)
+        log_event(
+            project_path=project_path,
+            session_id=session_id,
+            tool="session_manager",
+            event="session_end",
+            level="info",
+            data={
+                "export_count": len(exports),
+                "validation_status": validation_status,
+                "question_count": question_count,
+            }
+        )
 
         # Clear session state
+        project_path_str = str(project_path)
         self._session_data = None
         self._project_path = None
 
         return {
             "success": True,
             "exports_created": [e.get("output_file") for e in exports],
-            "project_path": project_path,
+            "project_path": project_path_str,
             "message": f"Session avslutad. {len(exports)} export(er) skapade."
         }
 

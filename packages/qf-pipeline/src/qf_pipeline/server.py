@@ -14,6 +14,8 @@ Tool naming convention (ADR-007):
 """
 
 import asyncio
+import time
+import traceback
 from pathlib import Path
 from typing import List
 
@@ -53,8 +55,11 @@ from .tools import (
     step1_next,
     step1_preview,
     step1_finish,
+    # Project file tools
+    read_project_file,
+    write_project_file,
 )
-from .utils.logger import log_action
+from .utils.logger import log_action, log_event
 
 # Create server instance
 server = Server("qf-pipeline")
@@ -68,12 +73,10 @@ async def list_tools() -> List[Tool]:
         Tool(
             name="init",
             description=(
-                "CALL THIS FIRST! Returns critical instructions. "
-                "After calling init, you MUST ASK the user for: "
-                "(1) source_file - which markdown file? "
-                "(2) output_folder - where to save? "
-                "(3) project_name - what to call it? (optional) "
-                "WAIT for user response. Do NOT guess paths!"
+                "CALL THIS FIRST! Returns M1/M2/M3/M4/Pipeline entry point routing. "
+                "Ask user: 'Vad har du?' "
+                "M1=Material, M2=Lärandemål, M3=Blueprint, M4=Frågor för QA, Pipeline=Direkt export. "
+                "Then use step0_start with correct entry_point."
             ),
             inputSchema={
                 "type": "object",
@@ -83,21 +86,39 @@ async def list_tools() -> List[Tool]:
         # Step 0: Session Management
         Tool(
             name="step0_start",
-            description="Start a new session OR load existing. For new: provide source_file + output_folder. For existing: provide project_path.",
+            description=(
+                "Start a new session OR load existing. "
+                "For new: provide output_folder + entry_point (+ source_file for m2/m3/m4/pipeline OR materials_folder for m1). "
+                "source_file can be a local path OR a URL (auto-fetched as .md). "
+                "For existing: provide project_path."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "source_file": {
-                        "type": "string",
-                        "description": "NEW SESSION: Absolute path to markdown file",
-                    },
                     "output_folder": {
                         "type": "string",
                         "description": "NEW SESSION: Directory where project will be created",
                     },
+                    "source_file": {
+                        "type": "string",
+                        "description": "NEW SESSION: Path OR URL to source (required for m2/m3/m4/pipeline). URLs auto-fetched to .md",
+                    },
                     "project_name": {
                         "type": "string",
                         "description": "NEW SESSION: Optional project name (auto-generated if not provided)",
+                    },
+                    "entry_point": {
+                        "type": "string",
+                        "description": (
+                            "NEW SESSION: Entry point - "
+                            "'m1' (material), 'm2' (lärandemål), 'm3' (blueprint), 'm4' (QA), 'pipeline' (direkt). "
+                            "Default: 'pipeline'"
+                        ),
+                        "enum": ["m1", "m2", "m3", "m4", "pipeline"],
+                    },
+                    "materials_folder": {
+                        "type": "string",
+                        "description": "NEW SESSION: Path to folder containing instructional materials (required for entry_point m1). Entire folder structure copied to 00_materials/ (junk files filtered).",
                     },
                     "project_path": {
                         "type": "string",
@@ -186,7 +207,7 @@ async def list_tools() -> List[Tool]:
                 },
             },
         ),
-        # Step 1: Guided Build (v6.3 → v6.5)
+        # Step 1: Guided Build (Convert to QFMD)
         Tool(
             name="step1_start",
             description="Start Step 1 Guided Build session. Uses Step 0 session if active, otherwise requires source_file and output_folder.",
@@ -195,7 +216,7 @@ async def list_tools() -> List[Tool]:
                 "properties": {
                     "source_file": {
                         "type": "string",
-                        "description": "Path to v6.3 markdown file (optional if Step 0 session exists)",
+                        "description": "Path to markdown file (optional if Step 0 session exists)",
                     },
                     "output_folder": {
                         "type": "string",
@@ -375,6 +396,20 @@ async def list_tools() -> List[Tool]:
                 "properties": {},
             },
         ),
+        Tool(
+            name="step1_next",
+            description="Navigate to next/previous question or jump to specific question ID",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "direction": {
+                        "type": "string",
+                        "description": "Navigation: 'forward', 'back', or a question_id (e.g. 'Q005')",
+                        "default": "forward",
+                    },
+                },
+            },
+        ),
         # Cross-step utility
         Tool(
             name="list_types",
@@ -396,6 +431,57 @@ async def list_tools() -> List[Tool]:
                         "default": False
                     }
                 }
+            },
+        ),
+        # Project file tools (read/write anywhere in project)
+        Tool(
+            name="read_project_file",
+            description="Read any file within a project directory. Security: prevents path traversal outside project.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Root project directory",
+                    },
+                    "relative_path": {
+                        "type": "string",
+                        "description": "Path relative to project_path, e.g. '05/questions.md'",
+                    },
+                },
+                "required": ["project_path", "relative_path"],
+            },
+        ),
+        Tool(
+            name="write_project_file",
+            description="Write any file within a project directory. Creates parent dirs by default. Security: prevents path traversal.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Root project directory",
+                    },
+                    "relative_path": {
+                        "type": "string",
+                        "description": "Path relative to project_path",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Content to write",
+                    },
+                    "create_dirs": {
+                        "type": "boolean",
+                        "description": "Create parent directories if needed (default: true)",
+                        "default": True,
+                    },
+                    "overwrite": {
+                        "type": "boolean",
+                        "description": "Overwrite if file exists (default: true)",
+                        "default": True,
+                    },
+                },
+                "required": ["project_path", "relative_path", "content"],
             },
         ),
     ]
@@ -423,6 +509,11 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_list_types()
         elif name == "list_projects":
             return await handle_list_projects(arguments)
+        # Project file tools
+        elif name == "read_project_file":
+            return await handle_read_project_file(arguments)
+        elif name == "write_project_file":
+            return await handle_write_project_file(arguments)
         # Step 1: Guided Build
         elif name == "step1_start":
             return await handle_step1_start(arguments)
@@ -448,6 +539,8 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_step1_preview(arguments)
         elif name == "step1_finish":
             return await handle_step1_finish()
+        elif name == "step1_next":
+            return await handle_step1_next(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except WrapperError as e:
@@ -465,60 +558,100 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
 # =============================================================================
 
 async def handle_init() -> List[TextContent]:
-    """Handle init tool call - return critical instructions."""
-    instructions = """# QF-Pipeline - Kritiska Instruktioner
+    """Handle init tool call - return critical instructions with M1/M2/M3/M4/Pipeline routing."""
+    instructions = """# QuestionForge - Kritiska Instruktioner
 
-## REGLER (MASTE FOLJAS)
+## FLEXIBEL WORKFLOW
 
-1. **FRAGA ALLTID anvandaren INNAN du kor step0_start:**
-   - "Vilken markdown-fil vill du arbeta med?" (source_file)
-   - "Var ska projektet sparas?" (output_folder)
-   - "Vad ska projektet heta?" (project_name) - VALFRITT
-   - **VANTA PA SVAR** innan du fortsatter! Gissa INTE!
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         QUESTIONFORGE                                │
+│                                                                      │
+│   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌──────┐ │
+│   │   M1    │   │   M2    │   │   M3    │   │   M4    │   │Export│ │
+│   │ Analys  │──▶│Blueprint│──▶│ Frågor  │──▶│   QA    │──▶│ QTI  │ │
+│   └────▲────┘   └────▲────┘   └────▲────┘   └────▲────┘   └──▲───┘ │
+│        │             │             │              │           │      │
+│   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐  ┌───┴───┐ │
+│   │   m1    │   │   m2    │   │   m3    │   │   m4    │  │pipeline│
+│   │Material │   │  Mål    │   │  Plan   │   │Frågor QA│  │ Direkt │
+│   └─────────┘   └─────────┘   └─────────┘   └─────────┘  └───────┘ │
+│                                                                      │
+│         ◀── ── KAN HOPPA MELLAN MODULER ── ──▶                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-2. **ANVAND INTE bash/cat/ls** - qf-pipeline har full filatkomst
+**Entry point = var du STARTAR, men du kan hoppa fritt mellan moduler!**
 
-3. **SAG ALDRIG "ladda upp filen"** - MCP kan lasa filer direkt
+## STEG 1: FRÅGA VAD ANVÄNDAREN HAR
 
-4. **FOLJ PIPELINE-ORDNINGEN:**
-   - step0_start -> step1_start (om v6.3) -> step2_validate -> step4_export
-   - Validera ALLTID innan export!
+"Vad har du att börja med?"
 
-5. **OM VALIDERING MISSLYCKAS:**
-   - Om format-fel: Anvand step1_transform for att fixa
-   - Anvand step2_read for att lasa filen
-   - Hjalp anvandaren forsta och fixa felen
-   - Validera igen efter fix
+**M1) MATERIAL** (föreläsningar, slides, transkriberingar)
+   - Startar: M1 (Content Analysis)
+   - Väg: M1 → M2 → M3 → M4 → Pipeline
+   - source_file: Nej (valfri)
 
-## STANDARD WORKFLOW
+**M2) LÄRANDEMÅL** (kursplan, Skolverket, etc.)
+   - Startar: M2 (Assessment Design)
+   - Väg: M2 → M3 → M4 → Pipeline
+   - source_file: Ja (fil/URL)
 
-1. User: "Anvand qf-pipeline" / "Exportera till QTI"
-2. Claude: FRAGA ANVANDAREN:
-   - "Vilken markdown-fil vill du arbeta med?"
-   - "Var ska projektet sparas?"
-   - "Vad ska projektet heta? (valfritt)"
-3. User: anger sokvagar
-4. Claude: [step0_start] -> Skapar session
-5. Claude: [step1_start] -> Om v6.3 format, annars hoppa till 6
-6. Claude: [step1_transform] -> Transformerar v6.3 -> v6.5
-7. Claude: [step2_validate] -> Validerar
-8. Om valid: [step4_export] -> Exporterar
-   Om invalid: [step2_read] -> Visa fel, hjalp fixa
+**M3) BLUEPRINT** (bedömningsplan, question matrix)
+   - Startar: M3 (Question Generation)
+   - Väg: M3 → M4 → Pipeline
+   - source_file: Ja (fil/URL)
 
-## TILLGANGLIGA VERKTYG
+**M4) FRÅGOR FÖR QA** (frågor som behöver granskas)
+   - Startar: M4 (Quality Assurance)
+   - Väg: M4 → Pipeline
+   - source_file: Ja (fil/URL)
 
-- init: CALL THIS FIRST (denna instruktion)
-- step0_start: Starta ny session (FRAGA ANVANDAREN FORST!)
-- step0_status: Visa sessionstatus
-- step1_start: Starta Guided Build (v6.3 -> v6.5)
-- step1_transform: Transformera till v6.5 format
-- step1_status: Visa Step 1 progress
-- step2_validate: Validera markdown-fil
-- step2_validate_content: Validera markdown-innehall
-- step2_read: Las arbetsfilen for felsokning
-- step4_export: Exportera till QTI-paket
-- list_types: Lista stodda fragetyper (16 st)
-- list_projects: Lista konfigurerade projekt/MQG-mappar
+**PIPELINE) FÄRDIGA FRÅGOR** (validera och exportera direkt)
+   - Startar: Step 1-4 (Pipeline)
+   - Hoppar: Alla moduler (M1-M4)
+   - source_file: Ja (fil/URL)
+
+## MODULER
+
+| Modul | Namn | Vad den gör |
+|-------|------|-------------|
+| M1 | Content Analysis | Analyserar material, hittar lärandemål |
+| M2 | Assessment Design | Skapar blueprint, planerar bedömning |
+| M3 | Question Generation | Genererar frågor |
+| M4 | Quality Assurance | Pedagogisk granskning |
+
+## STEG 2: BEKRÄFTA VAL
+
+INNAN step0_start, bekräfta:
+"Du valde [entry_point] och startar på [modul]. Du kan hoppa mellan moduler. OK?"
+
+## STEG 3: SKAPA SESSION
+
+| Val      | entry_point | source_file |
+|----------|-------------|-------------|
+| Material | "m1"        | Nej (valfri)|
+| Mål      | "m2"        | Ja (fil/URL)|
+| Blueprint| "m3"        | Ja (fil/URL)|
+| QA       | "m4"        | Ja (fil/URL)|
+| Direkt   | "pipeline"  | Ja (fil/URL)|
+
+Fråga:
+- "Var ska projektet sparas?" (output_folder)
+- "Vad ska projektet heta?" (project_name, valfritt)
+- För m2/m3/m4/pipeline: "Var ligger filen?" (source_file) - kan vara URL!
+
+## REGLER
+
+1. **VÄNTA** på svar - GISSA INTE sökvägar!
+2. **BEKRÄFTA** entry point innan step0_start
+3. **VALIDERA** alltid innan export
+
+## VERKTYG
+
+Session: init, step0_start, step0_status
+Metodologi: list_modules, load_stage, module_status (qf-scaffolding)
+Pipeline: step1_*, step2_validate, step4_export
 """
     return [TextContent(type="text", text=instructions)]
 
@@ -534,14 +667,17 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
     if arguments.get("project_path"):
         result = await load_session_tool(arguments["project_path"])
         if result.get("success"):
-            log_action(
-                Path(result['project_path']),
-                "step0_start",
-                f"Session loaded: {result['session_id']}",
+            # Log session_resume (TIER 2)
+            log_event(
+                project_path=Path(result['project_path']),
+                session_id=result['session_id'],
+                tool="step0_start",
+                event="session_resume",
+                level="info",
                 data={
-                    "session_id": result['session_id'],
-                    "project_path": result['project_path'],
-                    "action": "load",
+                    "resumed_at": result.get('validation_status', 'unknown'),
+                    "working_file": result.get('working_file'),
+                    "export_count": result.get('export_count', 0),
                 }
             )
             return [TextContent(
@@ -549,8 +685,8 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
                 text=f"Session laddad!\n"
                      f"  ID: {result['session_id']}\n"
                      f"  Projekt: {result['project_path']}\n"
-                     f"  Arbetsfil: {result['working_file']}\n"
-                     f"  Validering: {result['validation_status']}"
+                     f"  Arbetsfil: {result.get('working_file', 'N/A')}\n"
+                     f"  Validering: {result.get('validation_status', 'unknown')}"
             )]
         else:
             error = result.get("error", {})
@@ -559,57 +695,132 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
                 text=f"Kunde inte ladda session: {error.get('message')}"
             )]
 
-    # Create new session
-    if arguments.get("source_file"):
-        if not arguments.get("output_folder"):
+    # Create new session - requires output_folder
+    if not arguments.get("output_folder"):
+        return [TextContent(
+            type="text",
+            text=(
+                "Error: output_folder krävs för ny session.\n\n"
+                "Användning:\n"
+                "  - Ny session: output_folder + entry_point (+ source_file för m2/m3/m4/pipeline)\n"
+                "  - Ladda befintlig: project_path\n\n"
+                "Entry points:\n"
+                "  - m1: Börja från undervisningsmaterial (Content Analysis)\n"
+                "  - m2: Börja från lärandemål (Assessment Design)\n"
+                "  - m3: Börja från blueprint (Question Generation)\n"
+                "  - m4: Börja från frågor för QA (Quality Assurance)\n"
+                "  - pipeline: Validera och exportera direkt [default]"
+            )
+        )]
+
+    # Get entry_point (default to "pipeline")
+    entry_point = arguments.get("entry_point", "pipeline")
+
+    # Validate materials_folder for m1 entry point
+    materials_folder = arguments.get("materials_folder")
+
+    if entry_point == "m1":
+        if not materials_folder:
             return [TextContent(
                 type="text",
-                text="Error: output_folder kravs for ny session"
+                text=(
+                    "Error: materials_folder krävs för entry point 'm1'.\n\n"
+                    "Entry point m1 (Content Analysis) startar från undervisningsmaterial.\n"
+                    "Ange sökväg till mapp med:\n"
+                    "  - Presentationer (PDF, PPTX)\n"
+                    "  - Föreläsningsanteckningar\n"
+                    "  - Transkriptioner\n"
+                    "  - Läroböcker/artiklar\n\n"
+                    "Exempel:\n"
+                    "  materials_folder='/Users/niklas/Nextcloud/Biologi_VT2025/Föreläsningar'"
+                )
             )]
 
-        result = await start_session_tool(
-            source_file=arguments["source_file"],
-            output_folder=arguments["output_folder"],
-            project_name=arguments.get("project_name")
+        # Validate materials_folder exists and is directory
+        materials_path = Path(materials_folder)
+        if not materials_path.exists():
+            return [TextContent(
+                type="text",
+                text=f"Error: materials_folder finns inte: {materials_folder}"
+            )]
+
+        if not materials_path.is_dir():
+            return [TextContent(
+                type="text",
+                text=f"Error: materials_folder är inte en mapp: {materials_folder}"
+            )]
+
+    # If materials_folder provided for non-m1 entry point, warn but continue
+    if materials_folder and entry_point != "m1":
+        logger.warning(
+            f"materials_folder provided for '{entry_point}' entry point - "
+            f"will be ignored. This parameter is only used for 'm1'."
+        )
+        materials_folder = None  # Clear it
+
+    result = await start_session_tool(
+        output_folder=arguments["output_folder"],
+        source_file=arguments.get("source_file"),
+        project_name=arguments.get("project_name"),
+        entry_point=entry_point,
+        materials_folder=materials_folder
+    )
+
+    if result.get("success"):
+        log_action(
+            Path(result['project_path']),
+            "step0_start",
+            f"Session created: {result['session_id']} (entry_point: {entry_point})",
+            data={
+                "session_id": result['session_id'],
+                "source_file": arguments.get("source_file"),
+                "project_path": result['project_path'],
+                "entry_point": entry_point,
+                "next_module": result.get('next_module'),
+                "action": "create",
+            }
         )
 
-        if result.get("success"):
-            log_action(
-                Path(result['project_path']),
-                "step0_start",
-                f"Session created: {result['session_id']}",
-                data={
-                    "session_id": result['session_id'],
-                    "source_file": arguments["source_file"],
-                    "project_path": result['project_path'],
-                    "action": "create",
-                }
+        # Build next steps guidance based on entry_point
+        if result.get('pipeline_ready'):
+            next_steps = (
+                "Nästa steg (Pipeline):\n"
+                "  1. step2_validate: Validera arbetsfilen\n"
+                "  2. step4_export: Exportera till QTI"
             )
-            return [TextContent(
-                type="text",
-                text=f"Session startad!\n"
-                     f"  Session ID: {result['session_id']}\n"
-                     f"  Projekt: {result['project_path']}\n"
-                     f"  Arbetsfil: {result['working_file']}\n"
-                     f"  Output: {result['output_folder']}\n\n"
-                     f"Nasta steg:\n"
-                     f"  - step2_validate: Validera arbetsfilen\n"
-                     f"  - step4_export: Exportera till QTI"
-            )]
         else:
-            error = result.get("error", {})
-            return [TextContent(
-                type="text",
-                text=f"Kunde inte starta session:\n"
-                     f"  Typ: {error.get('type')}\n"
-                     f"  Meddelande: {error.get('message')}"
-            )]
+            next_module = result.get('next_module', 'm1')
+            next_steps = (
+                f"Nästa steg (qf-scaffolding):\n"
+                f"  1. list_modules: Visa tillgängliga moduler\n"
+                f"  2. load_stage({next_module}, 0): Börja med {next_module.upper()}"
+            )
 
-    # No valid arguments
-    return [TextContent(
-        type="text",
-        text="Ange source_file + output_folder (ny session) eller project_path (ladda befintlig)"
-    )]
+        # Build response text
+        response_text = (
+            f"Session startad!\n"
+            f"  Session ID: {result['session_id']}\n"
+            f"  Projekt: {result['project_path']}\n"
+            f"  Entry point: {entry_point}\n"
+        )
+
+        if result.get('working_file'):
+            response_text += f"  Arbetsfil: {result['working_file']}\n"
+
+        if result.get('materials_copied'):
+            response_text += f"  Material: {result['materials_copied']} filer kopierade till 00_materials/\n"
+
+        response_text += f"  Output: {result['output_folder']}\n\n{next_steps}"
+
+        return [TextContent(type="text", text=response_text)]
+    else:
+        error = result.get("error", {})
+        return [TextContent(
+            type="text",
+            text=f"Kunde inte starta session:\n"
+                 f"  Typ: {error.get('type')}\n"
+                 f"  Meddelande: {error.get('message')}"
+        )]
 
 
 async def handle_step0_status(arguments: dict) -> List[TextContent]:
@@ -641,7 +852,7 @@ def format_validation_output(result: dict, file_path: str, question_count: int) 
     """Format validation result like Terminal QTI-Generator."""
     lines = [
         "=" * 60,
-        "MQG FORMAT VALIDATION REPORT (v6.5)",
+        "QFMD FORMAT VALIDATION REPORT",
         "=" * 60,
         "",
     ]
@@ -712,6 +923,7 @@ def format_validation_output(result: dict, file_path: str, question_count: int) 
 async def handle_step2_validate(arguments: dict) -> List[TextContent]:
     """Handle step2_validate - validate markdown file."""
     session = get_current_session()
+    start_time = time.time()
 
     # Determine file path
     if arguments.get("file_path"):
@@ -731,64 +943,106 @@ async def handle_step2_validate(arguments: dict) -> List[TextContent]:
             text=f"Filen finns inte: {file_path}"
         )]
 
-    result = validate_file(file_path)
-
-    # Count questions from parsing
-    try:
-        parse_result = parse_file(file_path)
-        question_count = len(parse_result.get("questions", []))
-    except Exception:
-        question_count = 0
-
-    # Count errors and warnings (levels are UPPERCASE from validator)
-    error_count = sum(1 for i in result.get("issues", []) if i.get("level") == "ERROR")
-    warning_count = sum(1 for i in result.get("issues", []) if i.get("level") == "WARNING")
-
-    # Update session if active
+    # Log tool_start (TIER 1)
     if session:
-        # Check if this is the first time validation passes
-        was_valid_before = session.get_status().get("validation_status") == "valid"
-
-        session.update_validation(result["valid"], question_count)
-        log_action(
-            session.project_path,
-            "step2_validate",
-            f"Validated: {question_count} questions, {error_count} errors",
-            data={
-                "question_count": question_count,
-                "error_count": error_count,
-                "warning_count": warning_count,
-                "valid": result["valid"],
-            }
+        log_event(
+            project_path=session.project_path,
+            session_id=session.session_id,
+            tool="step2_validate",
+            event="tool_start",
+            level="info",
+            data={"file": file_path}
         )
 
-        # Log step2_complete when validation passes for the first time
-        if result["valid"] and not was_valid_before:
-            log_action(
-                session.project_path,
-                "step2_complete",
-                f"Step 2 complete: {question_count} questions validated successfully",
+    try:
+        result = validate_file(file_path)
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        # Count questions from parsing
+        try:
+            parse_result = parse_file(file_path)
+            question_count = len(parse_result.get("questions", []))
+        except Exception:
+            question_count = 0
+
+        # Count errors and warnings (levels are UPPERCASE from validator)
+        error_count = sum(1 for i in result.get("issues", []) if i.get("level") == "ERROR")
+        warning_count = sum(1 for i in result.get("issues", []) if i.get("level") == "WARNING")
+
+        # Log tool_end (TIER 1)
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step2_validate",
+                event="tool_end",
+                level="info",
                 data={
+                    "success": True,
+                    "valid": result["valid"],
                     "question_count": question_count,
-                    "next_step": "step3_decide or step4_export",
-                }
+                    "error_count": error_count,
+                    "warning_count": warning_count,
+                },
+                duration_ms=duration_ms
             )
 
-    # Format output like Terminal QTI-Generator
-    formatted_output = format_validation_output(result, file_path, question_count)
+        # Update session if active
+        if session:
+            # Check if this is the first time validation passes
+            was_valid_before = session.get_status().get("validation_status") == "valid"
 
-    # Save report to session folder if active
-    report_path = None
-    if session:
-        report_path = session.project_path / "validation_report.txt"
-        try:
-            with open(report_path, 'w', encoding='utf-8') as f:
-                f.write(formatted_output)
-            formatted_output += f"\n\nReport saved to: {report_path}"
-        except Exception as e:
-            formatted_output += f"\n\n(Could not save report: {e})"
+            session.update_validation(result["valid"], question_count)
 
-    return [TextContent(type="text", text=formatted_output)]
+            # Log validation_complete (TIER 2) when validation passes
+            if result["valid"]:
+                log_event(
+                    project_path=session.project_path,
+                    session_id=session.session_id,
+                    tool="step2_validate",
+                    event="validation_complete",
+                    level="info",
+                    data={
+                        "valid": True,
+                        "question_count": question_count,
+                        "errors": error_count,
+                        "warnings": warning_count
+                    }
+                )
+
+        # Format output like Terminal QTI-Generator
+        formatted_output = format_validation_output(result, file_path, question_count)
+
+        # Save report to session folder if active
+        report_path = None
+        if session:
+            report_path = session.project_path / "validation_report.txt"
+            try:
+                with open(report_path, 'w', encoding='utf-8') as f:
+                    f.write(formatted_output)
+                formatted_output += f"\n\nReport saved to: {report_path}"
+            except Exception as e:
+                formatted_output += f"\n\n(Could not save report: {e})"
+
+        return [TextContent(type="text", text=formatted_output)]
+
+    except Exception as e:
+        # Log tool_error (TIER 1)
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step2_validate",
+                event="tool_error",
+                level="error",
+                data={
+                    "error_type": type(e).__name__,
+                    "message": str(e),
+                    "stacktrace": traceback.format_exc(),
+                    "context": {"file": file_path}
+                }
+            )
+        raise
 
 
 async def handle_step2_validate_content(arguments: dict) -> List[TextContent]:
@@ -876,6 +1130,7 @@ async def handle_step2_read(arguments: dict) -> List[TextContent]:
 async def handle_step4_export(arguments: dict) -> List[TextContent]:
     """Handle step4_export - export to QTI package."""
     session = get_current_session()
+    start_time = time.time()
 
     # Determine paths
     if session and session.working_file:
@@ -909,98 +1164,173 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
 
     language = arguments.get("language", "sv")
 
-    # Parse markdown
-    data = parse_file(file_path)
-    questions = data.get("questions", [])
-    metadata = data.get("metadata", {})
-
-    if not questions:
-        return [TextContent(type="text", text="Inga fragor hittades i filen")]
-
-    # === Resource handling ===
-    resource_count = 0
-    try:
-        # 1. Validate resources exist
-        resource_result = validate_resources(
-            input_file=file_path,
-            questions=questions,
-            media_dir=None,  # Auto-detect
-            strict=False
-        )
-
-        # Log warnings but continue
-        if resource_result.get("warning_count", 0) > 0:
-            for issue in resource_result.get("issues", []):
-                if issue.get("level") == "WARNING":
-                    if session:
-                        log_action(session.project_path, "step4_export",
-                                   f"Resource warning: {issue.get('message')}")
-
-        # Fail on errors
-        if resource_result.get("error_count", 0) > 0:
-            error_msgs = [i.get("message") for i in resource_result.get("issues", [])
-                         if i.get("level") == "ERROR"]
-            return [TextContent(
-                type="text",
-                text=f"Resource-fel:\n" + "\n".join(f"  - {m}" for m in error_msgs) +
-                     "\n\nFixa bilderna och kor igen."
-            )]
-
-        # 2. Determine output folder for resources
-        output_folder = session.output_folder if session else Path(output_path).parent
-
-        # 3. Copy resources to output
-        copy_result = copy_resources(
-            input_file=file_path,
-            output_dir=str(output_folder),
-            questions=questions
-        )
-        resource_count = copy_result.get("count", 0)
-
-    except ResourceError as e:
-        # Log but don't fail - resources might not exist
-        if session:
-            log_action(session.project_path, "step4_export",
-                       f"Resource handling skipped: {e}")
-
-    # Generate XML
-    xml_list = generate_all_xml(questions, language)
-
-    # Add questions to metadata for packager (needed for labels export)
-    metadata['questions'] = questions
-
-    # Create package
-    result = create_qti_package(xml_list, metadata, output_path)
-
-    # Log export to session if active
+    # Log tool_start (TIER 1)
     if session:
+        log_event(
+            project_path=session.project_path,
+            session_id=session.session_id,
+            tool="step4_export",
+            event="tool_start",
+            level="info",
+            data={"file": file_path, "output": output_path, "language": language}
+        )
+
+    try:
+        # Parse markdown
+        data = parse_file(file_path)
+        questions = data.get("questions", [])
+        metadata = data.get("metadata", {})
+
+        if not questions:
+            duration_ms = int((time.time() - start_time) * 1000)
+            if session:
+                log_event(
+                    project_path=session.project_path,
+                    session_id=session.session_id,
+                    tool="step4_export",
+                    event="tool_end",
+                    level="warn",
+                    data={"success": False, "error": "No questions found"},
+                    duration_ms=duration_ms
+                )
+            return [TextContent(type="text", text="Inga fragor hittades i filen")]
+
+        # === Resource handling ===
+        resource_count = 0
         try:
-            relative_output = str(Path(output_path).relative_to(session.project_path))
-        except ValueError:
-            relative_output = output_path
-        session.log_export(relative_output, len(questions))
+            # 1. Validate resources exist
+            resource_result = validate_resources(
+                input_file=file_path,
+                questions=questions,
+                media_dir=None,  # Auto-detect
+                strict=False
+            )
+
+            # Log warnings but continue
+            if resource_result.get("warning_count", 0) > 0:
+                for issue in resource_result.get("issues", []):
+                    if issue.get("level") == "WARNING":
+                        if session:
+                            log_action(session.project_path, "step4_export",
+                                       f"Resource warning: {issue.get('message')}")
+
+            # Fail on errors
+            if resource_result.get("error_count", 0) > 0:
+                error_msgs = [i.get("message") for i in resource_result.get("issues", [])
+                             if i.get("level") == "ERROR"]
+                duration_ms = int((time.time() - start_time) * 1000)
+                if session:
+                    log_event(
+                        project_path=session.project_path,
+                        session_id=session.session_id,
+                        tool="step4_export",
+                        event="tool_end",
+                        level="warn",
+                        data={"success": False, "error": "Resource errors", "errors": error_msgs},
+                        duration_ms=duration_ms
+                    )
+                return [TextContent(
+                    type="text",
+                    text=f"Resource-fel:\n" + "\n".join(f"  - {m}" for m in error_msgs) +
+                         "\n\nFixa bilderna och kor igen."
+                )]
+
+            # 2. Determine output folder for resources
+            output_folder = session.output_folder if session else Path(output_path).parent
+
+            # 3. Copy resources to output
+            copy_result = copy_resources(
+                input_file=file_path,
+                output_dir=str(output_folder),
+                questions=questions
+            )
+            resource_count = copy_result.get("count", 0)
+
+        except ResourceError as e:
+            # Log but don't fail - resources might not exist
+            if session:
+                log_action(session.project_path, "step4_export",
+                           f"Resource handling skipped: {e}")
+
+        # Generate XML
+        xml_list = generate_all_xml(questions, language)
+
+        # Add questions to metadata for packager (needed for labels export)
+        metadata['questions'] = questions
+
+        # Create package
+        result = create_qti_package(xml_list, metadata, output_path)
+        duration_ms = int((time.time() - start_time) * 1000)
 
         zip_path = Path(result.get('zip_path', output_path))
-        log_action(
-            session.project_path,
-            "step4_export",
-            f"Exported {len(questions)} questions, {resource_count} resources to {zip_path.name}",
-            data={
-                "question_count": len(questions),
-                "resource_count": resource_count,
-                "output_file": str(zip_path),
-                "file_size_bytes": zip_path.stat().st_size if zip_path.exists() else 0,
-            }
-        )
+        file_size = zip_path.stat().st_size if zip_path.exists() else 0
 
-    return [TextContent(
-        type="text",
-        text=f"QTI-paket skapat!\n"
-             f"  ZIP: {result.get('zip_path')}\n"
-             f"  Mapp: {result.get('folder_path')}\n"
-             f"  Fragor: {len(questions)}\n"
-             f"  Resurser: {resource_count} filer kopierade"
-    )]
+        # Log tool_end (TIER 1)
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step4_export",
+                event="tool_end",
+                level="info",
+                data={
+                    "success": True,
+                    "question_count": len(questions),
+                    "resource_count": resource_count,
+                    "output_file": str(zip_path),
+                    "file_size_bytes": file_size,
+                },
+                duration_ms=duration_ms
+            )
+
+            # Log export_complete (TIER 2)
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step4_export",
+                event="export_complete",
+                level="info",
+                data={
+                    "output_file": str(zip_path),
+                    "question_count": len(questions),
+                    "format": "QTI 1.2"
+                }
+            )
+
+        # Log export to session if active
+        if session:
+            try:
+                relative_output = str(Path(output_path).relative_to(session.project_path))
+            except ValueError:
+                relative_output = output_path
+            session.log_export(relative_output, len(questions))
+
+        return [TextContent(
+            type="text",
+            text=f"QTI-paket skapat!\n"
+                 f"  ZIP: {result.get('zip_path')}\n"
+                 f"  Mapp: {result.get('folder_path')}\n"
+                 f"  Fragor: {len(questions)}\n"
+                 f"  Resurser: {resource_count} filer kopierade"
+        )]
+
+    except Exception as e:
+        # Log tool_error (TIER 1)
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step4_export",
+                event="tool_error",
+                level="error",
+                data={
+                    "error_type": type(e).__name__,
+                    "message": str(e),
+                    "stacktrace": traceback.format_exc(),
+                    "context": {"file": file_path, "output": output_path}
+                }
+            )
+        raise
 
 
 # =============================================================================
@@ -1049,7 +1379,77 @@ async def handle_list_projects(arguments: dict) -> List[TextContent]:
 
 
 # =============================================================================
-# Step 1: Guided Build (v6.3 → v6.5)
+# Project File Tools (read/write anywhere in project)
+# =============================================================================
+
+async def handle_read_project_file(arguments: dict) -> List[TextContent]:
+    """Handle read_project_file - read any file within project."""
+    project_path = arguments.get("project_path")
+    relative_path = arguments.get("relative_path")
+
+    if not project_path or not relative_path:
+        return [TextContent(
+            type="text",
+            text="Error: Both project_path and relative_path are required"
+        )]
+
+    result = await read_project_file(project_path, relative_path)
+
+    if not result.get("success"):
+        return [TextContent(
+            type="text",
+            text=f"Error: {result.get('error', 'Unknown error')}"
+        )]
+
+    # Format successful response
+    lines = [
+        f"File: {result['relative_path']}",
+        f"Size: {result['size_bytes']} bytes",
+        "-" * 40,
+        result['content']
+    ]
+
+    return [TextContent(type="text", text="\n".join(lines))]
+
+
+async def handle_write_project_file(arguments: dict) -> List[TextContent]:
+    """Handle write_project_file - write any file within project."""
+    project_path = arguments.get("project_path")
+    relative_path = arguments.get("relative_path")
+    content = arguments.get("content")
+    create_dirs = arguments.get("create_dirs", True)
+    overwrite = arguments.get("overwrite", True)
+
+    if not project_path or not relative_path or content is None:
+        return [TextContent(
+            type="text",
+            text="Error: project_path, relative_path, and content are required"
+        )]
+
+    result = await write_project_file(
+        project_path,
+        relative_path,
+        content,
+        create_dirs=create_dirs,
+        overwrite=overwrite
+    )
+
+    if not result.get("success"):
+        return [TextContent(
+            type="text",
+            text=f"Error: {result.get('error', 'Unknown error')}"
+        )]
+
+    # Format successful response
+    msg = f"Wrote {result['bytes_written']} bytes to {result['relative_path']}"
+    if result.get('created_dirs'):
+        msg += " (created parent directories)"
+
+    return [TextContent(type="text", text=msg)]
+
+
+# =============================================================================
+# Step 1: Guided Build (Convert to QFMD)
 # =============================================================================
 
 async def handle_step1_start(arguments: dict) -> List[TextContent]:
@@ -1127,20 +1527,83 @@ async def handle_step1_status() -> List[TextContent]:
 
 async def handle_step1_analyze(arguments: dict) -> List[TextContent]:
     """Handle step1_analyze - analyze question."""
-    result = await step1_analyze(arguments.get("question_id"))
+    session = get_current_session()
+    start_time = time.time()
+    question_id = arguments.get("question_id")
 
-    if result.get("error"):
-        return [TextContent(type="text", text=f"Error: {result['error']}")]
+    # Log tool_start (TIER 1)
+    if session:
+        log_event(
+            project_path=session.project_path,
+            session_id=session.session_id,
+            tool="step1_analyze",
+            event="tool_start",
+            level="info",
+            data={"question_id": question_id}
+        )
 
-    return [TextContent(
-        type="text",
-        text=f"Analys: {result['question_id']} ({result['question_type']})\n\n"
-             f"Problem: {result['total_issues']} "
-             f"(kritiska: {result['by_severity']['critical']}, "
-             f"varningar: {result['by_severity']['warning']})\n"
-             f"Auto-fixbara: {result['auto_fixable']}\n\n"
-             f"{result['issues_summary']}"
-    )]
+    try:
+        result = await step1_analyze(question_id)
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        if result.get("error"):
+            # Log tool_end with failure
+            if session:
+                log_event(
+                    project_path=session.project_path,
+                    session_id=session.session_id,
+                    tool="step1_analyze",
+                    event="tool_end",
+                    level="warn",
+                    data={"success": False, "error": result['error']},
+                    duration_ms=duration_ms
+                )
+            return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+        # Log tool_end with success
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step1_analyze",
+                event="tool_end",
+                level="info",
+                data={
+                    "success": True,
+                    "question_id": result['question_id'],
+                    "total_issues": result['total_issues'],
+                    "auto_fixable_count": result['auto_fixable_count']
+                },
+                duration_ms=duration_ms
+            )
+
+        return [TextContent(
+            type="text",
+            text=f"Analys: {result['question_id']} ({result['question_type']})\n\n"
+                 f"Problem: {result['total_issues']} "
+                 f"(kritiska: {result['by_severity']['critical']}, "
+                 f"varningar: {result['by_severity']['warning']})\n"
+                 f"Auto-fixbara: {result['auto_fixable']}\n\n"
+                 f"{result['issues_summary']}"
+        )]
+
+    except Exception as e:
+        # Log tool_error (TIER 1)
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step1_analyze",
+                event="tool_error",
+                level="error",
+                data={
+                    "error_type": type(e).__name__,
+                    "message": str(e),
+                    "stacktrace": traceback.format_exc(),
+                    "context": {"question_id": question_id}
+                }
+            )
+        raise
 
 
 async def handle_step1_transform(arguments: dict) -> List[TextContent]:
@@ -1253,40 +1716,91 @@ async def handle_step1_finish() -> List[TextContent]:
 
 async def handle_step1_fix_auto(arguments: dict) -> List[TextContent]:
     """Handle step1_fix_auto - apply only auto transforms."""
-    result = await step1_fix_auto(arguments.get("question_id"))
-
-    if result.get("error"):
-        return [TextContent(type="text", text=f"Error: {result['error']}")]
-
-    # Log to pipeline
     session = get_current_session()
-    if session and result.get("fixed"):
-        log_action(
-            session.project_path,
-            "step1_fix_auto",
-            f"Auto-fixed {result['fixed_count']} issues on {result['question_id']}",
-            data={
-                "question_id": result['question_id'],
-                "fixed_count": result['fixed_count'],
-                "remaining_count": result['remaining_count'],
-            }
+    start_time = time.time()
+    question_id = arguments.get("question_id")
+
+    # Log tool_start (TIER 1)
+    if session:
+        log_event(
+            project_path=session.project_path,
+            session_id=session.session_id,
+            tool="step1_fix_auto",
+            event="tool_start",
+            level="info",
+            data={"question_id": question_id}
         )
 
-    fixed_text = "\n".join(f"  - {c}" for c in result.get("fixed", []))
-    remaining = result.get("remaining", [])
-    remaining_text = "\n".join(f"  - {r['message']}" for r in remaining)
+    try:
+        result = await step1_fix_auto(question_id)
+        duration_ms = int((time.time() - start_time) * 1000)
 
-    return [TextContent(
-        type="text",
-        text=f"Auto-fix på {result['question_id']}\n\n"
-             f"Fixat ({result['fixed_count']}):\n{fixed_text or '  (inga)'}\n\n"
-             f"Kvar ({result['remaining_count']}):\n{remaining_text or '  (inga)'}\n\n"
-             f"{result.get('instruction', '')}"
-    )]
+        if result.get("error"):
+            # Log tool_end with failure
+            if session:
+                log_event(
+                    project_path=session.project_path,
+                    session_id=session.session_id,
+                    tool="step1_fix_auto",
+                    event="tool_end",
+                    level="warn",
+                    data={"success": False, "error": result['error']},
+                    duration_ms=duration_ms
+                )
+            return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+        # Log tool_end with success
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step1_fix_auto",
+                event="tool_end",
+                level="info",
+                data={
+                    "success": True,
+                    "question_id": result['question_id'],
+                    "fixed_count": result['fixed_count'],
+                    "remaining_count": result['remaining_count'],
+                },
+                duration_ms=duration_ms
+            )
+
+        fixed_text = "\n".join(f"  - {c}" for c in result.get("fixed", []))
+        remaining = result.get("remaining", [])
+        remaining_text = "\n".join(f"  - {r['message']}" for r in remaining)
+
+        return [TextContent(
+            type="text",
+            text=f"Auto-fix på {result['question_id']}\n\n"
+                 f"Fixat ({result['fixed_count']}):\n{fixed_text or '  (inga)'}\n\n"
+                 f"Kvar ({result['remaining_count']}):\n{remaining_text or '  (inga)'}\n\n"
+                 f"{result.get('instruction', '')}"
+        )]
+
+    except Exception as e:
+        # Log tool_error (TIER 1)
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step1_fix_auto",
+                event="tool_error",
+                level="error",
+                data={
+                    "error_type": type(e).__name__,
+                    "message": str(e),
+                    "stacktrace": traceback.format_exc(),
+                    "context": {"question_id": question_id}
+                }
+            )
+        raise
 
 
 async def handle_step1_fix_manual(arguments: dict) -> List[TextContent]:
     """Handle step1_fix_manual - apply single manual fix."""
+    session = get_current_session()
+    start_time = time.time()
     question_id = arguments.get("question_id")
     field = arguments.get("field")
     value = arguments.get("value")
@@ -1294,29 +1808,74 @@ async def handle_step1_fix_manual(arguments: dict) -> List[TextContent]:
     if not question_id or not field or not value:
         return [TextContent(type="text", text="Error: question_id, field och value krävs")]
 
-    result = await step1_fix_manual(question_id, field, value)
-
-    if result.get("error"):
-        return [TextContent(type="text", text=f"Error: {result['error']}")]
-
-    # Log to pipeline
-    session = get_current_session()
-    if session and result.get("success"):
-        log_action(
-            session.project_path,
-            "step1_fix_manual",
-            f"Manual fix: {field}={value} on {question_id}",
-            data={
-                "question_id": question_id,
-                "field": field,
-                "value": value[:50] if len(value) > 50 else value,
-            }
+    # Log tool_start (TIER 1)
+    if session:
+        log_event(
+            project_path=session.project_path,
+            session_id=session.session_id,
+            tool="step1_fix_manual",
+            event="tool_start",
+            level="info",
+            data={"question_id": question_id, "field": field}
         )
 
-    return [TextContent(
-        type="text",
-        text=result.get("message", "")
-    )]
+    try:
+        result = await step1_fix_manual(question_id, field, value)
+        duration_ms = int((time.time() - start_time) * 1000)
+
+        if result.get("error"):
+            # Log tool_end with failure
+            if session:
+                log_event(
+                    project_path=session.project_path,
+                    session_id=session.session_id,
+                    tool="step1_fix_manual",
+                    event="tool_end",
+                    level="warn",
+                    data={"success": False, "error": result['error']},
+                    duration_ms=duration_ms
+                )
+            return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+        # Log tool_end with success
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step1_fix_manual",
+                event="tool_end",
+                level="info",
+                data={
+                    "success": result.get("success", False),
+                    "question_id": question_id,
+                    "field": field,
+                    "value": value[:50] if len(value) > 50 else value,
+                },
+                duration_ms=duration_ms
+            )
+
+        return [TextContent(
+            type="text",
+            text=result.get("message", "")
+        )]
+
+    except Exception as e:
+        # Log tool_error (TIER 1)
+        if session:
+            log_event(
+                project_path=session.project_path,
+                session_id=session.session_id,
+                tool="step1_fix_manual",
+                event="tool_error",
+                level="error",
+                data={
+                    "error_type": type(e).__name__,
+                    "message": str(e),
+                    "stacktrace": traceback.format_exc(),
+                    "context": {"question_id": question_id, "field": field}
+                }
+            )
+        raise
 
 
 async def handle_step1_suggest(arguments: dict) -> List[TextContent]:
@@ -1425,6 +1984,42 @@ async def handle_step1_skip(arguments: dict) -> List[TextContent]:
     return [TextContent(
         type="text",
         text=result.get("message", "Hoppade över")
+    )]
+
+
+async def handle_step1_next(arguments: dict) -> List[TextContent]:
+    """Handle step1_next - navigate to next/previous question."""
+    direction = arguments.get("direction", "forward")
+
+    result = await step1_next(direction)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    # Format progress bar
+    progress = result.get("progress", {})
+    progress_pct = progress.get("percent", 0)
+    filled = int(progress_pct / 5)
+    bar = "█" * filled + "░" * (20 - filled)
+
+    # Build output
+    current_idx = result.get('current_index', 0)
+    total = result.get('total_questions', '?')
+    q_id = result.get('current_question', '?')
+    q_type = result.get('question_type', '?')
+    q_title = result.get('question_title', '')
+    issues = result.get('issues_count', 0)
+    auto_fix = result.get('auto_fixable', 0)
+    summary = result.get('issues_summary', '')
+
+    return [TextContent(
+        type="text",
+        text=f"Navigerade till {q_id} - {q_title}\n\n"
+             f"[{bar}] {progress_pct}%\n"
+             f"Fråga {current_idx + 1} av {total}\n\n"
+             f"Typ: {q_type}\n"
+             f"Problem: {issues} ({auto_fix} auto-fixbara)\n\n"
+             f"{summary}"
     )]
 
 

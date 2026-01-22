@@ -75,6 +75,7 @@ step4_  → Export
 |---------|----------|
 | `step2_validate` | Validera fil (använder working_file om session aktiv) |
 | `step2_validate_content` | Validera markdown-innehåll direkt (för snippets) |
+| `step2_read` | Läs arbetsfilen för inspektion/felsökning |
 
 ### Step 3: Decision (PLANERAD)
 
@@ -110,6 +111,7 @@ Step 1 (Guided Build) - PLANERAD:
 Step 2 (Validator):
   step2_validate          # Validera fil
   step2_validate_content  # Validera innehåll direkt
+  step2_read              # Läs fil för felsökning
 
 Step 3 (Decision) - PLANERAD:
   step3_choose    # Välj exportformat
@@ -280,6 +282,7 @@ Step 0 (Session):
 Step 2 (Validator):
   step2_validate          # Validera fil
   step2_validate_content  # Validera innehåll
+  step2_read              # Läs fil för felsökning
 
 Step 4 (Export):
   step4_export            # Skapa QTI-paket
@@ -288,7 +291,7 @@ Cross-Step:
   list_types              # Frågetyper
 ```
 
-**Totalt:** 7 byggda verktyg (+ 6 planerade för Step 1 och Step 3)
+**Totalt:** 8 byggda verktyg (+ 6 planerade för Step 1 och Step 3)
 
 ---
 
