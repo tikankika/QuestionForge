@@ -20,6 +20,32 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-22
 
+#### RFC-012: Pipeline-Script Alignment (Critical Bug Discovery)
+- **Discovery:** Deep analysis of WORKFLOW.md Appendix A.1.2 revealed pipeline divergence
+- **Critical Bug:** `apply_resource_mapping()` missing in step4_export
+  - Pipeline copies resources correctly (e.g., `Q001_image.png`)
+  - But XML references OLD paths (e.g., `image.png`) instead of new paths
+  - Result: Broken images in Inspera import
+- **Root Cause:** Wrappers reimplemented logic instead of reusing scripts
+  - cli.py has ~45 lines of path mapping code (lines 425-471)
+  - server.py has 0 lines - completely forgotten!
+- **Solution:** Hybrid approach
+  - Phase 1 (NOW): Subprocess - call scripts directly
+  - Phase 2 (LATER): Refactor scripts to be importable
+- **RFC:** `docs/rfcs/rfc-012-pipeline-script-alignment.md`
+
+#### WORKFLOW.md Appendix A: QTI Export Technical Details
+- Added complete technical documentation of export pipeline
+- A.1: Manual scripts overview (5 steps)
+- A.1.2: Step-by-step comparison table (verified)
+- A.1.3: Detailed script descriptions
+- A.2: MCP Pipeline flow
+- A.3: Module responsibilities diagram
+- A.4: Expected input format (v6.5)
+- A.5: Validator vs Parser mismatch warning
+- A.6: Troubleshooting guide
+- A.7: Manual testing commands
+
 #### Roadmap: qti-core Refactoring (Future RFC)
 - **Added:** "Teknisk Skuld / Framtida Förbättringar" section to ROADMAP.md
 - **RFC-XXX:** Plan for cleaning up qti-core internal structure

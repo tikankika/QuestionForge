@@ -1,6 +1,6 @@
 # QuestionForge Roadmap
 
-**Senast uppdaterad:** 2026-01-21
+**Senast uppdaterad:** 2026-01-22
 
 ---
 
@@ -109,12 +109,17 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 - **Path A:** Direkt export (enkla frågor → QTI)
 - **Path B:** Question Set Builder (filtrering, sektioner, random selection)
 
-### Step 4: Export ✅ KLAR
+### Step 4: Export 🔴 KRITISK BUG
 | Uppgift | Status |
 |---------|--------|
 | `step4_export` - generera QTI-paket | ✅ Klar |
 | Tags → Labels mapping | ✅ Klar |
-| Resource handling (bilder etc) | ✅ Klar |
+| Resource handling (bilder etc) | 🔴 **BUG** - paths inte mappade! |
+
+**KRITISK BUG (RFC-012):**
+- `apply_resource_mapping()` saknas i pipeline
+- Bilder kopieras korrekt men XML får gamla paths
+- Se `docs/rfcs/rfc-012-pipeline-script-alignment.md`
 
 ---
 
@@ -357,11 +362,16 @@ methodology/
 1. ~~**qf-scaffolding logging** - TypeScript logger per RFC-001~~ ✅ Klar
 2. ~~**RFC-004 Phase 2** - M1 progressive saving tools~~ ✅ Klar
 3. ~~**RFC-007** - LLM Workflow Control Patterns + Option A~~ ✅ Klar
-4. **MarkItDown MCP** - Installation och konfiguration ⬅️ NÄSTA
-5. **Testa M1 med MarkItDown** - End-to-end test med PDF-extraktion
-6. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
-7. **M2-M4 Tools** - Implementera tools för övriga moduler
-8. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
+4. 🔴 **RFC-012 Phase 1** - Pipeline-Script Alignment (KRITISK BUG) ⬅️ **NÄSTA**
+   - `apply_resource_mapping()` saknas i step4_export
+   - Bilder fungerar inte i Inspera-import
+   - Lösning: Subprocess till scripts
+5. **MarkItDown MCP** - Installation och konfiguration
+6. **Testa M1 med MarkItDown** - End-to-end test med PDF-extraktion
+7. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
+8. **M2-M4 Tools** - Implementera tools för övriga moduler
+9. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
+10. **RFC-012 Phase 2** - Refactor scripts till importerbara funktioner
 
 ---
 
