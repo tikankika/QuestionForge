@@ -1,8 +1,8 @@
 # RFC-012: Pipeline-Script Alignment
 
-**Status:** Proposed (Hybrid Approach)
+**Status:** Phase 1 IMPLEMENTED
 **Created:** 2026-01-22
-**Updated:** 2026-01-22
+**Updated:** 2026-01-24
 **Author:** Niklas + Claude Code + Claude Sonnet
 **Related:** WORKFLOW.md Appendix A.1.2, ADR-008 (qti-core)
 
@@ -122,12 +122,13 @@ async def handle_step4_export(arguments: dict):
 
 ## Migration Plan
 
-### ✅ Phase 1: Subprocess (NU - 1 dag)
+### ✅ Phase 1: Subprocess (KLAR - 2026-01-24)
 
-- [ ] Implementera subprocess i server.py
-- [ ] Testa alla 5 steg
-- [ ] Verifiera att bilder fungerar
-- [ ] Dokumentera i WORKFLOW.md
+- [x] Implementera subprocess i server.py
+- [x] Testa alla 5 steg (syntax + import + simulated calls)
+- [x] Verifiera att bilder fungerar (se rfc-012-image-path-verification.md)
+- [x] Dokumentera i WORKFLOW.md (Appendix A.1.2)
+- [x] Commit: `ac866ab` - feat(rfc-012): Replace wrappers with subprocess calls
 
 ### 🔄 Phase 2: Refactor (SENARE - 3-5 dagar)
 

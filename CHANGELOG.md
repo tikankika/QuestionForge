@@ -4,6 +4,28 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed - 2026-01-24
+
+#### RFC-012 Phase 1: Subprocess Implementation (Critical Bug Fix)
+- **Critical Bug Fixed:** `apply_resource_mapping()` was missing in MCP pipeline
+  - Images copied correctly (e.g., `resources/Q001_image.png`)
+  - But XML referenced OLD paths (e.g., `image.png`)
+  - Result: Broken images in Inspera import
+- **Solution:** MCP now calls qti-core scripts via subprocess
+  - `handle_step2_validate()` → calls `step1_validate.py`
+  - `handle_step4_export()` → calls all 5 scripts sequentially
+  - Scripts are now single source of truth (terminal + MCP identical)
+- **Key Detail:** Added explicit `--quiz-dir` for step3/4/5
+  - Scripts auto-detect only works in `qti-core/output/`
+  - MCP outputs to project's `03_output/` - requires explicit path
+- **Files modified:**
+  - `packages/qf-pipeline/src/qf_pipeline/server.py` - subprocess implementation
+- **Verification:**
+  - Created image test proving scripts fix the bug
+  - XML contains `resources/IMG_TEST_Q001_test_image.png` (correct path)
+- **RFC:** `docs/rfcs/rfc-012-pipeline-script-alignment.md` (Phase 1 complete)
+- **Handoff:** `docs/handoffs/2026-01-24_rfc012_subprocess_implementation_COMPLETE.md`
+
 ### Fixed - 2026-01-22
 
 #### qf-pipeline: Claude Desktop PYTHONPATH Configuration
