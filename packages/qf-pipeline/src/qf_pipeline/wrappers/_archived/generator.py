@@ -5,7 +5,7 @@ Provides clean functions for generating QTI XML from parsed question data.
 
 from typing import List, Optional, Tuple
 
-from .errors import GenerationError
+from ..errors import GenerationError
 
 # Import from QTI-Generator (path configured in __init__.py)
 from src.generator.xml_generator import XMLGenerator

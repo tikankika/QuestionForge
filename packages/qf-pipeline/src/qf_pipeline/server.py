@@ -27,17 +27,18 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 from .wrappers import (
+    # Parser - used by step1_* tools
     parse_markdown,
     parse_file,
-    generate_all_xml,
-    create_qti_package,
-    validate_markdown,
-    validate_file,
+    # Generator - used by list_types
     get_supported_types,
-    validate_resources,
-    copy_resources,
+    # Validator - used by step2_validate_content
+    validate_markdown,
+    # Errors
     WrapperError,
-    ResourceError,
+    # NOTE: RFC-012 - These are now OBSOLETE (replaced by subprocess):
+    # - generate_all_xml, create_qti_package (step4_export uses scripts)
+    # - validate_file, validate_resources, copy_resources (subprocess)
 )
 from .tools import (
     start_session_tool,
