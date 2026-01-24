@@ -1,8 +1,8 @@
 # QuestionForge Workflow
 
-**Version:** 1.0  
-**Date:** 2026-01-14  
-**Related:** ADR-014 (Shared Session), qf-scaffolding-spec.md, qf-pipeline-spec.md
+**Version:** 1.1
+**Date:** 2026-01-22
+**Related:** ADR-014 (Shared Session), RFC-012 (Pipeline-Script Alignment), qf-scaffolding-spec.md, qf-pipeline-spec.md
 
 ---
 
@@ -415,318 +415,114 @@ Lösning: load_stage har requires_approval - Claude MÅSTE vänta
 
 ---
 
-## Version History
+## Appendix A: Pipeline-Script Alignment
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2026-01-14 | Initial workflow document |
-| 1.1 | 2026-01-22 | Added Appendix A: QTI Export Technical Details |
+### A.1 Bakgrund
 
----
+MCP pipeline (`qf-pipeline`) och manuella scripts (`qti-core/scripts/`) ska producera **identiska resultat**. En granskning 2026-01-22 identifierade avvikelser.
 
-## Appendix A: QTI Export Technical Details
-
-### Två sätt att exportera QTI
-
-QuestionForge har två metoder för QTI-export som använder **samma underliggande logik**:
-
-| Metod | Var | Användning |
-|-------|-----|------------|
-| **Manuella scripts** | `qti-core/scripts/` | Terminal, utveckling |
-| **MCP Pipeline** | `qf-pipeline/step4_export` | Claude Desktop |
+**Relaterad dokumentation:**
+- RFC-012: `/docs/rfcs/rfc-012-pipeline-script-alignment.md`
+- Checklist: `/docs/rfcs/rfc-012-phase1-checklist.md`
+- Diskussion: `/docs/rfcs/rfc-012-discussion-summary.md`
 
 ---
 
-### A.1 Manuella Scripts (5 steg)
+### A.2 Steg-för-steg jämförelse (VERIFIERAD 2026-01-22)
 
-```
-qti-core/scripts/
-├── step1_validate.py      ── Validera markdown-format
-├── step2_create_folder.py ── Skapa output-struktur
-├── step3_copy_resources.py── Kopiera bilder/media
-├── step4_generate_xml.py  ── Generera QTI XML per fråga
-└── step5_create_zip.py    ── Paketera till importbar ZIP
-```
+**Status:** ✅ Verifierat via källkodsanalys (7/9 steg korrekta)
 
-**Körning:**
-```bash
-cd packages/qti-core
-python scripts/step1_validate.py input.md
-python scripts/step2_create_folder.py input.md
-python scripts/step3_copy_resources.py input.md
-python scripts/step4_generate_xml.py input.md
-python scripts/step5_create_zip.py input.md
-```
-
-**Eller allt-i-ett:**
-```bash
-python main.py input.md output.zip
-```
-
----
-
-### A.1.2 Steg-för-steg jämförelse
-
-| Steg | Manuellt Script | MCP Pipeline (step4_export) | Skillnad |
-|------|-----------------|----------------------------|----------|
+| Steg | Manuellt Script | MCP Pipeline (step4_export) | Status |
+|------|-----------------|----------------------------|--------|
 | **1. Validera** | `step1_validate.py` → `validate_markdown_file()` | `step2_validate` (separat) eller inget | ⚠️ Pipeline skippar validering i step4! |
 | **2. Skapa mappar** | `step2_create_folder.py` → mkdir quiz/, resources/, .workflow/ | `QTIPackager.create_package()` skapar mappar | ⚠️ Skapas vid packaging (senare) |
 | **3. Parsa markdown** | `step4_generate_xml.py` → `MarkdownQuizParser` | `parse_file()` → `MarkdownQuizParser` | ✅ Samma parser |
 | **4. Validera resurser** | `step3_copy_resources.py` → `ResourceManager.validate_resources()` | `validate_resources()` | ✅ Samma logik |
 | **5. Kopiera resurser** | `step3_copy_resources.py` → `ResourceManager.copy_resources()` | `copy_resources()` | ✅ Samma logik |
-| **6. Uppdatera paths** | `step4_generate_xml.py` → `apply_resource_mapping()` | ❌ **SAKNAS HELT** | 🔴 **KRITISK BUG: Ingen path mapping!** |
-| **7. Generera XML** | `step4_generate_xml.py` → `XMLGenerator.generate_question()` per fråga | `generate_all_xml()` → `XMLGenerator` | ✅ Samma generator |
+| **6. Uppdatera paths** | `step4_generate_xml.py` → `apply_resource_mapping()` | ❌ **SAKNAS HELT** | 🔴 **KRITISK BUG** |
+| **7. Generera XML** | `step4_generate_xml.py` → `XMLGenerator.generate_question()` | `generate_all_xml()` → `XMLGenerator` | ✅ Samma generator |
 | **8. Skapa manifest** | `step5_create_zip.py` → `QTIPackager` | `create_qti_package()` → `QTIPackager` | ✅ Samma packager |
 | **9. Skapa ZIP** | `step5_create_zip.py` → zipfile | `create_qti_package()` | ✅ Samma logik |
 
-**🔴 KRITISK BUG - Steg 6 (VERIFIERAD 2026-01-22):**
+---
 
+### A.3 Kritisk bug: apply_resource_mapping() saknas
+
+**Problem:** Pipeline anropar aldrig `apply_resource_mapping()` efter `copy_resources()`.
+
+**Konsekvens:**
 ```
-cli.py (main.py) rad 425-471:
-────────────────────────────────
-resource_mapping = copy_resources(questions, quiz_dir)
-for question in questions:
-    question['image']['path'] = resource_mapping[original]  # ✅ UPPDATERAR
-    question['question_text'] = update_image_paths_in_text(...)  # ✅ UPPDATERAR
-xml_generator.generate_question(question)  # Får KORREKTA paths
+QTI-paket innehåller:
+✅ resources/Q001_image.png  (fil kopierad korrekt)
+❌ XML refererar: image.png   (original path, inte uppdaterad)
+→ Bilder visas INTE i Inspera!
+```
 
-server.py (pipeline) rad 1242-1256:
-────────────────────────────────
+**Manuell process (step4_generate_xml.py):**
+```python
+# 1. Ladda mapping från step3
+resource_mapping = load_resource_mapping(workflow_dir)
+# {'image.png': 'Q001_image.png'}
+
+# 2. Uppdatera ALLA question-fält med nya paths
+for question in quiz_data['questions']:
+    if 'image' in question:
+        question['image']['path'] = f"resources/{renamed}"
+    question['question_text'] = update_image_paths_in_text(...)
+    # ... feedback, premises, etc.
+
+# 3. SEDAN generera XML med uppdaterade paths
+xml = xml_generator.generate_question(question)
+```
+
+**Pipeline process (server.py):**
+```python
+# 1. Kopiera resurser (returnerar mapping)
 copy_result = copy_resources(...)
-resource_count = copy_result.get("count", 0)  # ❌ Ignorerar "copied" mapping!
-# SAKNAS: ~45 rader som uppdaterar question paths
-xml_list = generate_all_xml(questions, language)  # Får ORIGINAL paths ❌
-```
+# copy_result['mapping'] ← IGNORERAS!
 
-**Resultat:**
-- Manuell: `image.png` → kopieras som `Q001_image.png` → XML: `resources/Q001_image.png` ✅
-- Pipeline: `image.png` → kopieras som `Q001_image.png` → XML: `image.png` ❌ (fil saknas!)
+# 2. ❌ SAKNAS: apply_resource_mapping()
 
----
-
-### A.1.3 Detaljerad Script-beskrivning
-
-**step1_validate.py**
-```
-Input:  markdown_file
-Output: Validation report (exit code 0/1)
-Calls:  validate_mqg_format.validate_markdown_file()
-Data:   Sparar INGET (endast stdout)
-```
-
-**step2_create_folder.py**
-```
-Input:  markdown_file, --output-name, --output-dir
-Output: output/quiz_name/, output/quiz_name/resources/, output/quiz_name/.workflow/
-Calls:  mkdir, json.dump
-Data:   Sparar .workflow/metadata.json
-        {input_file, quiz_name, quiz_dir, resources_dir, output_base}
-```
-
-**step3_copy_resources.py**
-```
-Input:  Läser .workflow/metadata.json
-Output: Kopierar bilder till resources/
-Calls:  MarkdownQuizParser, ResourceManager
-Data:   Sparar .workflow/resource_mapping.json
-        {original_filename: renamed_filename}
-```
-
-**step4_generate_xml.py**
-```
-Input:  Läser .workflow/metadata.json + resource_mapping.json
-Output: XML-filer i quiz_dir (en per fråga)
-Calls:  MarkdownQuizParser, apply_resource_mapping(), XMLGenerator
-Data:   Sparar .workflow/xml_files.json
-        {xml_count, xml_files[], quiz_metadata}
-```
-
-**step5_create_zip.py**
-```
-Input:  Läser .workflow/xml_files.json
-Output: quiz_name.zip + imsmanifest.xml
-Calls:  QTIPackager
-Data:   Sparar .workflow/package_info.json
+# 3. Generera XML med GAMLA paths
+xml_list = generate_all_xml(questions, language)  # Fel paths!
 ```
 
 ---
 
-### A.2 MCP Pipeline (`step4_export`)
+### A.4 Lösning: Hybrid Approach (RFC-012)
 
-Pipeline kombinerar alla steg i ETT MCP-anrop:
+**PHASE 1 (NU) - Subprocess:**
+Pipeline kör scripts direkt via `subprocess.run()`:
 
+```python
+# step2_validate → kör step1_validate.py
+# step4_export → kör ALLA 5 scripts sekventiellt
 ```
-step4_export
-    │
-    ├── 1. parse_file()           ← wrappers/parser.py
-    │       └── MarkdownQuizParser ← qti-core/src/parser/markdown_parser.py
-    │
-    ├── 2. validate_resources()   ← wrappers/resources.py
-    │       └── ResourceManager    ← qti-core/src/generator/resource_manager.py
-    │
-    ├── 3. copy_resources()       ← wrappers/resources.py
-    │       └── ResourceManager
-    │
-    ├── 4. generate_all_xml()     ← wrappers/generator.py
-    │       └── XMLGenerator       ← qti-core/src/generator/
-    │
-    └── 5. create_qti_package()   ← wrappers/packager.py
-            └── QTIPackager        ← qti-core/src/packager.py
+
+**Fördelar:**
+- ✅ Garanterad konsistens (samma kod = samma resultat)
+- ✅ Fixar kritiska buggen omedelbart
+- ✅ Ingen risk att glömma steg
+- ✅ Output i MCP matchar Terminal
+
+**PHASE 2 (SENARE) - Refactor:**
+Scripts refactoras till importerbara funktioner:
+
+```python
+from qti_core.scripts.step1_validate import validate
+result = validate(Path(file_path), verbose=True)
 ```
+
+**Status:** Phase 1 klar för implementation (2026-01-22)
 
 ---
 
-### A.3 Modulernas ansvarsområden
+## Version History
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  qf-pipeline (MCP Server)                                                │
-│  ├── server.py           ← handle_step4_export()                        │
-│  └── wrappers/           ← Tunna adapters till qti-core                 │
-│      ├── parser.py       ← parse_file(), parse_markdown()              │
-│      ├── validator.py    ← validate_file()                              │
-│      ├── generator.py    ← generate_all_xml()                           │
-│      ├── packager.py     ← create_qti_package()                         │
-│      └── resources.py    ← validate_resources(), copy_resources()       │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │ importerar
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│  qti-core (Standalone Logic)                                            │
-│  ├── validate_mqg_format.py  ← Validering av markdown-format           │
-│  ├── main.py / src/cli.py    ← CLI entry point                         │
-│  └── src/                                                               │
-│      ├── parser/                                                        │
-│      │   └── markdown_parser.py  ← MarkdownQuizParser                  │
-│      ├── generator/                                                     │
-│      │   ├── xml_generator.py    ← XMLGenerator                        │
-│      │   ├── resource_manager.py ← ResourceManager                     │
-│      │   └── qti_templates/      ← XML-mallar per frågetyp             │
-│      └── packager.py             ← QTIPackager (ZIP-skapande)          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### A.4 Förväntad input-format (v6.5)
-
-**Parser (markdown_parser.py) kräver exakt detta format:**
-
-```markdown
-# Q001 Titel här
-^type multiple_choice_single
-^identifier MC_Q001
-^points 1
-^labels #label1 #label2
-
-@field: question_text
-Frågetext här...
-@end_field
-
-@field: options
-^Shuffle Yes
-A. Alternativ 1
-B. Alternativ 2*
-C. Alternativ 3
-D. Alternativ 4
-@end_field
-
-@field: answer
-B
-@end_field
-
-@field: feedback
-
-@@field: general_feedback
-Generell feedback...
-@@end_field
-
-@@field: correct_feedback
-Rätt svar feedback...
-@@end_field
-
-@@field: incorrect_feedback
-Fel svar feedback...
-@@end_field
-
-@end_field
-```
-
-**Kritiska krav:**
-- `# Q001 ` - MÅSTE ha mellanslag och titel efter numret
-- `^type value` - INGEN kolon, värde på samma rad
-- `^identifier value` - INGEN kolon
-- `^points value` - INGEN kolon
-- `*` efter rätt alternativ i options
-
----
-
-### A.5 VARNING: Validator vs Parser Mismatch
-
-**Nuvarande problem (2026-01-22):**
-
-| Komponent | `^type: value` | `^type value` |
-|-----------|----------------|---------------|
-| **Validator** (validate_mqg_format.py) | ✅ Accepterar | ✅ Accepterar |
-| **Parser** (markdown_parser.py) | ❌ Misslyckas | ✅ Fungerar |
-
-**Konsekvens:** En fil kan passera `step2_validate` men misslyckas på `step4_export`!
-
-**Lösning:** Validator ska ENDAST acceptera det format som parser kan hantera.
-Validator-regex bör ändras från `r'\^type:?\s+'` till `r'^\^type\s+'`.
-
----
-
-### A.6 Felsökning
-
-**"Inga frågor hittades"**
-```
-Orsak: Parser-regex matchar inte frågeheaders
-Kontrollera:
-  - # Q001 måste ha mellanslag + titel (inte bara # Q001\n)
-  - ^type måste vara på egen rad utan kolon
-```
-
-**"Failed to generate question X"**
-```
-Orsak: Saknar required field för frågetypen
-Kontrollera:
-  - multiple_choice_single: @field: options, @field: answer
-  - text_entry: {{blank_N}} placeholder, @field: blanks
-  - inline_choice: {{dropdown_N}} placeholder, @field: dropdown_N
-```
-
-**"Resource validation failed"**
-```
-Orsak: Bild refererad men finns inte
-Kontrollera:
-  - Bildfilerna finns i samma mapp som markdown-filen
-  - Filnamn matchar exakt (case-sensitive)
-```
-
----
-
-### A.7 Testa export manuellt
-
-```bash
-# Aktivera venv
-cd packages/qf-pipeline
-source .venv/bin/activate
-
-# Testa parser direkt
-python -c "
-from qf_pipeline.wrappers import parse_file
-result = parse_file('/path/to/questions.md')
-print(f'Questions: {len(result[\"questions\"])}')
-for q in result['questions']:
-    print(f'  - {q.get(\"identifier\")}: {q.get(\"question_type\")}')
-"
-
-# Testa full export
-cd ../qti-core
-python main.py /path/to/questions.md /path/to/output.zip --verbose
-```
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.1 | 2026-01-22 | Added Appendix A: Pipeline-Script Alignment (RFC-012) |
+| 1.0 | 2026-01-14 | Initial workflow document |
 
 ---
 
