@@ -4,6 +4,66 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed - 2026-01-25
+
+#### Extended Validator: Question-Type-Specific Validation
+- **Enhancement:** Validator now checks question-type-specific fields
+  - Previously: Only checked `^type`, `^identifier`, `^points` (basic structure)
+  - Now: Also validates content fields required by each question type
+- **Question types validated:**
+  - `text_entry`: requires `blanks` with `@@field` format
+  - `inline_choice`: requires `dropdown_N` fields with `*` markers
+  - `multiple_choice_single`: requires `options` and `answer`
+  - `multiple_response`: requires `options` and `correct_answers`
+  - `true_false`: requires `answer`
+  - `match`: requires `pairs`
+  - `hotspot`: requires `image` and `hotspots`
+  - `graphicgapmatch_v2`: requires `image` and `drop_zones`
+- **Guarantee:** validate() OK → export GUARANTEED to work
+- **Files modified:**
+  - `packages/qti-core/src/parser/markdown_parser.py` - added `_validate_question_type_fields()`
+
+#### Parser Consistency Fix (RFC-012 Appendix)
+- **Critical Bug Fixed:** Validation passed but export found 0 questions
+  - `validate_mqg_format.py` used flexible regex: `\^type:?\s+(\S+)` (accepts colons)
+  - `markdown_parser.py` used strict regex: `^\^type\s+(.+)` (no colons, start of line)
+  - Result: Files validated OK but failed to export
+- **Root Cause:** Two parsers with different rules - architectural violation
+- **Solution:** Single Source of Truth architecture
+  - Added `validate()` method to `markdown_parser.py` (~100 lines)
+  - Simplified `validate_mqg_format.py` from 554 to 185 lines (thin wrapper)
+  - Now calls `parser.validate()` instead of own parsing logic
+- **Guarantee:** Validate pass → Export works (same parser, same rules)
+- **Files modified:**
+  - `packages/qti-core/src/parser/markdown_parser.py` - added validate() method
+  - `packages/qti-core/validate_mqg_format.py` - simplified to thin wrapper
+- **Verification:**
+  - v1 file (with colons): Validate FAIL → Export FAIL (consistent)
+  - v2 file (correct format): Validate PASS → Export PASS (consistent)
+- **RFC:** `docs/rfcs/rfc-012-pipeline-script-alignment.md` (Appendix A)
+
+### Fixed - 2026-01-24
+
+#### RFC-012 Phase 1: Subprocess Implementation (Critical Bug Fix)
+- **Critical Bug Fixed:** `apply_resource_mapping()` was missing in MCP pipeline
+  - Images copied correctly (e.g., `resources/Q001_image.png`)
+  - But XML referenced OLD paths (e.g., `image.png`)
+  - Result: Broken images in Inspera import
+- **Solution:** MCP now calls qti-core scripts via subprocess
+  - `handle_step2_validate()` → calls `step1_validate.py`
+  - `handle_step4_export()` → calls all 5 scripts sequentially
+  - Scripts are now single source of truth (terminal + MCP identical)
+- **Key Detail:** Added explicit `--quiz-dir` for step3/4/5
+  - Scripts auto-detect only works in `qti-core/output/`
+  - MCP outputs to project's `03_output/` - requires explicit path
+- **Files modified:**
+  - `packages/qf-pipeline/src/qf_pipeline/server.py` - subprocess implementation
+- **Verification:**
+  - Created image test proving scripts fix the bug
+  - XML contains `resources/IMG_TEST_Q001_test_image.png` (correct path)
+- **RFC:** `docs/rfcs/rfc-012-pipeline-script-alignment.md` (Phase 1 complete)
+- **Handoff:** `docs/handoffs/2026-01-24_rfc012_subprocess_implementation_COMPLETE.md`
+
 ### Fixed - 2026-01-22
 
 #### qf-pipeline: Claude Desktop PYTHONPATH Configuration
@@ -19,6 +79,32 @@ All notable changes to QuestionForge will be documented in this file.
 - **Action required:** Restart Claude Desktop to apply
 
 ### Added - 2026-01-22
+
+#### RFC-012: Pipeline-Script Alignment (Critical Bug Discovery)
+- **Discovery:** Deep analysis of WORKFLOW.md Appendix A.1.2 revealed pipeline divergence
+- **Critical Bug:** `apply_resource_mapping()` missing in step4_export
+  - Pipeline copies resources correctly (e.g., `Q001_image.png`)
+  - But XML references OLD paths (e.g., `image.png`) instead of new paths
+  - Result: Broken images in Inspera import
+- **Root Cause:** Wrappers reimplemented logic instead of reusing scripts
+  - cli.py has ~45 lines of path mapping code (lines 425-471)
+  - server.py has 0 lines - completely forgotten!
+- **Solution:** Hybrid approach
+  - Phase 1 (NOW): Subprocess - call scripts directly
+  - Phase 2 (LATER): Refactor scripts to be importable
+- **RFC:** `docs/rfcs/rfc-012-pipeline-script-alignment.md`
+
+#### WORKFLOW.md Appendix A: QTI Export Technical Details
+- Added complete technical documentation of export pipeline
+- A.1: Manual scripts overview (5 steps)
+- A.1.2: Step-by-step comparison table (verified)
+- A.1.3: Detailed script descriptions
+- A.2: MCP Pipeline flow
+- A.3: Module responsibilities diagram
+- A.4: Expected input format (v6.5)
+- A.5: Validator vs Parser mismatch warning
+- A.6: Troubleshooting guide
+- A.7: Manual testing commands
 
 #### Roadmap: qti-core Refactoring (Future RFC)
 - **Added:** "Teknisk Skuld / Framtida Förbättringar" section to ROADMAP.md

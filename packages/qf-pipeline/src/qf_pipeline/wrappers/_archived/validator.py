@@ -3,7 +3,7 @@
 Provides clean functions for validating markdown quiz format.
 """
 
-from .errors import ValidationError
+from ..errors import ValidationError
 
 # Import from QTI-Generator (path configured in __init__.py)
 from validate_mqg_format import validate_content

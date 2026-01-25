@@ -1,8 +1,8 @@
 # QuestionForge Workflow
 
-**Version:** 1.0  
-**Date:** 2026-01-14  
-**Related:** ADR-014 (Shared Session), qf-scaffolding-spec.md, qf-pipeline-spec.md
+**Version:** 1.1
+**Date:** 2026-01-22
+**Related:** ADR-014 (Shared Session), RFC-012 (Pipeline-Script Alignment), qf-scaffolding-spec.md, qf-pipeline-spec.md
 
 ---
 
@@ -415,12 +415,115 @@ Lösning: load_stage har requires_approval - Claude MÅSTE vänta
 
 ---
 
+## Appendix A: Pipeline-Script Alignment
+
+### A.1 Bakgrund
+
+MCP pipeline (`qf-pipeline`) och manuella scripts (`qti-core/scripts/`) ska producera **identiska resultat**. En granskning 2026-01-22 identifierade avvikelser.
+
+**Relaterad dokumentation:**
+- RFC-012: `/docs/rfcs/rfc-012-pipeline-script-alignment.md`
+- Checklist: `/docs/rfcs/rfc-012-phase1-checklist.md`
+- Diskussion: `/docs/rfcs/rfc-012-discussion-summary.md`
+
+---
+
+### A.2 Steg-för-steg jämförelse (VERIFIERAD 2026-01-22)
+
+**Status:** ✅ Verifierat via källkodsanalys (7/9 steg korrekta)
+
+| Steg | Manuellt Script | MCP Pipeline (step4_export) | Status |
+|------|-----------------|----------------------------|--------|
+| **1. Validera** | `step1_validate.py` → `validate_markdown_file()` | `step2_validate` (separat) eller inget | ⚠️ Pipeline skippar validering i step4! |
+| **2. Skapa mappar** | `step2_create_folder.py` → mkdir quiz/, resources/, .workflow/ | `QTIPackager.create_package()` skapar mappar | ⚠️ Skapas vid packaging (senare) |
+| **3. Parsa markdown** | `step4_generate_xml.py` → `MarkdownQuizParser` | `parse_file()` → `MarkdownQuizParser` | ✅ Samma parser |
+| **4. Validera resurser** | `step3_copy_resources.py` → `ResourceManager.validate_resources()` | `validate_resources()` | ✅ Samma logik |
+| **5. Kopiera resurser** | `step3_copy_resources.py` → `ResourceManager.copy_resources()` | `copy_resources()` | ✅ Samma logik |
+| **6. Uppdatera paths** | `step4_generate_xml.py` → `apply_resource_mapping()` | ❌ **SAKNAS HELT** | 🔴 **KRITISK BUG** |
+| **7. Generera XML** | `step4_generate_xml.py` → `XMLGenerator.generate_question()` | `generate_all_xml()` → `XMLGenerator` | ✅ Samma generator |
+| **8. Skapa manifest** | `step5_create_zip.py` → `QTIPackager` | `create_qti_package()` → `QTIPackager` | ✅ Samma packager |
+| **9. Skapa ZIP** | `step5_create_zip.py` → zipfile | `create_qti_package()` | ✅ Samma logik |
+
+---
+
+### A.3 Kritisk bug: apply_resource_mapping() saknas
+
+**Problem:** Pipeline anropar aldrig `apply_resource_mapping()` efter `copy_resources()`.
+
+**Konsekvens:**
+```
+QTI-paket innehåller:
+✅ resources/Q001_image.png  (fil kopierad korrekt)
+❌ XML refererar: image.png   (original path, inte uppdaterad)
+→ Bilder visas INTE i Inspera!
+```
+
+**Manuell process (step4_generate_xml.py):**
+```python
+# 1. Ladda mapping från step3
+resource_mapping = load_resource_mapping(workflow_dir)
+# {'image.png': 'Q001_image.png'}
+
+# 2. Uppdatera ALLA question-fält med nya paths
+for question in quiz_data['questions']:
+    if 'image' in question:
+        question['image']['path'] = f"resources/{renamed}"
+    question['question_text'] = update_image_paths_in_text(...)
+    # ... feedback, premises, etc.
+
+# 3. SEDAN generera XML med uppdaterade paths
+xml = xml_generator.generate_question(question)
+```
+
+**Pipeline process (server.py):**
+```python
+# 1. Kopiera resurser (returnerar mapping)
+copy_result = copy_resources(...)
+# copy_result['mapping'] ← IGNORERAS!
+
+# 2. ❌ SAKNAS: apply_resource_mapping()
+
+# 3. Generera XML med GAMLA paths
+xml_list = generate_all_xml(questions, language)  # Fel paths!
+```
+
+---
+
+### A.4 Lösning: Hybrid Approach (RFC-012)
+
+**PHASE 1 (NU) - Subprocess:**
+Pipeline kör scripts direkt via `subprocess.run()`:
+
+```python
+# step2_validate → kör step1_validate.py
+# step4_export → kör ALLA 5 scripts sekventiellt
+```
+
+**Fördelar:**
+- ✅ Garanterad konsistens (samma kod = samma resultat)
+- ✅ Fixar kritiska buggen omedelbart
+- ✅ Ingen risk att glömma steg
+- ✅ Output i MCP matchar Terminal
+
+**PHASE 2 (SENARE) - Refactor:**
+Scripts refactoras till importerbara funktioner:
+
+```python
+from qti_core.scripts.step1_validate import validate
+result = validate(Path(file_path), verbose=True)
+```
+
+**Status:** Phase 1 klar för implementation (2026-01-22)
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2026-01-22 | Added Appendix A: Pipeline-Script Alignment (RFC-012) |
 | 1.0 | 2026-01-14 | Initial workflow document |
 
 ---
 
-*QuestionForge Workflow v1.0 | 2026-01-14*
+*QuestionForge Workflow v1.1 | 2026-01-22*

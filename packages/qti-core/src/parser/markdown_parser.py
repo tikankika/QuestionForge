@@ -129,6 +129,341 @@ class MarkdownQuizParser:
             'questions': self.questions
         }
 
+    def validate(self) -> Dict[str, Any]:
+        """
+        Validate markdown content and collect ALL errors.
+
+        Uses the SAME parsing logic as parse(), but collects errors
+        instead of failing silently. This is the source of truth for
+        validation - validate_mqg_format.py should call this method.
+
+        Returns:
+            Dictionary containing:
+                - valid: bool - True if no errors
+                - metadata: Test-level configuration
+                - questions: List of successfully parsed questions
+                - errors: List of error dicts with question_id, message, suggestion
+        """
+        errors = []
+
+        # Extract frontmatter (same as parse)
+        self._extract_frontmatter()
+
+        # Get content after frontmatter/markers
+        content = self.content
+
+        # Remove YAML frontmatter if present
+        if content.strip().startswith('---'):
+            match = re.match(r'^---\s*\n(.*?)\n---\s*\n', content, re.DOTALL)
+            if match and ':' in match.group(1):
+                content = content[match.end():]
+
+        # Find ===QUESTIONS=== marker
+        questions_marker = '===QUESTIONS==='
+        if questions_marker in content:
+            content = content.split(questions_marker, 1)[1]
+
+        # Split by question headers
+        question_pattern = r'\n(?=# Q\d+[A-Z]?\s)'
+        blocks = re.split(question_pattern, content)
+
+        # Filter to actual question blocks
+        question_blocks = []
+        for block in blocks:
+            block = block.strip()
+            if block and re.match(r'^# Q\d+[A-Z]?\s', block):
+                question_blocks.append(block)
+
+        # Validate each question block
+        questions = []
+        for idx, block in enumerate(question_blocks, 1):
+            q_errors = []
+            q_id = f'Q{idx:03d}'
+
+            # Extract question ID from header
+            header_match = re.match(r'^# (Q\d+[A-Z]?)\s', block)
+            if header_match:
+                q_id = header_match.group(1)
+
+            # Get header section (before @field:)
+            header_section = block.split('\n@field:')[0] if '\n@field:' in block else block
+
+            # Validate ^type - MUST be at start of line, NO colon
+            type_match = re.search(r'^\^type\s+(\S+)', header_section, re.MULTILINE)
+            if not type_match:
+                # Check for common format errors
+                if re.search(r'\^type:', header_section):
+                    q_errors.append({
+                        'field': 'type',
+                        'message': '^type has colon - use "^type value" not "^type: value"',
+                        'suggestion': 'Remove the colon: ^type multiple_choice_single'
+                    })
+                elif re.search(r'\^type', header_section):
+                    q_errors.append({
+                        'field': 'type',
+                        'message': '^type not at start of line - each metadata field must be on its own line',
+                        'suggestion': 'Put ^type on its own line'
+                    })
+                else:
+                    q_errors.append({
+                        'field': 'type',
+                        'message': 'Missing ^type field',
+                        'suggestion': 'Add: ^type multiple_choice_single (or other valid type)'
+                    })
+
+            # Validate ^identifier - MUST be at start of line, NO colon
+            id_match = re.search(r'^\^identifier\s+(\S+)', header_section, re.MULTILINE)
+            if not id_match:
+                if re.search(r'\^identifier:', header_section):
+                    q_errors.append({
+                        'field': 'identifier',
+                        'message': '^identifier has colon - use "^identifier value" not "^identifier: value"',
+                        'suggestion': 'Remove the colon: ^identifier Q001'
+                    })
+                elif re.search(r'\^identifier', header_section):
+                    q_errors.append({
+                        'field': 'identifier',
+                        'message': '^identifier not at start of line',
+                        'suggestion': 'Put ^identifier on its own line'
+                    })
+                else:
+                    q_errors.append({
+                        'field': 'identifier',
+                        'message': 'Missing ^identifier field',
+                        'suggestion': 'Add: ^identifier Q001'
+                    })
+            else:
+                q_id = id_match.group(1).strip()
+
+            # Validate ^points - MUST be at start of line, NO colon
+            points_match = re.search(r'^\^points\s+(\d+)', header_section, re.MULTILINE)
+            if not points_match:
+                if re.search(r'\^points:', header_section):
+                    q_errors.append({
+                        'field': 'points',
+                        'message': '^points has colon - use "^points value" not "^points: value"',
+                        'suggestion': 'Remove the colon: ^points 1'
+                    })
+                elif re.search(r'\^points', header_section):
+                    q_errors.append({
+                        'field': 'points',
+                        'message': '^points not at start of line or invalid value',
+                        'suggestion': 'Put ^points on its own line with integer value: ^points 1'
+                    })
+                else:
+                    q_errors.append({
+                        'field': 'points',
+                        'message': 'Missing ^points field',
+                        'suggestion': 'Add: ^points 1'
+                    })
+
+            # Add errors with question context
+            for err in q_errors:
+                errors.append({
+                    'question_num': idx,
+                    'question_id': q_id,
+                    'field': err['field'],
+                    'message': err['message'],
+                    'suggestion': err['suggestion']
+                })
+
+            # Try to parse the question if no critical errors
+            if not q_errors:
+                try:
+                    question_data = self._parse_question_block(block)
+                    if question_data:
+                        # Validate question-type-specific fields
+                        type_errors = self._validate_question_type_fields(question_data, idx, q_id)
+                        if type_errors:
+                            for err in type_errors:
+                                errors.append(err)
+                        else:
+                            questions.append(question_data)
+                    else:
+                        errors.append({
+                            'question_num': idx,
+                            'question_id': q_id,
+                            'field': 'general',
+                            'message': 'Question block could not be parsed',
+                            'suggestion': 'Check that all required fields are present and correctly formatted'
+                        })
+                except Exception as e:
+                    errors.append({
+                        'question_num': idx,
+                        'question_id': q_id,
+                        'field': 'general',
+                        'message': f'Parse error: {str(e)}',
+                        'suggestion': 'Check question format against v6.5 specification'
+                    })
+
+        return {
+            'valid': len(errors) == 0,
+            'metadata': self.metadata,
+            'questions': questions,
+            'errors': errors,
+            'total_questions': len(question_blocks),
+            'parsed_questions': len(questions)
+        }
+
+    def _validate_question_type_fields(self, question_data: Dict[str, Any], q_num: int, q_id: str) -> List[Dict[str, Any]]:
+        """
+        Validate question-type-specific fields.
+
+        This ensures that if validate() passes, export will work.
+        Each question type has specific required fields that the XML generator expects.
+        """
+        errors = []
+        q_type = question_data.get('question_type', '')
+
+        def add_error(field: str, message: str, suggestion: str):
+            errors.append({
+                'question_num': q_num,
+                'question_id': q_id,
+                'field': field,
+                'message': message,
+                'suggestion': suggestion
+            })
+
+        # text_entry: requires blanks
+        if q_type == 'text_entry':
+            blanks = question_data.get('blanks', [])
+            if not blanks:
+                add_error(
+                    'blanks',
+                    'text_entry question requires blanks definition',
+                    'Use @@field: blank_1 with ^Correct_Answers list. See tests/fixtures/v65/text_entry.md'
+                )
+
+        # text_entry_math: requires blanks
+        elif q_type == 'text_entry_math':
+            blanks = question_data.get('blanks', [])
+            if not blanks:
+                add_error(
+                    'blanks',
+                    'text_entry_math question requires blanks definition',
+                    'Use @@field: blank_1 with ^Correct_Answers list'
+                )
+
+        # text_entry_numeric: requires blanks
+        elif q_type == 'text_entry_numeric':
+            blanks = question_data.get('blanks', [])
+            if not blanks:
+                add_error(
+                    'blanks',
+                    'text_entry_numeric question requires blanks definition',
+                    'Use @@field: blank_1 with ^Correct_Answers list'
+                )
+
+        # inline_choice: requires inline_choices and correct_answers_dict
+        elif q_type == 'inline_choice':
+            inline_choices = question_data.get('inline_choices', {})
+            correct_answers = question_data.get('correct_answers_dict', {})
+            if not inline_choices:
+                add_error(
+                    'inline_choices',
+                    'inline_choice question requires dropdown definitions',
+                    'Use @field: dropdown_1 with options marked with * for correct. See tests/fixtures/v65/inline_choice.md'
+                )
+            elif not correct_answers:
+                add_error(
+                    'correct_answers_dict',
+                    'inline_choice question requires correct answers marked',
+                    'Mark correct options with * at the end: "- correct answer*"'
+                )
+
+        # multiple_choice_single: requires options and answer
+        elif q_type == 'multiple_choice_single':
+            options = question_data.get('options', [])
+            answer = question_data.get('correct_answer') or question_data.get('answer')
+            if not options:
+                add_error(
+                    'options',
+                    'multiple_choice_single question requires options',
+                    'Add @field: options with A), B), C), D) choices'
+                )
+            if not answer:
+                add_error(
+                    'answer',
+                    'multiple_choice_single question requires correct answer',
+                    'Add @field: answer with the correct letter (e.g., B)'
+                )
+
+        # multiple_response: requires options and correct_answers
+        elif q_type == 'multiple_response':
+            options = question_data.get('options', [])
+            correct_answers = question_data.get('correct_answers', [])
+            if not options:
+                add_error(
+                    'options',
+                    'multiple_response question requires options',
+                    'Add @field: options with [correct] markers or @field: correct_answers'
+                )
+            if not correct_answers:
+                add_error(
+                    'correct_answers',
+                    'multiple_response question requires correct answers',
+                    'Mark correct options with [correct] or add @field: correct_answers'
+                )
+
+        # true_false: requires answer
+        elif q_type == 'true_false':
+            answer = question_data.get('correct_answer') or question_data.get('answer')
+            if not answer:
+                add_error(
+                    'answer',
+                    'true_false question requires answer',
+                    'Add @field: answer with True or False'
+                )
+
+        # match: requires pairs
+        elif q_type == 'match':
+            pairs = question_data.get('pairs', [])
+            if not pairs:
+                add_error(
+                    'pairs',
+                    'match question requires matching pairs',
+                    'Add @field: pairs with left|right format'
+                )
+
+        # hotspot: requires image and hotspots
+        elif q_type == 'hotspot':
+            image = question_data.get('image')
+            hotspots = question_data.get('hotspots', [])
+            if not image:
+                add_error(
+                    'image',
+                    'hotspot question requires image',
+                    'Include an image in the question_text: ![alt](path/to/image.png)'
+                )
+            if not hotspots:
+                add_error(
+                    'hotspots',
+                    'hotspot question requires hotspot definitions',
+                    'Add @field: hotspots with coordinates'
+                )
+
+        # graphicgapmatch_v2: requires image and drop_zones
+        elif q_type == 'graphicgapmatch_v2':
+            image = question_data.get('image')
+            drop_zones = question_data.get('drop_zones', [])
+            if not image:
+                add_error(
+                    'image',
+                    'graphicgapmatch question requires image',
+                    'Include an image in the question_text'
+                )
+            if not drop_zones:
+                add_error(
+                    'drop_zones',
+                    'graphicgapmatch question requires drop zones',
+                    'Add @field: drop_zones with zone definitions'
+                )
+
+        # essay, text_area, audio_record: no special requirements (just question_text)
+        # These types are more flexible
+
+        return errors
+
     def _extract_frontmatter(self) -> None:
         """Extract and parse YAML frontmatter from markdown, or extract from markdown structure."""
         # Match YAML frontmatter between --- delimiters AT THE START OF FILE ONLY

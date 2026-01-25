@@ -2,6 +2,12 @@
 
 This module configures the Python path to import from QTI-Generator-for-Inspera
 and exposes clean wrapper functions for the MCP tools.
+
+RFC-012 UPDATE (2026-01-24):
+  - step2_validate and step4_export now use SUBPROCESS to call qti-core scripts
+  - This guarantees consistency with manual terminal workflow
+  - Archived wrappers (no longer used): validator.py, generator.py, packager.py, resources.py
+  - Kept wrappers: parser.py (used by step1_* tools), errors.py
 """
 
 import sys
@@ -21,43 +27,40 @@ if not QTI_GENERATOR_PATH.exists():
         "Please update the path in wrappers/__init__.py"
     )
 
-# Export wrapper functions
+# =============================================================================
+# ACTIVE WRAPPERS (still used)
+# =============================================================================
+
+# Parser - used by step1_* tools for guided build
 from .parser import parse_markdown, parse_question, parse_file
-from .generator import generate_xml, generate_all_xml, get_generator, get_supported_types
-from .packager import create_qti_package, validate_package, inspect_package
-from .validator import validate_markdown, validate_file
-from .resources import (
-    validate_resources,
-    prepare_output_structure,
-    copy_resources,
-    get_supported_formats,
-    get_max_file_size_mb,
-)
+
+# Errors - used for error handling
 from .errors import WrapperError, ParsingError, GenerationError, PackagingError, ValidationError, ResourceError
 
+# =============================================================================
+# ARCHIVED WRAPPERS (RFC-012: replaced by subprocess)
+# =============================================================================
+# These are imported from _archived/ for backwards compatibility only.
+# New code should NOT use these - use subprocess to call qti-core scripts instead.
+
+from ._archived.validator import validate_markdown, validate_file
+from ._archived.generator import get_supported_types
+
+# NOTE: These are NO LONGER EXPORTED (fully obsolete):
+# - generate_xml, generate_all_xml, get_generator (use step4_generate_xml.py)
+# - create_qti_package, validate_package, inspect_package (use step5_create_zip.py)
+# - validate_resources, copy_resources, etc. (use step3_copy_resources.py)
+
 __all__ = [
-    # Parser
+    # Parser (ACTIVE - used by step1_*)
     "parse_markdown",
     "parse_question",
     "parse_file",
-    # Generator
-    "generate_xml",
-    "generate_all_xml",
-    "get_generator",
-    "get_supported_types",
-    # Packager
-    "create_qti_package",
-    "validate_package",
-    "inspect_package",
-    # Validator
+    # Validator (ARCHIVED - only validate_markdown used by step2_validate_content)
     "validate_markdown",
-    "validate_file",
-    # Resources
-    "validate_resources",
-    "prepare_output_structure",
-    "copy_resources",
-    "get_supported_formats",
-    "get_max_file_size_mb",
+    "validate_file",  # Deprecated, kept for compatibility
+    # Generator (ARCHIVED - only get_supported_types used by list_types)
+    "get_supported_types",
     # Errors
     "WrapperError",
     "ParsingError",

@@ -14,8 +14,11 @@ Tool naming convention (ADR-007):
 """
 
 import asyncio
+import json
+import subprocess
 import time
 import traceback
+from datetime import datetime
 from pathlib import Path
 from typing import List
 
@@ -24,17 +27,18 @@ from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
 
 from .wrappers import (
+    # Parser - used by step1_* tools
     parse_markdown,
     parse_file,
-    generate_all_xml,
-    create_qti_package,
-    validate_markdown,
-    validate_file,
+    # Generator - used by list_types
     get_supported_types,
-    validate_resources,
-    copy_resources,
+    # Validator - used by step2_validate_content
+    validate_markdown,
+    # Errors
     WrapperError,
-    ResourceError,
+    # NOTE: RFC-012 - These are now OBSOLETE (replaced by subprocess):
+    # - generate_all_xml, create_qti_package (step4_export uses scripts)
+    # - validate_file, validate_resources, copy_resources (subprocess)
 )
 from .tools import (
     start_session_tool,
@@ -921,7 +925,12 @@ def format_validation_output(result: dict, file_path: str, question_count: int) 
 
 
 async def handle_step2_validate(arguments: dict) -> List[TextContent]:
-    """Handle step2_validate - validate markdown file."""
+    """
+    Handle step2_validate - validate markdown file using subprocess.
+
+    RFC-012: Run step1_validate.py script instead of wrapper to guarantee
+    consistency with manual terminal workflow.
+    """
     session = get_current_session()
     start_time = time.time()
 
@@ -943,6 +952,14 @@ async def handle_step2_validate(arguments: dict) -> List[TextContent]:
             text=f"Filen finns inte: {file_path}"
         )]
 
+    # Path to qti-core
+    qti_core_path = Path(__file__).parent.parent.parent.parent / "qti-core"
+    if not qti_core_path.exists():
+        return [TextContent(
+            type="text",
+            text=f"qti-core not found at: {qti_core_path}"
+        )]
+
     # Log tool_start (TIER 1)
     if session:
         log_event(
@@ -951,23 +968,32 @@ async def handle_step2_validate(arguments: dict) -> List[TextContent]:
             tool="step2_validate",
             event="tool_start",
             level="info",
-            data={"file": file_path}
+            data={"file": file_path, "method": "subprocess"}
         )
 
     try:
-        result = validate_file(file_path)
+        # Run step1_validate.py via subprocess (RFC-012)
+        result = subprocess.run(
+            ['python3', 'scripts/step1_validate.py', str(file_path), '--verbose'],
+            cwd=qti_core_path,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
         duration_ms = int((time.time() - start_time) * 1000)
 
-        # Count questions from parsing
-        try:
-            parse_result = parse_file(file_path)
-            question_count = len(parse_result.get("questions", []))
-        except Exception:
-            question_count = 0
+        # Parse validation status from exit code
+        is_valid = (result.returncode == 0)
 
-        # Count errors and warnings (levels are UPPERCASE from validator)
-        error_count = sum(1 for i in result.get("issues", []) if i.get("level") == "ERROR")
-        warning_count = sum(1 for i in result.get("issues", []) if i.get("level") == "WARNING")
+        # Try to extract question count from output
+        question_count = 0
+        for line in result.stdout.split('\n'):
+            if 'Total Questions:' in line:
+                try:
+                    question_count = int(line.split(':')[1].strip())
+                except (ValueError, IndexError):
+                    pass
 
         # Log tool_end (TIER 1)
         if session:
@@ -979,23 +1005,19 @@ async def handle_step2_validate(arguments: dict) -> List[TextContent]:
                 level="info",
                 data={
                     "success": True,
-                    "valid": result["valid"],
+                    "valid": is_valid,
                     "question_count": question_count,
-                    "error_count": error_count,
-                    "warning_count": warning_count,
+                    "exit_code": result.returncode,
                 },
                 duration_ms=duration_ms
             )
 
         # Update session if active
         if session:
-            # Check if this is the first time validation passes
-            was_valid_before = session.get_status().get("validation_status") == "valid"
-
-            session.update_validation(result["valid"], question_count)
+            session.update_validation(is_valid, question_count)
 
             # Log validation_complete (TIER 2) when validation passes
-            if result["valid"]:
+            if is_valid:
                 log_event(
                     project_path=session.project_path,
                     session_id=session.session_id,
@@ -1004,27 +1026,32 @@ async def handle_step2_validate(arguments: dict) -> List[TextContent]:
                     level="info",
                     data={
                         "valid": True,
-                        "question_count": question_count,
-                        "errors": error_count,
-                        "warnings": warning_count
+                        "question_count": question_count
                     }
                 )
 
-        # Format output like Terminal QTI-Generator
-        formatted_output = format_validation_output(result, file_path, question_count)
+        # Combine stdout and stderr for output
+        output = result.stdout
+        if result.stderr:
+            output += f"\n\nStderr:\n{result.stderr}"
 
         # Save report to session folder if active
-        report_path = None
         if session:
             report_path = session.project_path / "validation_report.txt"
             try:
                 with open(report_path, 'w', encoding='utf-8') as f:
-                    f.write(formatted_output)
-                formatted_output += f"\n\nReport saved to: {report_path}"
+                    f.write(output)
+                output += f"\n\nReport saved to: {report_path}"
             except Exception as e:
-                formatted_output += f"\n\n(Could not save report: {e})"
+                output += f"\n\n(Could not save report: {e})"
 
-        return [TextContent(type="text", text=formatted_output)]
+        return [TextContent(type="text", text=output)]
+
+    except subprocess.TimeoutExpired:
+        return [TextContent(
+            type="text",
+            text="Validation timeout (>60s). File may be too large."
+        )]
 
     except Exception as e:
         # Log tool_error (TIER 1)
@@ -1128,31 +1155,26 @@ async def handle_step2_read(arguments: dict) -> List[TextContent]:
 # =============================================================================
 
 async def handle_step4_export(arguments: dict) -> List[TextContent]:
-    """Handle step4_export - export to QTI package."""
+    """
+    Handle step4_export - export to QTI package using ALL 5 scripts sequentially.
+
+    RFC-012: Run actual scripts instead of wrappers to guarantee:
+    1. apply_resource_mapping() is called (fixes critical image path bug)
+    2. Consistency with manual terminal workflow
+    3. Scripts = source of truth
+    """
     session = get_current_session()
     start_time = time.time()
 
-    # Determine paths
-    if session and session.working_file:
-        file_path = arguments.get("file_path") or str(session.working_file)
-        if arguments.get("output_path"):
-            output_path = arguments["output_path"]
-        else:
-            source_name = session.working_file.stem
-            output_path = str(session.output_folder / f"{source_name}_QTI.zip")
+    # Determine file path
+    if arguments.get("file_path"):
+        file_path = arguments["file_path"]
+    elif session and session.working_file:
+        file_path = str(session.working_file)
     else:
-        file_path = arguments.get("file_path")
-        output_path = arguments.get("output_path")
-
-    if not file_path:
         return [TextContent(
             type="text",
             text="Ange file_path eller starta session forst (step0_start)"
-        )]
-    if not output_path:
-        return [TextContent(
-            type="text",
-            text="Ange output_path eller starta session forst"
         )]
 
     # Validate input file exists
@@ -1164,6 +1186,23 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
 
     language = arguments.get("language", "sv")
 
+    # Path to qti-core
+    qti_core_path = Path(__file__).parent.parent.parent.parent / "qti-core"
+    if not qti_core_path.exists():
+        return [TextContent(
+            type="text",
+            text=f"qti-core not found at: {qti_core_path}"
+        )]
+
+    # Quiz name from file
+    quiz_name = Path(file_path).stem
+
+    # Output directory (map to project's output folder or qti-core/output)
+    output_dir = Path(session.output_folder) if session and session.output_folder else qti_core_path / "output"
+
+    # Quiz directory (where step2 creates the structure)
+    quiz_dir = output_dir / quiz_name
+
     # Log tool_start (TIER 1)
     if session:
         log_event(
@@ -1172,165 +1211,171 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
             tool="step4_export",
             event="tool_start",
             level="info",
-            data={"file": file_path, "output": output_path, "language": language}
+            data={
+                "file": file_path,
+                "output_dir": str(output_dir),
+                "language": language,
+                "method": "subprocess"
+            }
         )
 
-    try:
-        # Parse markdown
-        data = parse_file(file_path)
-        questions = data.get("questions", [])
-        metadata = data.get("metadata", {})
+    # Scripts to run sequentially
+    # NOTE: step3/4/5 need explicit --quiz-dir because they can't auto-detect
+    # when output is outside qti-core/output/ (which is where they look by default)
+    scripts = [
+        {
+            'name': 'step1_validate.py',
+            'args': [str(file_path), '--verbose'],
+            'description': 'Validerar markdown format',
+            'timeout': 60
+        },
+        {
+            'name': 'step2_create_folder.py',
+            'args': [str(file_path), '--output-dir', str(output_dir), '--output-name', quiz_name],
+            'description': 'Skapar output-struktur',
+            'timeout': 30
+        },
+        {
+            'name': 'step3_copy_resources.py',
+            'args': ['--markdown-file', str(file_path), '--quiz-dir', str(quiz_dir), '--verbose'],
+            'description': 'Kopierar och byter namn pa resurser',
+            'timeout': 60
+        },
+        {
+            'name': 'step4_generate_xml.py',
+            'args': ['--markdown-file', str(file_path), '--quiz-dir', str(quiz_dir), '--language', language, '--verbose'],
+            'description': 'Genererar QTI XML-filer (+ apply_resource_mapping)',
+            'timeout': 120
+        },
+        {
+            'name': 'step5_create_zip.py',
+            'args': ['--quiz-dir', str(quiz_dir), '--verbose'],
+            'description': 'Skapar QTI-paket (ZIP)',
+            'timeout': 60
+        }
+    ]
 
-        if not questions:
-            duration_ms = int((time.time() - start_time) * 1000)
+    # Collect output
+    all_output = []
+    all_output.append("=" * 70)
+    all_output.append("QTI EXPORT - SUBPROCESS APPROACH (RFC-012)")
+    all_output.append("=" * 70)
+    all_output.append(f"Source: {file_path}")
+    all_output.append(f"Output: {output_dir}")
+    all_output.append(f"Language: {language}")
+    all_output.append("")
+
+    # Run each script
+    for i, script in enumerate(scripts, 1):
+        all_output.append(f"\n{'=' * 70}")
+        all_output.append(f"STEG {i}/5: {script['name']}")
+        all_output.append(f"{script['description']}")
+        all_output.append(f"{'=' * 70}\n")
+
+        try:
+            result = subprocess.run(
+                ['python3', f"scripts/{script['name']}"] + script['args'],
+                cwd=qti_core_path,
+                capture_output=True,
+                text=True,
+                timeout=script['timeout']
+            )
+
+            # Append output
+            all_output.append(result.stdout)
+
+            # Check for errors
+            if result.returncode != 0:
+                all_output.append(f"\n❌ FEL i {script['name']}!")
+                all_output.append(f"\nStderr:\n{result.stderr}")
+
+                # Log error
+                if session:
+                    log_action(
+                        session.project_path,
+                        "step4_export",
+                        f"Error in {script['name']}: exit {result.returncode}"
+                    )
+
+                return [TextContent(type="text", text="\n".join(all_output))]
+
+            all_output.append(f"✓ {script['name']} slutford!\n")
+
+        except subprocess.TimeoutExpired:
+            all_output.append(f"\n❌ TIMEOUT i {script['name']} (>{script['timeout']}s)!")
+            return [TextContent(type="text", text="\n".join(all_output))]
+
+        except Exception as e:
+            all_output.append(f"\n❌ EXCEPTION i {script['name']}: {str(e)}")
+            return [TextContent(type="text", text="\n".join(all_output))]
+
+    duration_ms = int((time.time() - start_time) * 1000)
+
+    # Success - update session state
+    question_count = 0
+    zip_path = ""
+    try:
+        # Read package_info.json to get ZIP path
+        package_info_path = quiz_dir / ".workflow" / "package_info.json"
+
+        if package_info_path.exists():
+            with open(package_info_path) as f:
+                package_info = json.load(f)
+
+            zip_path = package_info.get('zip_path', str(output_dir / f"{quiz_name}.zip"))
+
+            # Try to get question count from xml_files.json
+            xml_files_path = quiz_dir / ".workflow" / "xml_files.json"
+            if xml_files_path.exists():
+                with open(xml_files_path) as f:
+                    xml_info = json.load(f)
+                question_count = xml_info.get('xml_count', 0)
+
+            # Update session
             if session:
+                session.log_export(zip_path, question_count)
+
+                # Log tool_end (TIER 1)
                 log_event(
                     project_path=session.project_path,
                     session_id=session.session_id,
                     tool="step4_export",
                     event="tool_end",
-                    level="warn",
-                    data={"success": False, "error": "No questions found"},
+                    level="info",
+                    data={
+                        "success": True,
+                        "question_count": question_count,
+                        "output_file": zip_path,
+                    },
                     duration_ms=duration_ms
                 )
-            return [TextContent(type="text", text="Inga fragor hittades i filen")]
 
-        # === Resource handling ===
-        resource_count = 0
-        try:
-            # 1. Validate resources exist
-            resource_result = validate_resources(
-                input_file=file_path,
-                questions=questions,
-                media_dir=None,  # Auto-detect
-                strict=False
-            )
-
-            # Log warnings but continue
-            if resource_result.get("warning_count", 0) > 0:
-                for issue in resource_result.get("issues", []):
-                    if issue.get("level") == "WARNING":
-                        if session:
-                            log_action(session.project_path, "step4_export",
-                                       f"Resource warning: {issue.get('message')}")
-
-            # Fail on errors
-            if resource_result.get("error_count", 0) > 0:
-                error_msgs = [i.get("message") for i in resource_result.get("issues", [])
-                             if i.get("level") == "ERROR"]
-                duration_ms = int((time.time() - start_time) * 1000)
-                if session:
-                    log_event(
-                        project_path=session.project_path,
-                        session_id=session.session_id,
-                        tool="step4_export",
-                        event="tool_end",
-                        level="warn",
-                        data={"success": False, "error": "Resource errors", "errors": error_msgs},
-                        duration_ms=duration_ms
-                    )
-                return [TextContent(
-                    type="text",
-                    text=f"Resource-fel:\n" + "\n".join(f"  - {m}" for m in error_msgs) +
-                         "\n\nFixa bilderna och kor igen."
-                )]
-
-            # 2. Determine output folder for resources
-            output_folder = session.output_folder if session else Path(output_path).parent
-
-            # 3. Copy resources to output
-            copy_result = copy_resources(
-                input_file=file_path,
-                output_dir=str(output_folder),
-                questions=questions
-            )
-            resource_count = copy_result.get("count", 0)
-
-        except ResourceError as e:
-            # Log but don't fail - resources might not exist
-            if session:
-                log_action(session.project_path, "step4_export",
-                           f"Resource handling skipped: {e}")
-
-        # Generate XML
-        xml_list = generate_all_xml(questions, language)
-
-        # Add questions to metadata for packager (needed for labels export)
-        metadata['questions'] = questions
-
-        # Create package
-        result = create_qti_package(xml_list, metadata, output_path)
-        duration_ms = int((time.time() - start_time) * 1000)
-
-        zip_path = Path(result.get('zip_path', output_path))
-        file_size = zip_path.stat().st_size if zip_path.exists() else 0
-
-        # Log tool_end (TIER 1)
-        if session:
-            log_event(
-                project_path=session.project_path,
-                session_id=session.session_id,
-                tool="step4_export",
-                event="tool_end",
-                level="info",
-                data={
-                    "success": True,
-                    "question_count": len(questions),
-                    "resource_count": resource_count,
-                    "output_file": str(zip_path),
-                    "file_size_bytes": file_size,
-                },
-                duration_ms=duration_ms
-            )
-
-            # Log export_complete (TIER 2)
-            log_event(
-                project_path=session.project_path,
-                session_id=session.session_id,
-                tool="step4_export",
-                event="export_complete",
-                level="info",
-                data={
-                    "output_file": str(zip_path),
-                    "question_count": len(questions),
-                    "format": "QTI 1.2"
-                }
-            )
-
-        # Log export to session if active
-        if session:
-            try:
-                relative_output = str(Path(output_path).relative_to(session.project_path))
-            except ValueError:
-                relative_output = output_path
-            session.log_export(relative_output, len(questions))
-
-        return [TextContent(
-            type="text",
-            text=f"QTI-paket skapat!\n"
-                 f"  ZIP: {result.get('zip_path')}\n"
-                 f"  Mapp: {result.get('folder_path')}\n"
-                 f"  Fragor: {len(questions)}\n"
-                 f"  Resurser: {resource_count} filer kopierade"
-        )]
+                # Log export_complete (TIER 2)
+                log_event(
+                    project_path=session.project_path,
+                    session_id=session.session_id,
+                    tool="step4_export",
+                    event="export_complete",
+                    level="info",
+                    data={
+                        "output_file": zip_path,
+                        "question_count": question_count,
+                        "format": "QTI 2.1"
+                    }
+                )
 
     except Exception as e:
-        # Log tool_error (TIER 1)
-        if session:
-            log_event(
-                project_path=session.project_path,
-                session_id=session.session_id,
-                tool="step4_export",
-                event="tool_error",
-                level="error",
-                data={
-                    "error_type": type(e).__name__,
-                    "message": str(e),
-                    "stacktrace": traceback.format_exc(),
-                    "context": {"file": file_path, "output": output_path}
-                }
-            )
-        raise
+        all_output.append(f"\n⚠️  Warning: Could not update session state: {e}")
+
+    # Final summary
+    all_output.append("\n" + "=" * 70)
+    all_output.append("✅ EXPORT SLUTFORD!")
+    all_output.append("=" * 70)
+    all_output.append(f"\nZIP: {zip_path}")
+    all_output.append(f"Fragor: {question_count}")
+    all_output.append(f"\nKontrollera: {quiz_dir}")
+
+    return [TextContent(type="text", text="\n".join(all_output))]
 
 
 # =============================================================================
