@@ -4,6 +4,27 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed - 2026-01-25
+
+#### Parser Consistency Fix (RFC-012 Appendix)
+- **Critical Bug Fixed:** Validation passed but export found 0 questions
+  - `validate_mqg_format.py` used flexible regex: `\^type:?\s+(\S+)` (accepts colons)
+  - `markdown_parser.py` used strict regex: `^\^type\s+(.+)` (no colons, start of line)
+  - Result: Files validated OK but failed to export
+- **Root Cause:** Two parsers with different rules - architectural violation
+- **Solution:** Single Source of Truth architecture
+  - Added `validate()` method to `markdown_parser.py` (~100 lines)
+  - Simplified `validate_mqg_format.py` from 554 to 185 lines (thin wrapper)
+  - Now calls `parser.validate()` instead of own parsing logic
+- **Guarantee:** Validate pass → Export works (same parser, same rules)
+- **Files modified:**
+  - `packages/qti-core/src/parser/markdown_parser.py` - added validate() method
+  - `packages/qti-core/validate_mqg_format.py` - simplified to thin wrapper
+- **Verification:**
+  - v1 file (with colons): Validate FAIL → Export FAIL (consistent)
+  - v2 file (correct format): Validate PASS → Export PASS (consistent)
+- **RFC:** `docs/rfcs/rfc-012-pipeline-script-alignment.md` (Appendix A)
+
 ### Fixed - 2026-01-24
 
 #### RFC-012 Phase 1: Subprocess Implementation (Critical Bug Fix)

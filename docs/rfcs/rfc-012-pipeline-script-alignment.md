@@ -2,7 +2,7 @@
 
 **Status:** Phase 1 IMPLEMENTED
 **Created:** 2026-01-22
-**Updated:** 2026-01-24
+**Updated:** 2026-01-25
 **Author:** Niklas + Claude Code + Claude Sonnet
 **Related:** WORKFLOW.md Appendix A.1.2, ADR-008 (qti-core)
 
@@ -139,4 +139,51 @@ async def handle_step4_export(arguments: dict):
 
 ---
 
-*RFC-012 | Pipeline-Script Alignment | 2026-01-22*
+## Appendix A: Parser Consistency (2026-01-25)
+
+### Problem: Validator vs Parser Mismatch
+
+After RFC-012 Phase 1 was implemented, a second alignment issue was discovered:
+
+| Component | Regex Pattern | Accepts Colons? |
+|-----------|---------------|-----------------|
+| `validate_mqg_format.py` | `\^type:?\s+(\S+)` | Yes |
+| `markdown_parser.py` | `^\^type\s+(.+)` | No |
+
+**Symptom:** `step1_validate.py` reported 40 valid questions, but `step4_generate_xml.py` found 0.
+
+### Solution: Single Source of Truth
+
+The same "script-first" philosophy applies to the validator:
+
+> **The parser (`markdown_parser.py`) is the single source of truth for format rules.**
+
+**Implementation:**
+1. Added `validate()` method to `markdown_parser.py` (~100 lines)
+2. Simplified `validate_mqg_format.py` from 554 → 185 lines
+3. `validate_mqg_format.py` now calls `parser.validate()` instead of own parsing
+
+**Guarantee:** If `validate()` passes, `parse()` will work (same code, same rules).
+
+### Key Code Change
+
+```python
+# validate_mqg_format.py - NOW A THIN WRAPPER
+from src.parser.markdown_parser import MarkdownQuizParser
+
+def validate_markdown_file(file_path: Path) -> ValidationReport:
+    parser = MarkdownQuizParser(content)
+    result = parser.validate()  # Single source of truth!
+    # ... convert result to ValidationReport
+```
+
+### Verification
+
+| Test | Validate | Export | Status |
+|------|----------|--------|--------|
+| v1 (with colons) | ❌ 0 valid, 120 errors | 0 questions | ✅ Consistent |
+| v2 (correct format) | ✅ 40 valid | 40 questions | ✅ Consistent |
+
+---
+
+*RFC-012 | Pipeline-Script Alignment | 2026-01-22 | Updated 2026-01-25*
