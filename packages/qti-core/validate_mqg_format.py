@@ -99,13 +99,142 @@ class ValidationReport:
             print()
             print("→ Go back to Claude Desktop and fix the errors listed above")
 
+    def save_report(self, output_path: Path, source_file: Path):
+        """
+        Save detailed validation report to file for MCP processing.
 
-def validate_markdown_file(file_path: Path, verbose: bool = False) -> ValidationReport:
+        Contains all information needed for MCP to fix errors:
+        - Error details with question context
+        - Correct format examples
+        - Reference to test fixtures
+        """
+        lines = []
+        lines.append("=" * 80)
+        lines.append("VALIDATION REPORT - FOR MCP PROCESSING")
+        lines.append("=" * 80)
+        lines.append("")
+        lines.append(f"Source file: {source_file}")
+        lines.append(f"Report generated: {__import__('datetime').datetime.now().isoformat()}")
+        lines.append(f"Total questions: {self.total_questions}")
+        lines.append(f"Valid questions: {self.valid_questions}")
+        lines.append(f"Errors: {len(self.errors)}")
+        lines.append("")
+
+        if self.is_valid():
+            lines.append("STATUS: ✅ VALID - Ready for export")
+            lines.append("")
+        else:
+            lines.append("STATUS: ❌ ERRORS FOUND - Fix before export")
+            lines.append("")
+            lines.append("=" * 80)
+            lines.append("ERRORS TO FIX")
+            lines.append("=" * 80)
+            lines.append("")
+
+            for i, issue in enumerate(self.errors, 1):
+                lines.append(f"--- ERROR {i}/{len(self.errors)} ---")
+                lines.append(f"Question: {issue.question_num} (ID: {issue.question_id})")
+                lines.append(f"Problem: {issue.message}")
+                if issue.suggestion:
+                    lines.append(f"Suggestion: {issue.suggestion}")
+                lines.append("")
+
+                # Add format examples based on error type
+                if 'blanks' in issue.message.lower():
+                    lines.append("CORRECT FORMAT FOR text_entry blanks:")
+                    lines.append("```markdown")
+                    lines.append("@field: blanks")
+                    lines.append("")
+                    lines.append("@@field: blank_1")
+                    lines.append("^Correct_Answers")
+                    lines.append("- correct answer 1")
+                    lines.append("- correct answer 2")
+                    lines.append("^Case_Sensitive No")
+                    lines.append("@@end_field")
+                    lines.append("")
+                    lines.append("@end_field")
+                    lines.append("```")
+                    lines.append("")
+                    lines.append("WRONG FORMAT (what you have):")
+                    lines.append("```markdown")
+                    lines.append("@field: blanks")
+                    lines.append("@subfield: blank_1        ← WRONG: use @@field")
+                    lines.append("answer [correct]          ← WRONG: use - answer format")
+                    lines.append("@end_subfield")
+                    lines.append("@end_field")
+                    lines.append("```")
+                    lines.append("")
+
+                elif 'dropdown' in issue.message.lower() or 'inline_choice' in issue.message.lower():
+                    lines.append("CORRECT FORMAT FOR inline_choice dropdowns:")
+                    lines.append("```markdown")
+                    lines.append("@field: dropdown_1")
+                    lines.append("- option one")
+                    lines.append("- correct option*")
+                    lines.append("- option three")
+                    lines.append("@end_field")
+                    lines.append("```")
+                    lines.append("")
+                    lines.append("WRONG FORMAT:")
+                    lines.append("```markdown")
+                    lines.append("@field: dropdown1_options    ← WRONG: use dropdown_1")
+                    lines.append("option one")
+                    lines.append("correct option [correct]     ← WRONG: use * marker")
+                    lines.append("@end_field")
+                    lines.append("```")
+                    lines.append("")
+
+                elif 'options' in issue.message.lower() and 'multiple_choice' in issue.message.lower():
+                    lines.append("CORRECT FORMAT FOR multiple_choice options:")
+                    lines.append("```markdown")
+                    lines.append("@field: options")
+                    lines.append("A. First option")
+                    lines.append("B. Second option")
+                    lines.append("C. Third option")
+                    lines.append("D. Fourth option")
+                    lines.append("@end_field")
+                    lines.append("")
+                    lines.append("@field: answer")
+                    lines.append("B")
+                    lines.append("@end_field")
+                    lines.append("```")
+                    lines.append("")
+
+                lines.append("")
+
+            lines.append("=" * 80)
+            lines.append("REFERENCE")
+            lines.append("=" * 80)
+            lines.append("")
+            lines.append("Test fixtures with correct format:")
+            lines.append("  - text_entry: tests/fixtures/v65/text_entry.md")
+            lines.append("  - inline_choice: tests/fixtures/v65/inline_choice.md")
+            lines.append("  - multiple_choice: tests/fixtures/v65/multiple_choice_single.md")
+            lines.append("")
+            lines.append("Full specification: docs/markdown_specification.md")
+            lines.append("")
+
+        # Write to file
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+
+        return output_path
+
+
+def validate_markdown_file(file_path: Path, verbose: bool = False, save_report: bool = True) -> ValidationReport:
     """
     Validate a markdown file against MQG v6.5 specs.
 
     Uses markdown_parser.validate() - the SAME parser used by step4_generate_xml.
     This guarantees: if validate passes, export will work.
+
+    Args:
+        file_path: Path to markdown file
+        verbose: Show detailed output
+        save_report: Save detailed report to file (default: True)
+
+    Returns:
+        ValidationReport with errors and warnings
     """
     report = ValidationReport()
 
@@ -135,6 +264,12 @@ def validate_markdown_file(file_path: Path, verbose: bool = False) -> Validation
             message=error.get('message', 'Unknown error'),
             suggestion=error.get('suggestion', '')
         )
+
+    # Save detailed report if errors found
+    if save_report and not report.is_valid():
+        report_path = file_path.parent / f"{file_path.stem}_validation_report.txt"
+        report.save_report(report_path, file_path)
+        print(f"\n📄 Detailed report saved: {report_path}")
 
     return report
 
