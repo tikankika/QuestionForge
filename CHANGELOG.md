@@ -6,6 +6,23 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Fixed - 2026-01-25
 
+#### Extended Validator: Question-Type-Specific Validation
+- **Enhancement:** Validator now checks question-type-specific fields
+  - Previously: Only checked `^type`, `^identifier`, `^points` (basic structure)
+  - Now: Also validates content fields required by each question type
+- **Question types validated:**
+  - `text_entry`: requires `blanks` with `@@field` format
+  - `inline_choice`: requires `dropdown_N` fields with `*` markers
+  - `multiple_choice_single`: requires `options` and `answer`
+  - `multiple_response`: requires `options` and `correct_answers`
+  - `true_false`: requires `answer`
+  - `match`: requires `pairs`
+  - `hotspot`: requires `image` and `hotspots`
+  - `graphicgapmatch_v2`: requires `image` and `drop_zones`
+- **Guarantee:** validate() OK → export GUARANTEED to work
+- **Files modified:**
+  - `packages/qti-core/src/parser/markdown_parser.py` - added `_validate_question_type_fields()`
+
 #### Parser Consistency Fix (RFC-012 Appendix)
 - **Critical Bug Fixed:** Validation passed but export found 0 questions
   - `validate_mqg_format.py` used flexible regex: `\^type:?\s+(\S+)` (accepts colons)
