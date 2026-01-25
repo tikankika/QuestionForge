@@ -4,6 +4,31 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2026-01-25
+
+#### RFC-013: Pipeline Architecture v2.1 + Updated Folder Structure
+- **New folder structure** for cleaner data flow:
+  ```
+  project/
+  ├── materials/       ← Input (lectures, slides)
+  ├── methodology/     ← Method guides (copied in Step 0)
+  ├── preparation/     ← M1 + M2 output (foundation for questions)
+  ├── questions/       ← M3 creates, M4/M5 edit + history/
+  ├── pipeline/        ← Step 1-3 working area + history/
+  ├── output/qti/      ← Step 4 final output
+  └── logs/
+  ```
+- **Key decisions documented:**
+  - Question IDs sufficient for tracking (removed line numbering)
+  - M5 generates structurally correct output
+  - Step 1 is safety net for unexpected issues
+  - Separate pattern databases for Step 1 and Step 3
+- **Files modified:**
+  - `WORKFLOW.md` - Updated folder structure and data flow (v1.2)
+  - `docs/rfcs/RFC-013-Questionforge pipeline architecture v2.md` - Complete architecture
+  - `docs/rfcs/RFC-013-updates-for-desktop.md` - 10 implementation decisions
+- **RFC:** `docs/rfcs/RFC-013-Questionforge pipeline architecture v2.md`
+
 ### Fixed - 2026-01-25
 
 #### Extended Validator: Question-Type-Specific Validation
