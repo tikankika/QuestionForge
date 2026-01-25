@@ -1,8 +1,8 @@
 # QuestionForge Workflow
 
-**Version:** 1.1
-**Date:** 2026-01-22
-**Related:** ADR-014 (Shared Session), RFC-012 (Pipeline-Script Alignment), qf-scaffolding-spec.md, qf-pipeline-spec.md
+**Version:** 1.2
+**Date:** 2026-01-25
+**Related:** ADR-014 (Shared Session), RFC-012 (Pipeline-Script Alignment), RFC-013 (Pipeline Architecture v2.1), qf-scaffolding-spec.md, qf-pipeline-spec.md
 
 ---
 
@@ -157,18 +157,40 @@ När session skapas med `step0_start`:
 
 ```
 project_name/
-├── 00_materials/           ← Input för M1 (föreläsningar, slides)
-├── 01_source/              ← Original markdown (från M3 eller extern)
-├── 02_working/             ← Working copy för pipeline
-├── 03_output/              ← QTI export (.zip)
-├── methodology/            ← M1-M4 outputs
-│   ├── m1_objectives.md    ← Lärandemål från M1
-│   ├── m1_examples.md      ← Exempelkatalog
-│   ├── m1_misconceptions.md← Missuppfattningar
-│   ├── m2_blueprint.md     ← Blueprint från M2
-│   └── m3_questions.md     ← Genererade frågor
-├── session.yaml            ← Session state (båda MCP:er)
+├── materials/              ← Input (lectures, slides) - M1 reads
+├── methodology/            ← Method guides (copied in Step 0)
+│   ├── m1_guide.md
+│   ├── m2_guide.md
+│   └── ...
+├── preparation/            ← M1 + M2 output (foundation for questions)
+│   ├── m1_content.md       ← Content analysis from M1
+│   └── m2_blueprint.md     ← Assessment blueprint from M2
+├── questions/              ← Questions (M3 creates, M4/M5 edit)
+│   ├── questions.md        ← Current version
+│   └── history/            ← Automatic backups per step
+├── pipeline/               ← Step 1-3 working area
+│   ├── working.md          ← Step 1 working file (with YAML progress)
+│   ├── validation.txt      ← Step 2 report
+│   └── history/            ← Backups
+├── output/                 ← Step 4 final output
+│   └── qti/                ← QTI package (.zip)
+├── session.yaml            ← Session state (both MCPs)
 └── logs/                   ← Action logs
+```
+
+### Data Flow
+
+```
+Step 0: Creates folders + copies methodology/ guides
+M1: Reads materials/ → Writes preparation/m1_content.md
+M2: Reads preparation/m1_content.md → Writes preparation/m2_blueprint.md
+M3: Reads preparation/m2_blueprint.md → Creates questions/questions.md
+M4: Reads questions/questions.md → Edits + backup to history/
+M5: Reads questions/questions.md → Edits + backup to history/
+Step1: Copies to pipeline/working.md → Edits → Back to questions/
+Step2: Reads questions/ → Writes pipeline/validation.txt
+Step3: Edits questions/questions.md + backup
+Step4: Reads questions/ → Writes output/qti/
 ```
 
 ---
@@ -521,9 +543,10 @@ result = validate(Path(file_path), verbose=True)
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2 | 2026-01-25 | Updated folder structure (RFC-013): preparation/, questions/, pipeline/, output/ |
 | 1.1 | 2026-01-22 | Added Appendix A: Pipeline-Script Alignment (RFC-012) |
 | 1.0 | 2026-01-14 | Initial workflow document |
 
 ---
 
-*QuestionForge Workflow v1.1 | 2026-01-22*
+*QuestionForge Workflow v1.2 | 2026-01-25*
