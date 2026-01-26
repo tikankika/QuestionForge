@@ -69,8 +69,8 @@ async def step1_start(
         if not source_file or not project_path:
             return {"error": "Step 0 session saknar nödvändiga sökvägar"}
 
-        # Output folder is 03_output within project structure
-        output_folder = str(Path(project_path) / "03_output")
+        # Output folder is output/ within project structure
+        output_folder = str(Path(project_path) / "output")
     else:
         # No Step 0 session - require explicit paths
         if not source_file or not output_folder:

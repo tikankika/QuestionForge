@@ -5,7 +5,7 @@
  * When a stage is completed with an output:
  * 1. Validates output data against schema
  * 2. Generates YAML frontmatter + Markdown file
- * 3. Writes to 01_methodology/
+ * 3. Writes to preparation/
  * 4. Updates session.yaml
  * 5. Logs stage_complete event
  */
@@ -168,8 +168,8 @@ export async function completeStage(input: CompleteStageInput): Promise<Complete
         sessionId
       });
 
-      // Ensure 01_methodology directory exists
-      const methodologyDir = path.join(project_path, '01_methodology');
+      // Ensure preparation directory exists
+      const methodologyDir = path.join(project_path, 'preparation');
       if (!fs.existsSync(methodologyDir)) {
         fs.mkdirSync(methodologyDir, { recursive: true });
       }
@@ -183,7 +183,7 @@ export async function completeStage(input: CompleteStageInput): Promise<Complete
       if (!session.methodology[module].outputs) {
         session.methodology[module].outputs = {};
       }
-      session.methodology[module].outputs[output.type] = `01_methodology/${filename}`;
+      session.methodology[module].outputs[output.type] = `preparation/${filename}`;
     }
 
     // Mark stage as completed

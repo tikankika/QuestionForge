@@ -94,7 +94,7 @@ def validate_entry_point(
             )
         if source_file:
             # source_file for m1 is treated as a reference document (e.g., syllabus)
-            # It will be saved to project root, not 01_source/
+            # It will be saved to project root, not questions/
             logger.info(
                 f"source_file provided for 'm1' entry point - "
                 f"will be saved as reference document in project root."
@@ -123,24 +123,32 @@ def get_timestamp() -> str:
 class SessionManager:
     """Manages QF pipeline sessions with project structure and state.
 
-    Project structure:
+    Project structure (RFC-013 v2.1):
         project_name/
-        ├── 01_source/          ← Original (NEVER modified)
-        │   └── original_file.md
-        ├── 02_working/         ← Working copy (editable)
-        │   └── original_file.md
-        ├── 03_output/          ← Exported files
-        │   └── (QTI packages, ZIP files)
+        ├── materials/          ← Input (lectures, slides) - M1 reads
+        ├── methodology/        ← Method guides (copied in Step 0)
+        ├── preparation/        ← M1 + M2 output (foundation for questions)
+        ├── questions/          ← Questions (M3 creates, M4/M5 edit)
+        │   └── history/        ← Automatic backups per step
+        ├── pipeline/           ← Step 1-3 working area
+        │   └── history/        ← Backups
+        ├── output/             ← Step 4 final output
+        │   └── qti/            ← QTI packages (.zip)
+        ├── logs/               ← Session logs
         └── session.yaml        ← Metadata and state
     """
 
     FOLDERS = [
-        "00_materials",    # For entry point A (materials)
-        "01_source",       # Original source file (entry point B/C/D)
-        "02_working",      # Working copy during transformation
-        "03_output",       # Exported QTI files
-        "methodology",     # For M1-M4 methodology (copied from QuestionForge)
-        "logs",            # Session logs (shared by both MCPs)
+        "materials",           # Input (lectures, slides) - M1 reads
+        "methodology",         # Method guides (copied in Step 0)
+        "preparation",         # M1 + M2 output (foundation for questions)
+        "questions",           # Questions (M3 creates, M4/M5 edit)
+        "questions/history",   # Automatic backups per step
+        "pipeline",            # Step 1-3 working area
+        "pipeline/history",    # Backups
+        "output",              # Final output
+        "output/qti",          # QTI packages
+        "logs",                # Session logs (shared by both MCPs)
     ]
     SESSION_FILE = "session.yaml"
 
@@ -169,13 +177,18 @@ class SessionManager:
         return None
 
     @property
-    def working_file(self) -> Optional[Path]:
-        """Get path to working file."""
+    def questions_file(self) -> Optional[Path]:
+        """Get path to questions file."""
         if self._project_path and self._session_data:
-            working_path = self._session_data.get("working", {}).get("path")
-            if working_path:
-                return self._project_path / working_path
+            questions_path = self._session_data.get("questions", {}).get("path")
+            if questions_path:
+                return self._project_path / questions_path
         return None
+
+    @property
+    def working_file(self) -> Optional[Path]:
+        """Get path to working file (alias for questions_file for backward compat)."""
+        return self.questions_file
 
     @property
     def source_file(self) -> Optional[Path]:
@@ -190,7 +203,21 @@ class SessionManager:
     def output_folder(self) -> Optional[Path]:
         """Get path to output folder."""
         if self._project_path:
-            return self._project_path / "03_output"
+            return self._project_path / "output"
+        return None
+
+    @property
+    def questions_folder(self) -> Optional[Path]:
+        """Get path to questions folder."""
+        if self._project_path:
+            return self._project_path / "questions"
+        return None
+
+    @property
+    def pipeline_folder(self) -> Optional[Path]:
+        """Get path to pipeline working folder."""
+        if self._project_path:
+            return self._project_path / "pipeline"
         return None
 
     def create_session(
@@ -282,9 +309,9 @@ class SessionManager:
                 folder_path = project_path / folder
                 folder_path.mkdir(exist_ok=True)
 
-                # Add README for 00_materials folder ONLY if no materials_folder provided
+                # Add README for materials folder ONLY if no materials_folder provided
                 # (otherwise user's own README might be in materials_folder)
-                if folder == "00_materials" and not materials_folder:
+                if folder == "materials" and not materials_folder:
                     readme_path = folder_path / "README.md"
                     readme_path.write_text(
                         "# Undervisningsmaterial\n\n"
@@ -300,7 +327,7 @@ class SessionManager:
             materials_copied = 0
             if materials_folder:
                 materials_src = Path(materials_folder)
-                materials_dest = project_path / "00_materials"
+                materials_dest = project_path / "materials"
 
                 logger.info(f"Copying materials from {materials_src} to {materials_dest}")
 
@@ -327,7 +354,7 @@ class SessionManager:
                 shutil.copytree(
                     materials_src,
                     materials_dest,
-                    dirs_exist_ok=True,  # Merge with existing (00_materials already exists)
+                    dirs_exist_ok=True,  # Merge with existing (materials/ already exists)
                     ignore=ignore_junk
                 )
 
@@ -336,7 +363,7 @@ class SessionManager:
                     if item.is_file():
                         materials_copied += 1
 
-                logger.info(f"Copied {materials_copied} files to 00_materials/")
+                logger.info(f"Copied {materials_copied} files to materials/")
 
             # Copy methodology from QuestionForge (makes project self-contained)
             methodology_result = copy_methodology(project_path)
@@ -359,8 +386,7 @@ class SessionManager:
                 logger.info("Created empty sources.yaml")
 
             # Copy source file if provided
-            source_dest = None
-            working_dest = None
+            questions_dest = None
             reference_doc = None
             if source_path:
                 if entry_point == "m1":
@@ -370,28 +396,26 @@ class SessionManager:
                     shutil.copy2(source_path, reference_doc)
                     logger.info(f"Saved reference document: {reference_doc}")
                 else:
-                    # For m2/m3/m4/pipeline: copy to 01_source and 02_working
-                    source_dest = project_path / "01_source" / source_path.name
-                    shutil.copy2(source_path, source_dest)
-
-                    # Create working copy
-                    working_dest = project_path / "02_working" / source_path.name
-                    shutil.copy2(source_path, working_dest)
+                    # For m2/m3/m4/pipeline: copy to questions/
+                    # Use original filename or 'questions.md' as default
+                    questions_dest = project_path / "questions" / source_path.name
+                    shutil.copy2(source_path, questions_dest)
+                    logger.info(f"Copied questions to: {questions_dest}")
 
             # Generate session ID
             session_id = str(uuid.uuid4())
 
             # Create session data with methodology section
-            # For m1, source is a reference document; for others, it's the working file
+            # For m1, source is a reference document; for others, it's the questions file
             if entry_point == "m1" and reference_doc:
                 source_data = {
                     "original_path": str(source_path) if source_path else None,
                     "filename": source_path.name if source_path else None,
-                    "copied_to": None,  # Not in 01_source for m1
+                    "copied_to": None,  # Not in questions/ for m1
                     "reference_doc": source_path.name if reference_doc else None,
                 }
-                working_data = {
-                    "path": None,
+                questions_data = {
+                    "path": None,  # M3 will create this
                     "last_validated": None,
                     "validation_status": "not_validated",
                     "question_count": None,
@@ -400,10 +424,10 @@ class SessionManager:
                 source_data = {
                     "original_path": str(source_path) if source_path else None,
                     "filename": source_path.name if source_path else None,
-                    "copied_to": f"01_source/{source_path.name}" if source_dest else None,
+                    "copied_to": f"questions/{source_path.name}" if questions_dest else None,
                 }
-                working_data = {
-                    "path": f"02_working/{source_path.name}" if working_dest else None,
+                questions_data = {
+                    "path": f"questions/{source_path.name}" if questions_dest else None,
                     "last_validated": None,
                     "validation_status": "not_validated",
                     "question_count": None,
@@ -416,9 +440,9 @@ class SessionManager:
                     "updated": get_timestamp(),
                 },
                 "source": source_data,
-                "working": working_data,
+                "questions": questions_data,  # Renamed from "working"
                 "exports": [],
-                # NEW: Methodology section for shared session
+                # Methodology section for shared session
                 "methodology": {
                     "entry_point": entry_point,
                     "active_module": ep_config["next_module"],
@@ -459,7 +483,9 @@ class SessionManager:
                 "success": True,
                 "session_id": session_id,
                 "project_path": str(project_path),
-                "output_folder": str(project_path / "03_output"),
+                "output_folder": str(project_path / "output"),
+                "questions_folder": str(project_path / "questions"),
+                "pipeline_folder": str(project_path / "pipeline"),
                 "entry_point": entry_point,
                 "next_module": ep_config["next_module"],
                 "pipeline_ready": entry_point == "pipeline",
@@ -471,33 +497,30 @@ class SessionManager:
             # Add file paths if source was provided
             if entry_point == "m1" and materials_folder:
                 # m1 entry point with materials
-                response["working_file"] = None
-                response["source_file"] = None
-                response["materials_folder"] = str(project_path / "00_materials")
+                response["questions_file"] = None
+                response["materials_folder"] = str(project_path / "materials")
 
                 if reference_doc:
                     # Reference document (e.g., syllabus) was also provided
                     response["reference_doc"] = str(reference_doc)
                     response["message"] = (
                         f"Session startad med entry point '{entry_point}'. "
-                        f"{materials_copied} filer kopierade till 00_materials/. "
+                        f"{materials_copied} filer kopierade till materials/. "
                         f"Referensdokument sparat: {source_path.name}. "
                         f"Nästa steg: {ep_config['next_module']} (qf-scaffolding)"
                     )
                 else:
                     response["message"] = (
                         f"Session startad med entry point '{entry_point}'. "
-                        f"{materials_copied} filer kopierade till 00_materials/ (mappstruktur bevarad). "
+                        f"{materials_copied} filer kopierade till materials/ (mappstruktur bevarad). "
                         f"Nästa steg: {ep_config['next_module']} (qf-scaffolding)"
                     )
-            elif source_path and source_dest:
+            elif source_path and questions_dest:
                 # m2/m3/m4/pipeline with source file
-                response["working_file"] = str(working_dest)
-                response["source_file"] = str(source_dest)
+                response["questions_file"] = str(questions_dest)
                 response["message"] = f"Session startad. Arbetar med: {source_path.name}"
             else:
-                response["working_file"] = None
-                response["source_file"] = None
+                response["questions_file"] = None
                 response["message"] = (
                     f"Session startad med entry point '{entry_point}'. "
                     f"Nästa steg: {ep_config['next_module']} (qf-scaffolding)"
@@ -534,17 +557,20 @@ class SessionManager:
                 "message": "No active session"
             }
 
-        working_data = self._session_data.get("working", {})
+        questions_data = self._session_data.get("questions", {})
         exports = self._session_data.get("exports", [])
 
         return {
             "active": True,
             "session_id": self.session_id,
             "project_path": str(self._project_path),
-            "working_file": str(self.working_file) if self.working_file else None,
-            "validation_status": working_data.get("validation_status", "not_validated"),
-            "question_count": working_data.get("question_count"),
-            "last_validated": working_data.get("last_validated"),
+            "questions_file": str(self.questions_file) if self.questions_file else None,
+            "questions_folder": str(self.questions_folder) if self.questions_folder else None,
+            "pipeline_folder": str(self.pipeline_folder) if self.pipeline_folder else None,
+            "output_folder": str(self.output_folder) if self.output_folder else None,
+            "validation_status": questions_data.get("validation_status", "not_validated"),
+            "question_count": questions_data.get("question_count"),
+            "last_validated": questions_data.get("last_validated"),
             "last_export": exports[-1].get("output_file") if exports else None,
             "export_count": len(exports)
         }
@@ -557,9 +583,9 @@ class SessionManager:
             question_count: Number of questions found
         """
         if self._session_data:
-            self._session_data["working"]["last_validated"] = get_timestamp()
-            self._session_data["working"]["validation_status"] = "valid" if is_valid else "invalid"
-            self._session_data["working"]["question_count"] = question_count
+            self._session_data["questions"]["last_validated"] = get_timestamp()
+            self._session_data["questions"]["validation_status"] = "valid" if is_valid else "invalid"
+            self._session_data["questions"]["question_count"] = question_count
             self._session_data["session"]["updated"] = get_timestamp()
             self._save_session()
 

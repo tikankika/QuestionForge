@@ -3,7 +3,7 @@ Project file tools for qf-pipeline MCP.
 
 General-purpose file read/write within project directory.
 Allows Claude to access ANY file within the project, not just
-specific folders like 00_materials/ or 00_reference/.
+specific folders like materials/ or questions/.
 
 Security: Only allows access within project_path (no path traversal)
 
@@ -53,7 +53,7 @@ async def read_project_file(
 
     Args:
         project_path: Root project directory
-        relative_path: Path relative to project_path, e.g. "05/questions.md"
+        relative_path: Path relative to project_path, e.g. "output/questions.md"
 
     Returns:
         Dict with success status, content, and metadata
@@ -186,7 +186,7 @@ PROJECT_FILE_TOOLS = [
         "description": "Read any file within a project directory. Security: prevents path traversal outside project.",
         "parameters": {
             "project_path": {"type": "string", "description": "Root project directory"},
-            "relative_path": {"type": "string", "description": "Path relative to project_path, e.g. '05/questions.md'"}
+            "relative_path": {"type": "string", "description": "Path relative to project_path, e.g. 'output/questions.md'"}
         }
     },
     {

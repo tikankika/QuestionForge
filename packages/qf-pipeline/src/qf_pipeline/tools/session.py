@@ -37,13 +37,17 @@ async def start_session_tool(
 ) -> dict:
     """Start a new QF pipeline session.
 
-    Creates project structure:
+    Creates project structure (RFC-013 v2.1):
         project_name/
-        ├── 00_materials/   ← Instructional materials (entry point m1)
-        ├── 01_source/      ← Original source file (never modified)
-        ├── 02_working/     ← Working copy (editable)
-        ├── 03_output/      ← Exported files
-        ├── methodology/    ← M1-M4 methodology files (copied from QuestionForge)
+        ├── materials/      ← Input (lectures, slides) - M1 reads
+        ├── methodology/    ← Method guides (copied in Step 0)
+        ├── preparation/    ← M1 + M2 output (foundation for questions)
+        ├── questions/      ← Questions (M3 creates, M4/M5 edit)
+        │   └── history/    ← Automatic backups per step
+        ├── pipeline/       ← Step 1-3 working area
+        │   └── history/    ← Backups
+        ├── output/         ← Step 4 final output
+        │   └── qti/        ← QTI packages (.zip)
         ├── logs/           ← Session logs (shared by both MCPs)
         ├── sources.yaml    ← Source tracking (updated by both MCPs)
         └── session.yaml    ← Session metadata

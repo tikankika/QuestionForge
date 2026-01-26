@@ -1,7 +1,7 @@
 /**
  * read_materials tool for qf-scaffolding MCP
  *
- * Reads instructional materials from the project's 00_materials/ folder.
+ * Reads instructional materials from the project's materials/ folder.
  * Supports PDF text extraction, markdown, and text files.
  *
  * RFC-004: Phase 2 - Updated with filename parameter
@@ -155,7 +155,7 @@ async function readMaterial(
 }
 
 /**
- * Read instructional materials from project's 00_materials/ folder
+ * Read instructional materials from project's materials/ folder
  *
  * Two modes:
  * - filename=null/undefined: List all files (metadata only, no content)
@@ -179,7 +179,7 @@ export async function readMaterials(
     extract_text,
   });
 
-  const materialsPath = join(project_path, "00_materials");
+  const materialsPath = join(project_path, "materials");
 
   try {
     // Check if materials folder exists

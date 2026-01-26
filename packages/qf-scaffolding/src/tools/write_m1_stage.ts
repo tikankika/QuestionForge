@@ -140,7 +140,7 @@ export async function writeM1Stage(
     };
   }
 
-  const methodologyDir = join(project_path, "01_methodology");
+  const methodologyDir = join(project_path, "preparation");
   const filePath = join(methodologyDir, STAGE_FILES[stage]);
   const stageName = STAGE_NAMES[stage];
 
@@ -228,7 +228,7 @@ export async function writeM1Stage(
 export async function getM1Progress(
   projectPath: string
 ): Promise<WriteM1StageResult> {
-  const methodologyDir = join(projectPath, "01_methodology");
+  const methodologyDir = join(projectPath, "preparation");
 
   try {
     const progress = await getProgress(methodologyDir);

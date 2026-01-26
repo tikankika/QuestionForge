@@ -94,7 +94,7 @@ Step 0 → Step 1 (Transform) → Step 2 (Validate) → [Manual Fix Gap] → Ste
 │  │ (Complete content, may need structural   │                │
 │  │  normalization)                          │                │
 │  │                                           │                │
-│  │ SAVES TO: 01_methodology/m5_output.md    │                │
+│  │ SAVES TO: questions/m5_output.md         │                │
 │  │ LOCATION: qf-scaffolding (TypeScript)    │                │
 │  └──────────────────────────────────────────┘                │
 │     ↓                                                         │
@@ -109,7 +109,7 @@ Step 0 → Step 1 (Transform) → Step 2 (Validate) → [Manual Fix Gap] → Ste
 │  │    - Current question position           │                │
 │  │    - Status tracking                     │                │
 │  │    - Session metadata                    │                │
-│  │ 2. Copy to 02_working_files/             │                │
+│  │ 2. Copy to pipeline/                     │                │
 │  │                                           │                │
 │  │ PHASE 2: QUESTION-BY-QUESTION REVIEW     │                │
 │  │ For each question:                       │                │
@@ -132,7 +132,7 @@ Step 0 → Step 1 (Transform) → Step 2 (Validate) → [Manual Fix Gap] → Ste
 │  │ PHASE 3: COMPLETION                      │                │
 │  │ - Remove progress frontmatter            │                │
 │  │ - Generate summary report                │                │
-│  │ - Save to 03_output/                     │                │
+│  │ - Save to output/                        │                │
 │  │                                           │                │
 │  │ 🧠 LEARNING:                             │                │
 │  │ - Track teacher decisions                │                │
@@ -625,39 +625,43 @@ def merge_patterns(step1_pattern, step3_rule):
 
 **Purpose:** Initialize project structure and session
 
-**Updated Project Structure:**
+**Updated Project Structure (RFC-013 v2.1):**
 
 ```
 /project_name/
-├── 00_materials/           # Source materials (unchanged)
-├── 00_reference/           # Reference docs (unchanged)
-├── 01_methodology/         # M1-M5 outputs (UPDATED)
+├── materials/              # Input (lectures, slides) - M1 reads
+├── methodology/            # Method guides (copied in Step 0)
+├── preparation/            # M1 + M2 output (foundation for questions)
 │   ├── m1_analysis.md
-│   ├── m2_design.md
+│   └── m2_design.md
+├── questions/              # Questions (M3 creates, M4/M5 edit)
 │   ├── m3_questions.md
-│   └── m5_output.md       # ← M5 generates here
-├── 02_working_files/       # ← NEW! Step 1 working directory
+│   ├── m5_output.md       # ← M5 generates here
+│   └── history/           # Automatic backups per step
+├── pipeline/               # Step 1-3 working area
 │   ├── step1_working.md   # Current working file
-│   └── step1_backup_*.md  # Backups at each save
-├── 03_output/              # Final outputs (unchanged)
-│   └── questions_final.md
-├── 04_qti/                 # QTI packages (unchanged)
-├── logs/                   # Session logs (UPDATED)
+│   ├── step1_backup_*.md  # Backups at each save
+│   └── history/           # Backups
+├── output/                 # Final output
+│   ├── questions_final.md
+│   └── qti/               # QTI packages (.zip)
+├── logs/                   # Session logs (shared by both MCPs)
 │   ├── session.jsonl
 │   ├── m5_decisions.jsonl
-│   ├── step1_decisions.jsonl  # ← NEW!
+│   ├── step1_decisions.jsonl
 │   └── step3_iterations.jsonl
-└── session.yaml            # Session metadata (unchanged)
+├── sources.yaml            # Source tracking (updated by both MCPs)
+└── session.yaml            # Session metadata
 ```
 
 **What Step 0 Does:**
 
-1. Creates all directories
-2. Copies materials to 00_materials/
-3. Fetches reference documents (kursplan, etc.) to 00_reference/
-4. Initializes session.yaml
-5. Creates empty logs/ directory
-6. **NEW:** Creates 02_working_files/ for Step 1
+1. Creates all directories (materials, methodology, preparation, questions, pipeline, output, logs)
+2. Copies instructional materials to materials/
+3. Copies method guides to methodology/
+4. Fetches reference documents (kursplan, etc.) to project root
+5. Initializes session.yaml and sources.yaml
+6. Creates empty logs/ directory
 
 **Session Initialization:**
 - Determines entry point (m1/m2/m3/m4/pipeline)
@@ -709,13 +713,13 @@ STAGE 4: Question Review
 STAGE 5: Completion
 - Save all QA'd questions to markdown
 - Generate summary report
-- Export to: 01_methodology/m5_output.md
+- Export to: questions/m5_output.md
 - Ready for Step 1
 ```
 
 #### M5 Output Format
 
-**File:** `01_methodology/m5_output.md`
+**File:** `questions/m5_output.md`
 
 **Content:** Raw MQG markdown with:
 - ✅ All required fields present (question_text, options, feedback, etc.)
@@ -780,7 +784,7 @@ Step 1 transforms M5's raw output into a structurally valid MQG markdown file th
 
 **What Happens:**
 
-1. **Load M5 output** from `01_methodology/m5_output.md`
+1. **Load M5 output** from `questions/m5_output.md`
 
 2. **Add progress frontmatter** (YAML):
    ```yaml
@@ -800,8 +804,8 @@ Step 1 transforms M5's raw output into a structurally valid MQG markdown file th
    ```
 
 3. **Save to working directory:**
-   - File: `02_working_files/step1_working.md`
-   - Backup: `02_working_files/step1_backup_001.md`
+   - File: `pipeline/step1_working.md`
+   - Backup: `pipeline/step1_backup_001.md`
 
 4. **Initialize session:**
    - Parse questions into structured format
@@ -874,7 +878,7 @@ FOR EACH question (Q001, Q002, ..., Q040):
      - Update current_question_id
      - Update questions_completed/skipped/deleted
      - Update last_updated timestamp
-     - Save backup to 02_working_files/
+     - Save backup to pipeline/
   
   7. NAVIGATE
      - Auto-advance to next question
@@ -976,12 +980,12 @@ Your choice:
    - Patterns learned: 12
 
 4. **Save final output**
-   - File: `03_output/step1_complete.md`
+   - File: `output/step1_complete.md`
    - Includes all structural fixes
    - Ready for Step 2 validation
 
 5. **Archive working files**
-   - Move 02_working_files/ contents to logs/step1_session/
+   - Move pipeline/ working files to pipeline/history/
    - Preserve all backups
    - Preserve decision log
 
@@ -995,7 +999,7 @@ Your choice:
 
 **Parameters:**
 - `project_path` (required) - Path to project directory
-- `source_file` (optional) - Path to M5 output (default: 01_methodology/m5_output.md)
+- `source_file` (optional) - Path to M5 output (default: questions/m5_output.md)
 
 **Returns:**
 - Session ID
@@ -1006,7 +1010,7 @@ Your choice:
 **What it does:**
 1. Loads M5 output
 2. Adds progress frontmatter
-3. Saves to 02_working_files/step1_working.md
+3. Saves to pipeline/step1_working.md
 4. Creates initial backup
 5. Parses questions
 6. Returns session info
@@ -1138,7 +1142,7 @@ Your choice:
 1. Removes progress frontmatter
 2. Final validation check
 3. Generates summary report
-4. Saves to 03_output/step1_complete.md
+4. Saves to output/step1_complete.md
 5. Archives working files
 6. Closes session
 
@@ -1150,7 +1154,7 @@ Your choice:
 
 **Format:** YAML frontmatter at top of working file
 
-**Location:** `02_working_files/step1_working.md`
+**Location:** `pipeline/step1_working.md`
 
 **Structure:**
 ```yaml
@@ -1190,7 +1194,7 @@ step1_progress:
 
 **When is it removed?**
 - At Step 1 completion (`step1_finish`)
-- Before saving to 03_output/
+- Before saving to output/
 
 ---
 
@@ -1293,7 +1297,7 @@ Future: Auto-suggest this fix with high confidence
    - Content (pedagogical quality)
 4. Generate detailed error report
 
-**Input:** `03_output/step1_complete.md`  
+**Input:** `output/step1_complete.md`  
 **Output:** Error report with categories
 
 ---
@@ -1327,7 +1331,7 @@ Future: Auto-suggest this fix with high confidence
 2. Parse questions into QTI format
 3. Generate manifest.xml
 4. Package as .zip
-5. Save to 04_qti/
+5. Save to output/qti/
 
 **Input:** Valid MQG markdown  
 **Output:** QTI package (.zip)
@@ -1436,7 +1440,7 @@ Future: Auto-suggest this fix with high confidence
 
 **Tasks:**
 1. Update project structure creator
-   - Add 02_working_files/ directory
+   - Add pipeline/ directory
    - Update session initialization
 2. Update documentation
 3. Test with existing projects
@@ -1593,7 +1597,7 @@ Future: Auto-suggest this fix with high confidence
 ### For Existing Projects
 
 1. **Update project structure**
-   - Add 02_working_files/ directory
+   - Add pipeline/ directory
    - Existing projects continue to work
    - Can run Step 1 on old files
 
@@ -1612,7 +1616,7 @@ Future: Auto-suggest this fix with high confidence
 ```
 Old Project (v1.0)
   ↓
-Update folder structure (add 02_working_files/)
+Update folder structure (add pipeline/, questions/, preparation/)
   ↓
 Run M5 if content incomplete
   ↓
@@ -1636,7 +1640,8 @@ New Project (v2.0) ✅
 ### What Changed
 
 **Step 0:**
-- ✅ Added 02_working_files/ directory
+- ✅ Added pipeline/ directory (replaces 02_working_files/)
+- ✅ Renamed folders: materials/, methodology/, preparation/, questions/, output/
 
 **Step 1:**
 - ❌ REMOVED: MODE A (automatic normalization)
@@ -1746,14 +1751,14 @@ step1_progress:
 // MCP tool call
 step1_start({
   project_path: "/Users/niklas/Projects/ARTI1000X_Entry_Check",
-  source_file: "01_methodology/m5_output.md"
+  source_file: "questions/m5_output.md"
 })
 
 // Returns
 {
   session_id: "abc123",
   total_questions: 40,
-  working_file: "02_working_files/step1_working.md",
+  working_file: "pipeline/step1_working.md",
   first_question: {
     id: "Q001",
     lines: "001-024",

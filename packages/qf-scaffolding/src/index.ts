@@ -8,7 +8,7 @@
  * Tools:
  * - load_stage: Load methodology content for a stage
  * - complete_stage: Complete a stage with optional output creation
- * - read_materials: Read instructional materials from 00_materials/ (RFC-004)
+ * - read_materials: Read instructional materials from materials/ (RFC-004)
  * - read_reference: Read reference documents from project root (RFC-004)
  *
  * This server provides methodology guidance for creating assessment questions
@@ -100,7 +100,7 @@ const TOOLS: Tool[] = [
       `Complete a methodology stage with optional output creation. ` +
       `Call this when teacher approves a stage and is ready to move on. ` +
       `For stages that produce outputs (learning objectives, misconceptions, etc.), ` +
-      `include the output data and it will be validated, formatted, and saved to 01_methodology/.`,
+      `include the output data and it will be validated, formatted, and saved to preparation/.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -148,7 +148,7 @@ const TOOLS: Tool[] = [
   {
     name: "read_materials",
     description:
-      `⚠️ PRIMÄRT för att LISTA filer i 00_materials/ (filename=null). ` +
+      `⚠️ PRIMÄRT för att LISTA filer i materials/ (filename=null). ` +
       `För PDF-analys: Be användaren LADDA UPP filen till chatten istället - Claude.ai har bättre PDF-läsning! ` +
       `Read mode (filename="X.pdf") är endast FALLBACK om användaren inte kan ladda upp.`,
     inputSchema: {
@@ -207,7 +207,7 @@ const TOOLS: Tool[] = [
   {
     name: "save_m1_progress",
     description:
-      `Save M1 (Material Analysis) progress to 01_methodology/m1_analysis.md. ` +
+      `Save M1 (Material Analysis) progress to preparation/m1_analysis.md. ` +
       `Three actions: (1) add_material - progressive saves during Stage 0 after each PDF; ` +
       `(2) save_stage - saves completed stage output (Stage 0-5); ` +
       `(3) finalize_m1 - marks M1 complete, ready for M2. ` +
@@ -302,8 +302,8 @@ const TOOLS: Tool[] = [
     name: "read_project_file",
     description:
       `Read any file within the project directory. ` +
-      `Use this when you need to read files outside of 00_materials/ or 00_reference/. ` +
-      `For example: questions in 03_questions/, outputs in 05/, etc. ` +
+      `Use this when you need to read files outside of materials/. ` +
+      `For example: questions in questions/, outputs in output/, etc. ` +
       `Security: Only allows reading files within the project directory.`,
     inputSchema: {
       type: "object",
@@ -316,7 +316,7 @@ const TOOLS: Tool[] = [
           type: "string",
           description:
             "Path relative to project folder. Examples: " +
-            "'05/questions.md', '03_questions/draft.md', 'session.yaml'",
+            "'output/questions.md', 'questions/draft.md', 'session.yaml'",
         },
       },
       required: ["project_path", "relative_path"],
@@ -340,7 +340,7 @@ const TOOLS: Tool[] = [
           type: "string",
           description:
             "Path relative to project folder. Examples: " +
-            "'05/questions.md', '03_questions/draft.md'",
+            "'output/questions.md', 'questions/draft.md'",
         },
         content: {
           type: "string",
@@ -537,7 +537,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         if (result.mode === "list") {
           // List mode response
-          lines.push(`# Materials in 00_materials/`);
+          lines.push(`# Materials in materials/`);
           lines.push(``);
           lines.push(`**Mode:** List (file metadata only)`);
           lines.push(`**Total files:** ${result.total_files}`);
@@ -552,7 +552,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             lines.push(``);
             lines.push(`*Use read_materials(filename="X.pdf") to read a specific file.*`);
           } else {
-            lines.push(`*No materials found in 00_materials/*`);
+            lines.push(`*No materials found in materials/*`);
           }
         } else {
           // Read mode response

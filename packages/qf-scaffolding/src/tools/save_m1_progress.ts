@@ -2,7 +2,7 @@
  * save_m1_progress tool for qf-scaffolding MCP
  *
  * Progressive saving tool for M1 (Material Analysis).
- * All M1 stages save to a single document: 01_methodology/m1_analysis.md
+ * All M1 stages save to a single document: preparation/m1_analysis.md
  *
  * RFC-004: Phase 2 - Progressive Saving
  *
@@ -205,7 +205,7 @@ async function updateSessionYaml(
       status: isComplete ? "complete" : "in_progress",
       current_stage: currentStage,
       stages_completed: stagesCompleted,
-      output: "01_methodology/m1_analysis.md",
+      output: "preparation/m1_analysis.md",
       materials_analyzed: materialsAnalyzed,
       total_materials: totalMaterials,
       last_updated: new Date().toISOString(),
@@ -227,7 +227,7 @@ export async function saveM1Progress(
   const { project_path, stage, action, data } = input;
   const startTime = Date.now();
 
-  const documentPath = join(project_path, "01_methodology", "m1_analysis.md");
+  const documentPath = join(project_path, "preparation", "m1_analysis.md");
 
   // Log tool_start
   logEvent(project_path, "", "save_m1_progress", "tool_start", "info", {

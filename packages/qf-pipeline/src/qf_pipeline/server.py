@@ -122,7 +122,7 @@ async def list_tools() -> List[Tool]:
                     },
                     "materials_folder": {
                         "type": "string",
-                        "description": "NEW SESSION: Path to folder containing instructional materials (required for entry_point m1). Entire folder structure copied to 00_materials/ (junk files filtered).",
+                        "description": "NEW SESSION: Path to folder containing instructional materials (required for entry_point m1). Entire folder structure copied to materials/ (junk files filtered).",
                     },
                     "project_path": {
                         "type": "string",
@@ -191,7 +191,7 @@ async def list_tools() -> List[Tool]:
         # Step 4: Export
         Tool(
             name="step4_export",
-            description="Export to QTI package. If session active: uses working_file and 03_output/. Or provide paths directly.",
+            description="Export to QTI package. If session active: uses questions/ and output/. Or provide paths directly.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -450,7 +450,7 @@ async def list_tools() -> List[Tool]:
                     },
                     "relative_path": {
                         "type": "string",
-                        "description": "Path relative to project_path, e.g. '05/questions.md'",
+                        "description": "Path relative to project_path, e.g. 'output/questions.md'",
                     },
                 },
                 "required": ["project_path", "relative_path"],
@@ -808,11 +808,11 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
             f"  Entry point: {entry_point}\n"
         )
 
-        if result.get('working_file'):
-            response_text += f"  Arbetsfil: {result['working_file']}\n"
+        if result.get('questions_file'):
+            response_text += f"  Frågefil: {result['questions_file']}\n"
 
         if result.get('materials_copied'):
-            response_text += f"  Material: {result['materials_copied']} filer kopierade till 00_materials/\n"
+            response_text += f"  Material: {result['materials_copied']} filer kopierade till materials/\n"
 
         response_text += f"  Output: {result['output_folder']}\n\n{next_steps}"
 

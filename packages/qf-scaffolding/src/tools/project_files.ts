@@ -3,7 +3,7 @@
  *
  * General-purpose file read/write within project directory.
  * Allows Claude to access ANY file within the project, not just
- * specific folders like 00_materials/ or 00_reference/.
+ * specific folders like materials/ or questions/.
  *
  * Security: Only allows access within project_path (no path traversal)
  */
@@ -20,7 +20,7 @@ import { logEvent, logError } from "../utils/logger.js";
 
 export const readProjectFileSchema = z.object({
   project_path: z.string(),
-  relative_path: z.string(), // Path relative to project_path, e.g. "05/questions.md"
+  relative_path: z.string(), // Path relative to project_path, e.g. "output/questions.md"
 });
 
 export type ReadProjectFileInput = z.infer<typeof readProjectFileSchema>;

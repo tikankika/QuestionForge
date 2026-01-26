@@ -554,9 +554,9 @@ async function verifyLogFile() {
 }
 
 async function listCreatedFiles() {
-  console.log('\n📁 Files created in 01_methodology/:');
+  console.log('\n📁 Files created in preparation/:');
 
-  const methodologyDir = path.join(TEST_PROJECT_PATH, '01_methodology');
+  const methodologyDir = path.join(TEST_PROJECT_PATH, 'preparation');
   if (fs.existsSync(methodologyDir)) {
     const files = fs.readdirSync(methodologyDir);
     files.forEach(f => {
