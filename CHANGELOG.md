@@ -6,6 +6,72 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-26
 
+#### M5: Interactive Question-by-Question QFMD Generation (v0.4.0 REBUILD)
+- **New Approach:** Human-guided, flexible parsing instead of rigid format
+  - Best-effort parsing with confidence scores
+  - Asks user when fields are missing (e.g., "Vad ska frågan heta?")
+  - Question-by-question approval → immediate write to file
+  - Handles varied M3 formats: `Correct Answer:` vs `Correct Answers:`, etc.
+- **New Interactive MCP Tools:**
+  - `m5_start` - Start session, parse M3 file, show first question
+  - `m5_approve` - Approve current question, write to file, show next
+  - `m5_update_field` - Fill in missing field before approval
+  - `m5_skip` - Skip question, move to next
+  - `m5_status` - Show progress (approved/skipped/pending)
+  - `m5_finish` - End session, show summary
+- **Workflow:**
+  1. `m5_start` → Parses M3, shows Q1 interpretation with confidence
+  2. If missing fields → asks user (e.g., "Vad är rätt svar?")
+  3. User provides value → `m5_update_field`
+  4. `m5_approve` → Writes Q1 to QFMD, shows Q2
+  5. Repeat until all questions processed
+- **Files added (qf-scaffolding):**
+  - `src/m5/session.ts` - Session state management
+  - `src/m5/flexible_parser.ts` - Best-effort M3 parser with confidence
+  - `src/tools/m5_interactive_tools.ts` - New MCP tool implementations
+- **Files modified:**
+  - `src/index.ts` - Register interactive tools, version 0.4.0
+  - `package.json` - Version bump to 0.4.0
+- **Legacy tools kept:** `m5_check`, `m5_generate` (batch mode)
+
+#### M5: Content Completeness & QFMD Generation (v0.3.0 - batch mode)
+- **Purpose:** Bridge between M3 (human-readable) and pipeline (QFMD format)
+  - M3 outputs human-readable format (Metadata, Question Stem, Options, etc.)
+  - M5 checks content completeness and generates QFMD
+  - Distinct from M4: M5 = "is everything there?", M4 = "is everything good?"
+- **New MCP Tools:**
+  - `m5_check` - Check M3 output for content completeness
+    - Validates required fields per question type
+    - Returns detailed report with issues by question
+    - Uses Step 4 specs as source of truth
+  - `m5_generate` - Generate QFMD from M3 human-readable format
+    - Converts M3 format to structured QFMD
+    - Supports skip_incomplete option to ignore errored questions
+    - Auto-generates identifiers from course code and type
+- **M3 Format Parsing:**
+  - Parses: `### Q1 - Title`, `**Metadata:**`, `**Question Stem:**`, etc.
+  - Extracts: LO, Bloom, Difficulty, Type, Points, Labels
+  - Handles Swedish and English field names
+- **Type Requirements:**
+  - 16 question types supported
+  - Each type has: requiredMetadata, requiredFields, optionalFields, constraints
+  - Examples: MC requires 3-6 options, hotspot requires image
+- **QFMD Generation:**
+  - Header with `^question`, `^type`, `^identifier`, `^points`, `^labels`
+  - Field blocks with `@field:`, `@end_field`
+  - Nested feedback with `@@field:`, `@@end_field`
+  - Question separators `---`
+- **Files added (qf-scaffolding):**
+  - `src/m5/types.ts` - Type definitions
+  - `src/m5/parser.ts` - M3 format parser
+  - `src/m5/checker.ts` - Content completeness checker
+  - `src/m5/generator.ts` - QFMD generator
+  - `src/m5/index.ts` - Module exports
+  - `src/tools/m5_tools.ts` - MCP tool implementations
+- **Files modified:**
+  - `src/index.ts` - Register M5 MCP tools
+  - `package.json` - Version bump to 0.3.0
+
 #### Step 1: RFC-013 Rebuild - Interactive Guided Build (MAJOR)
 - **Architecture:** Step 1 is now a "safety net" for structural issues
   - M5 should generate structurally correct output

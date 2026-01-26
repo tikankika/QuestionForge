@@ -3,13 +3,15 @@
 /**
  * QF-Scaffolding MCP Server
  *
- * MCP server for M1-M4 methodology guidance with output creation.
+ * MCP server for M1-M5 methodology guidance with output creation.
  *
  * Tools:
  * - load_stage: Load methodology content for a stage
  * - complete_stage: Complete a stage with optional output creation
  * - read_materials: Read instructional materials from materials/ (RFC-004)
  * - read_reference: Read reference documents from project root (RFC-004)
+ * - m5_check: Check M3 output for content completeness
+ * - m5_generate: Generate QFMD from M3 output
  *
  * This server provides methodology guidance for creating assessment questions
  * through a structured, pedagogical process.
@@ -35,9 +37,27 @@ import {
   writeProjectFileSchema,
 } from "./tools/project_files.js";
 import { getStageOutputType } from "./outputs/index.js";
+import {
+  m5Check,
+  m5CheckSchema,
+  m5Generate,
+  m5GenerateSchema,
+} from "./tools/m5_tools.js";
+import {
+  m5Start,
+  m5StartSchema,
+  m5Approve,
+  m5ApproveSchema,
+  m5UpdateField,
+  m5UpdateFieldSchema,
+  m5Skip,
+  m5SkipSchema,
+  m5Status,
+  m5Finish,
+} from "./tools/m5_interactive_tools.js";
 
 // Server version
-const VERSION = "0.2.0";
+const VERSION = "0.4.0";
 
 // Create MCP server
 const server = new Server(
@@ -358,6 +378,184 @@ const TOOLS: Tool[] = [
         },
       },
       required: ["project_path", "relative_path", "content"],
+    },
+  },
+  {
+    name: "m5_check",
+    description:
+      `Check M3 output for content completeness before QFMD generation. ` +
+      `Validates that all required fields are present for each question type. ` +
+      `Returns a detailed report with issues by question. ` +
+      `Run this BEFORE m5_generate to identify problems.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder.",
+        },
+        source_file: {
+          type: "string",
+          description:
+            "Relative path to M3 output file. Default: questions/m3_output.md",
+        },
+      },
+      required: ["project_path"],
+    },
+  },
+  {
+    name: "m5_generate",
+    description:
+      `Generate QFMD from M3 human-readable format. ` +
+      `Converts M3 output to the structured QFMD format used by the pipeline. ` +
+      `Run m5_check first to identify any issues. ` +
+      `Output file goes to questions/m5_output.md by default.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder.",
+        },
+        source_file: {
+          type: "string",
+          description:
+            "Relative path to M3 output file. Default: questions/m3_output.md",
+        },
+        output_file: {
+          type: "string",
+          description:
+            "Relative path for QFMD output. Default: questions/m5_output.md",
+        },
+        course_code: {
+          type: "string",
+          description: "Course code for identifiers (e.g., ARTI1000X).",
+        },
+        title: {
+          type: "string",
+          description: "Title for the question set.",
+        },
+        skip_incomplete: {
+          type: "boolean",
+          description:
+            "Skip questions with completeness errors. Default: false.",
+          default: false,
+        },
+        overwrite: {
+          type: "boolean",
+          description: "Overwrite existing output file. Default: false.",
+          default: false,
+        },
+      },
+      required: ["project_path"],
+    },
+  },
+  // ========== M5 INTERACTIVE TOOLS (Question-by-Question) ==========
+  {
+    name: "m5_start",
+    description:
+      `Start M5 interactive session for question-by-question QFMD generation. ` +
+      `Parses M3 file with best-effort extraction and shows first question for review. ` +
+      `If fields are missing, will ask user to provide them.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder.",
+        },
+        source_file: {
+          type: "string",
+          description: "Relative path to M3 file. Default: questions/m3_output.md",
+        },
+        output_file: {
+          type: "string",
+          description: "Relative path for QFMD output. Default: questions/m5_output.md",
+        },
+        course_code: {
+          type: "string",
+          description: "Course code for identifiers (e.g., ARTI1000X).",
+        },
+        title: {
+          type: "string",
+          description: "Title for the question set.",
+        },
+      },
+      required: ["project_path"],
+    },
+  },
+  {
+    name: "m5_approve",
+    description:
+      `Approve current question and write to QFMD file. ` +
+      `Optionally provide corrections for any fields. ` +
+      `After approval, shows next question for review.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        corrections: {
+          type: "object",
+          description: "Field corrections: { fieldName: newValue }",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "m5_update_field",
+    description:
+      `Update a field in the current question. ` +
+      `Use this when a field is missing or needs correction before approval.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        field: {
+          type: "string",
+          description: "Field to update (title, type, stem, answer, feedback.correct, etc.)",
+        },
+        value: {
+          description: "New value for the field",
+        },
+      },
+      required: ["field", "value"],
+    },
+  },
+  {
+    name: "m5_skip",
+    description:
+      `Skip current question and move to next. ` +
+      `Skipped questions are not written to output file.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        reason: {
+          type: "string",
+          description: "Reason for skipping (optional)",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "m5_status",
+    description:
+      `Get current M5 session status. ` +
+      `Shows progress: approved, skipped, pending questions.`,
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "m5_finish",
+    description:
+      `Finish M5 session and get summary. ` +
+      `Clears session state.`,
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
     },
   },
 ];
@@ -890,12 +1088,492 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
+  // Handle m5_check
+  if (name === "m5_check") {
+    try {
+      const validatedInput = m5CheckSchema.parse(args);
+      const result = await m5Check(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`# M5 Content Completeness Check`);
+        lines.push(``);
+        lines.push(`**Source:** ${result.source_file}`);
+        lines.push(``);
+        lines.push(`## Summary`);
+        lines.push(``);
+        lines.push(`| Metric | Value |`);
+        lines.push(`|--------|-------|`);
+        lines.push(`| Total questions | ${result.total_questions} |`);
+        lines.push(`| Passed | ${result.passed_questions} |`);
+        lines.push(`| With issues | ${result.questions_with_issues} |`);
+        lines.push(`| Errors | ${result.errors} |`);
+        lines.push(`| Warnings | ${result.warnings} |`);
+        lines.push(``);
+
+        if (result.ready_for_generation) {
+          lines.push(`✅ **Ready for QFMD generation** - Run m5_generate to create QFMD output.`);
+        } else {
+          lines.push(`❌ **Not ready for generation** - Fix errors before running m5_generate.`);
+        }
+
+        lines.push(``);
+        lines.push(`## Distributions`);
+        lines.push(``);
+        lines.push(`**By Type:**`);
+        for (const [type, count] of Object.entries(result.by_type || {})) {
+          lines.push(`- ${type}: ${count}`);
+        }
+        lines.push(``);
+        lines.push(`**By Bloom:**`);
+        for (const [bloom, count] of Object.entries(result.by_bloom || {})) {
+          lines.push(`- ${bloom}: ${count}`);
+        }
+        lines.push(``);
+        lines.push(`**By Difficulty:**`);
+        for (const [diff, count] of Object.entries(result.by_difficulty || {})) {
+          lines.push(`- ${diff}: ${count}`);
+        }
+
+        if (result.report) {
+          lines.push(``);
+          lines.push(`---`);
+          lines.push(``);
+          lines.push(result.report);
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: lines.join("\n"),
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error checking M5: ${result.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Validation error: ${errorMessage}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_generate
+  if (name === "m5_generate") {
+    try {
+      const validatedInput = m5GenerateSchema.parse(args);
+      const result = await m5Generate(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`# M5 QFMD Generation Complete`);
+        lines.push(``);
+        lines.push(`✅ **Output created:** ${result.output_file}`);
+        lines.push(``);
+        lines.push(`## Statistics`);
+        lines.push(``);
+        lines.push(`| Metric | Value |`);
+        lines.push(`|--------|-------|`);
+        lines.push(`| Source questions | ${result.total_questions} |`);
+        lines.push(`| Generated | ${result.generated_questions} |`);
+        if (result.skipped_questions && result.skipped_questions.length > 0) {
+          lines.push(`| Skipped | ${result.skipped_questions.length} |`);
+        }
+        lines.push(``);
+
+        if (result.skipped_questions && result.skipped_questions.length > 0) {
+          lines.push(`**Skipped questions:** ${result.skipped_questions.join(", ")}`);
+          lines.push(``);
+        }
+
+        if (result.generation_warnings && result.generation_warnings.length > 0) {
+          lines.push(`**Warnings:**`);
+          for (const warning of result.generation_warnings) {
+            lines.push(`- ⚠️ ${warning}`);
+          }
+          lines.push(``);
+        }
+
+        lines.push(`## Preview`);
+        lines.push(``);
+        lines.push("```markdown");
+        lines.push(result.preview || "");
+        lines.push("```");
+        lines.push(``);
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(`**Next step:** Run Step 1 (step1_start) to validate and refine the QFMD.`);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: lines.join("\n"),
+            },
+          ],
+        };
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error generating QFMD: ${result.error}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Validation error: ${errorMessage}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  // ========== M5 INTERACTIVE HANDLERS ==========
+
+  // Handle m5_start
+  if (name === "m5_start") {
+    try {
+      const validatedInput = m5StartSchema.parse(args);
+      const result = await m5Start(validatedInput);
+
+      if (result.success && result.first_question) {
+        const q = result.first_question;
+        const lines: string[] = [];
+
+        lines.push(`# M5 Session Started`);
+        lines.push(``);
+        lines.push(`**Session ID:** ${result.session_id}`);
+        lines.push(`**Total Questions:** ${result.total_questions}`);
+        lines.push(`**Source:** ${result.source_file}`);
+        lines.push(`**Output:** ${result.output_file}`);
+        lines.push(``);
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(`## ${q.question_number} - Review`);
+        lines.push(``);
+
+        // Show interpretation
+        lines.push(`### Min tolkning:`);
+        lines.push(``);
+        lines.push(`| Fält | Värde | Confidence |`);
+        lines.push(`|------|-------|------------|`);
+        lines.push(`| **Titel** | ${q.interpretation.title.value || "❓ SAKNAS"} | ${q.interpretation.title.confidence}% |`);
+        lines.push(`| **Typ** | ${q.interpretation.type.value || "❓ SAKNAS"} (raw: "${q.interpretation.type.raw}") | ${q.interpretation.type.confidence}% |`);
+        lines.push(`| **Frågetext** | ${q.interpretation.stem.preview}... | ${q.interpretation.stem.confidence}% |`);
+        lines.push(`| **Alternativ** | ${q.interpretation.options.count} st | ${q.interpretation.options.confidence}% |`);
+        lines.push(`| **Svar** | ${q.interpretation.answer.value || "❓ SAKNAS"} | ${q.interpretation.answer.confidence}% |`);
+        lines.push(`| **Feedback** | ${q.interpretation.feedback.has_correct ? "✓" : "❌"} correct, ${q.interpretation.feedback.has_incorrect ? "✓" : "❌"} incorrect | |`);
+        lines.push(`| **Bloom** | ${q.interpretation.bloom.value || "-"} | |`);
+        lines.push(`| **Difficulty** | ${q.interpretation.difficulty.value || "-"} | |`);
+        lines.push(`| **Labels** | ${q.interpretation.labels.values.slice(0, 3).join(", ")}${q.interpretation.labels.count > 3 ? "..." : ""} | |`);
+        lines.push(``);
+
+        // Questions for user
+        if (q.needs_user_input) {
+          lines.push(`### ❓ Behöver svar:`);
+          lines.push(``);
+          for (const question of q.questions_for_user) {
+            lines.push(`- ${question}`);
+          }
+          lines.push(``);
+          lines.push(`*Använd m5_update_field för att fylla i saknade fält, sedan m5_approve.*`);
+        } else {
+          lines.push(`### ✅ Redo för godkännande`);
+          lines.push(``);
+          lines.push(`*Kör m5_approve för att godkänna och skriva till fil.*`);
+        }
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error: ${result.error}` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Validation error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_approve
+  if (name === "m5_approve") {
+    try {
+      const validatedInput = m5ApproveSchema.parse(args);
+      const result = await m5Approve(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+
+        lines.push(`✅ **${result.approved_question} godkänd och skriven till fil**`);
+        lines.push(``);
+
+        if (result.progress) {
+          lines.push(`**Progress:** ${result.progress.approved}/${result.progress.total} godkända`);
+          lines.push(``);
+        }
+
+        if (result.session_complete) {
+          lines.push(`🎉 **Session klar!** Alla frågor är behandlade.`);
+          lines.push(``);
+          lines.push(`*Kör m5_finish för att se sammanfattning.*`);
+        } else if (result.next_question) {
+          const q = result.next_question;
+          lines.push(`---`);
+          lines.push(``);
+          lines.push(`## ${q.question_number} - Review`);
+          lines.push(``);
+
+          lines.push(`### Min tolkning:`);
+          lines.push(``);
+          lines.push(`| Fält | Värde | Confidence |`);
+          lines.push(`|------|-------|------------|`);
+          lines.push(`| **Titel** | ${q.interpretation.title.value || "❓ SAKNAS"} | ${q.interpretation.title.confidence}% |`);
+          lines.push(`| **Typ** | ${q.interpretation.type.value || "❓ SAKNAS"} | ${q.interpretation.type.confidence}% |`);
+          lines.push(`| **Frågetext** | ${q.interpretation.stem.preview}... | |`);
+          lines.push(`| **Alternativ** | ${q.interpretation.options.count} st | |`);
+          lines.push(`| **Svar** | ${q.interpretation.answer.value || "❓ SAKNAS"} | ${q.interpretation.answer.confidence}% |`);
+          lines.push(`| **Feedback** | ${q.interpretation.feedback.has_correct ? "✓" : "❌"} correct | |`);
+          lines.push(``);
+
+          if (q.needs_user_input) {
+            lines.push(`### ❓ Behöver svar:`);
+            for (const question of q.questions_for_user) {
+              lines.push(`- ${question}`);
+            }
+            lines.push(``);
+          } else {
+            lines.push(`### ✅ Redo för godkännande`);
+          }
+        }
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error: ${result.error}` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Validation error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_update_field
+  if (name === "m5_update_field") {
+    try {
+      const validatedInput = m5UpdateFieldSchema.parse(args);
+      const result = await m5UpdateField(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`✅ **Uppdaterade ${result.updated_field}:** ${JSON.stringify(result.new_value)}`);
+        lines.push(``);
+
+        if (result.current_question) {
+          const q = result.current_question;
+          if (q.needs_user_input && q.questions_for_user.length > 0) {
+            lines.push(`**Kvarstående frågor:**`);
+            for (const question of q.questions_for_user) {
+              lines.push(`- ${question}`);
+            }
+          } else {
+            lines.push(`✅ **Redo för godkännande** - Kör m5_approve`);
+          }
+        }
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error: ${result.error}` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Validation error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_skip
+  if (name === "m5_skip") {
+    try {
+      const validatedInput = m5SkipSchema.parse(args);
+      const result = await m5Skip(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`⏭️ **Hoppade över ${result.skipped_question}**`);
+        lines.push(``);
+
+        if (result.progress) {
+          lines.push(`**Progress:** ${result.progress.approved} godkända, ${result.progress.skipped} hoppade över`);
+          lines.push(``);
+        }
+
+        if (result.session_complete) {
+          lines.push(`🎉 **Session klar!**`);
+          lines.push(`*Kör m5_finish för sammanfattning.*`);
+        } else if (result.next_question) {
+          const q = result.next_question;
+          lines.push(`---`);
+          lines.push(`## ${q.question_number} - Review`);
+          lines.push(``);
+          lines.push(`| Fält | Värde |`);
+          lines.push(`|------|-------|`);
+          lines.push(`| **Titel** | ${q.interpretation.title.value || "❓ SAKNAS"} |`);
+          lines.push(`| **Typ** | ${q.interpretation.type.value || "❓ SAKNAS"} |`);
+          lines.push(`| **Svar** | ${q.interpretation.answer.value || "❓ SAKNAS"} |`);
+        }
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error skipping question` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Validation error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_status
+  if (name === "m5_status") {
+    try {
+      const result = await m5Status();
+
+      const lines: string[] = [];
+      lines.push(`# M5 Session Status`);
+      lines.push(``);
+
+      if (!result.session_active) {
+        lines.push(`**Status:** Ingen aktiv session`);
+        lines.push(``);
+        lines.push(`*Kör m5_start för att börja.*`);
+      } else {
+        lines.push(`**Session ID:** ${result.session_id}`);
+        lines.push(`**Output:** ${result.output_file}`);
+        lines.push(``);
+        if (result.progress) {
+          lines.push(`| Status | Antal |`);
+          lines.push(`|--------|-------|`);
+          lines.push(`| Godkända | ${result.progress.approved} |`);
+          lines.push(`| Hoppade över | ${result.progress.skipped} |`);
+          lines.push(`| Kvar | ${result.progress.pending} |`);
+          lines.push(`| **Total** | ${result.progress.total} |`);
+          lines.push(``);
+          lines.push(`**Nuvarande:** ${result.progress.current_question || "-"}`);
+        }
+      }
+
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_finish
+  if (name === "m5_finish") {
+    try {
+      const result = await m5Finish();
+
+      if (result.success && result.summary) {
+        const lines: string[] = [];
+        lines.push(`# M5 Session Complete`);
+        lines.push(``);
+        lines.push(`## Sammanfattning`);
+        lines.push(``);
+        lines.push(`| Metric | Antal |`);
+        lines.push(`|--------|-------|`);
+        lines.push(`| Total frågor | ${result.summary.total_questions} |`);
+        lines.push(`| Godkända | ${result.summary.approved} |`);
+        lines.push(`| Hoppade över | ${result.summary.skipped} |`);
+        lines.push(``);
+        lines.push(`**Output fil:** ${result.summary.output_file}`);
+        lines.push(``);
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(`**Nästa steg:** Kör Step 1 (step1_start) för att validera QFMD.`);
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error: ${result.error}` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
   // Unknown tool
   return {
     content: [
       {
         type: "text",
-        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file`,
+        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file, m5_check, m5_generate, m5_start, m5_approve, m5_update_field, m5_skip, m5_status, m5_finish`,
       },
     ],
     isError: true,
@@ -906,7 +1584,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`QF-Scaffolding MCP Server v${VERSION} running (M1-M4 support)`);
+  console.error(`QF-Scaffolding MCP Server v${VERSION} running (M1-M5 Interactive)`);
 }
 
 main().catch((error) => {
