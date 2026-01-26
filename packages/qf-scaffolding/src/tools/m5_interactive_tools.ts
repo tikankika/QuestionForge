@@ -19,6 +19,7 @@ import {
   updateField,
   type ParsedInterpretation,
 } from "../m5/session.js";
+import { logEvent, logError } from "../utils/logger.js";
 
 // ============================================================================
 // Schemas
@@ -213,9 +214,42 @@ export async function m5Start(
     title: input.title,
   });
 
+  // Log session start with parse statistics
+  const parseStats = {
+    total: questions.length,
+    auto_ready: questions.filter(q => q.missingFields.length === 0 && q.uncertainFields.length === 0).length,
+    needs_input: questions.filter(q => q.missingFields.length > 0).length,
+    uncertain: questions.filter(q => q.uncertainFields.length > 0).length,
+    by_type: questions.reduce((acc, q) => {
+      const t = q.fields.type.value || "unknown";
+      acc[t] = (acc[t] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>),
+  };
+
+  logEvent(projectPath, "", "m5_start", "session_started", "info", {
+    session_id: session.sessionId,
+    source_file: sourceFile,
+    output_file: outputFile,
+    parse_stats: parseStats,
+  });
+
+  // Log parse details for each question
+  for (const q of questions) {
+    logEvent(projectPath, "", "m5_start", "question_parsed", "debug", {
+      question_id: q.questionNumber,
+      type: q.fields.type.value,
+      type_confidence: q.fields.type.confidence,
+      missing_fields: q.missingFields,
+      uncertain_fields: q.uncertainFields,
+      needs_fallback: q.missingFields.length > 0 || q.uncertainFields.length > 0,
+    });
+  }
+
   // Get first question
   const firstQ = getCurrentQuestion();
   if (!firstQ) {
+    logError(projectPath, "m5_start", "no_first_question", "Kunde inte hämta första frågan");
     return {
       success: false,
       error: "Kunde inte hämta första frågan",
@@ -291,13 +325,33 @@ export async function m5Approve(
   const result = approveQuestion();
 
   if (!result.success) {
+    logError(session.projectPath, "m5_approve", "approve_failed", result.error || "Unknown error", {
+      question_id: current.questionNumber,
+    });
     return { success: false, error: result.error };
   }
+
+  // Log successful approval
+  logEvent(session.projectPath, "", "m5_approve", "question_approved", "info", {
+    question_id: current.questionNumber,
+    type: current.fields.type.value,
+    method: "auto_parse",
+    corrections_applied: input.corrections ? Object.keys(input.corrections) : [],
+    confidence_scores: {
+      type: current.fields.type.confidence,
+      answer: current.fields.answer.confidence,
+      stem: current.fields.stem.confidence,
+    },
+  });
 
   const progress = getProgress();
 
   // Check if session is complete
   if (!result.nextQuestion) {
+    logEvent(session.projectPath, "", "m5_approve", "session_complete", "info", {
+      total_approved: progress?.approved,
+      total_skipped: progress?.skipped,
+    });
     return {
       success: true,
       approved_question: current.questionNumber,
@@ -348,19 +402,34 @@ export async function m5UpdateField(
     return { success: false, error: "Ingen aktiv M5-session" };
   }
 
+  const current = getCurrentQuestion();
+  const oldValue = current ? (current.fields as any)[input.field]?.value : undefined;
+
   const result = updateField(input.field, input.value);
 
   if (!result.success) {
+    logError(session.projectPath, "m5_update_field", "update_failed", result.error || "Unknown error", {
+      question_id: current?.questionNumber,
+      field: input.field,
+    });
     return { success: false, error: result.error };
   }
 
-  const current = getCurrentQuestion();
+  // Log field update
+  logEvent(session.projectPath, "", "m5_update_field", "field_updated", "info", {
+    question_id: current?.questionNumber,
+    field: input.field,
+    old_value: oldValue,
+    new_value: input.value,
+  });
+
+  const updatedCurrent = getCurrentQuestion();
 
   return {
     success: true,
     updated_field: input.field,
     new_value: input.value,
-    current_question: current ? formatQuestionReview(current) : undefined,
+    current_question: updatedCurrent ? formatQuestionReview(updatedCurrent) : undefined,
   };
 }
 
@@ -395,6 +464,15 @@ export async function m5Skip(
   }
 
   const result = skipQuestion(input.reason);
+
+  // Log skip event
+  logEvent(session.projectPath, "", "m5_skip", "question_skipped", "info", {
+    question_id: current.questionNumber,
+    type: current.fields.type.value,
+    reason: input.reason || "no reason provided",
+    missing_fields: current.missingFields,
+    uncertain_fields: current.uncertainFields,
+  });
 
   const progress = getProgress();
 
@@ -510,6 +588,19 @@ export async function m5Finish(): Promise<M5FinishResult> {
     skipped: progress?.skipped || 0,
     output_file: session.outputFile,
   };
+
+  // Log session finish
+  logEvent(session.projectPath, "", "m5_finish", "session_finished", "info", {
+    session_id: session.sessionId,
+    duration_ms: Date.now() - new Date(session.startedAt).getTime(),
+    total_questions: summary.total_questions,
+    approved: summary.approved,
+    skipped: summary.skipped,
+    output_file: summary.output_file,
+    approval_rate: summary.total_questions > 0
+      ? Math.round((summary.approved / summary.total_questions) * 100)
+      : 0,
+  });
 
   // Clear session
   clearSession();
@@ -783,6 +874,17 @@ export async function m5Fallback(): Promise<M5FallbackResult> {
   // Get template for this type
   const template = QFMD_TEMPLATES[detectedType] || QFMD_TEMPLATES["multiple_choice_single"];
 
+  // Log fallback mode entry
+  logEvent(session.projectPath, "", "m5_fallback", "fallback_requested", "warn", {
+    question_id: current.questionNumber,
+    detected_type: detectedType,
+    type_raw: typeRaw,
+    missing_fields: current.missingFields,
+    uncertain_fields: current.uncertainFields,
+    type_confidence: current.fields.type.confidence,
+    raw_content_preview: current.rawContent.substring(0, 200),
+  });
+
   return {
     success: true,
     question_number: current.questionNumber,
@@ -847,6 +949,10 @@ export async function m5SubmitQfmd(
   // Validate QFMD has basic structure
   const qfmd = input.qfmd_content.trim();
   if (!qfmd.includes("^type") || !qfmd.includes("@field:")) {
+    logError(session.projectPath, "m5_submit_qfmd", "invalid_qfmd", "Saknar ^type eller @field: struktur", {
+      question_id: current.questionNumber,
+      qfmd_preview: qfmd.substring(0, 200),
+    });
     return {
       success: false,
       error: "Ogiltig QFMD: saknar ^type eller @field: struktur",
@@ -873,6 +979,17 @@ export async function m5SubmitQfmd(
   // Mark question as approved and advance
   session.questionStatus[current.questionNumber] = "approved";
   session.currentIndex++;
+
+  // Log successful fallback submission
+  const typeMatch = qfmd.match(/\^type\s+(\S+)/);
+  const submittedType = typeMatch ? typeMatch[1] : "unknown";
+
+  logEvent(session.projectPath, "", "m5_submit_qfmd", "qfmd_submitted", "info", {
+    question_id: current.questionNumber,
+    method: "fallback_claude_generated",
+    submitted_type: submittedType,
+    qfmd_length: qfmd.length,
+  });
 
   const progress = getProgress();
 

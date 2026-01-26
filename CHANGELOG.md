@@ -6,6 +6,19 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-26
 
+#### M5: Comprehensive Logging (v0.4.2)
+- **RFC-001 compliant logging** for all M5 tools to track bugs and patterns
+- **Events logged:**
+  - `m5_start`: session_started (parse stats), question_parsed (per-question debug)
+  - `m5_approve`: question_approved (confidence scores, corrections)
+  - `m5_skip`: question_skipped (reason, missing/uncertain fields)
+  - `m5_update_field`: field_updated (old/new values)
+  - `m5_fallback`: fallback_requested (warn level, type confidence)
+  - `m5_submit_qfmd`: qfmd_submitted (method: fallback_claude_generated)
+  - `m5_finish`: session_finished (duration, approval rate)
+- **Logs written to:** `logs/mcp_events.jsonl` (JSONL format)
+- **Purpose:** Debug parser issues, track fallback usage, measure approval rates
+
 #### M5: Fallback Mode for Claude Desktop (v0.4.1)
 - **Hybrid workflow:** Auto-parse when possible, fallback to Claude Desktop when stuck
 - **New MCP Tools:**
