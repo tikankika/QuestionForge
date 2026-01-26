@@ -54,10 +54,13 @@ import {
   m5SkipSchema,
   m5Status,
   m5Finish,
+  m5Fallback,
+  m5SubmitQfmd,
+  m5SubmitQfmdSchema,
 } from "./tools/m5_interactive_tools.js";
 
 // Server version
-const VERSION = "0.4.0";
+const VERSION = "0.4.1";
 
 // Create MCP server
 const server = new Server(
@@ -556,6 +559,35 @@ const TOOLS: Tool[] = [
       type: "object",
       properties: {},
       required: [],
+    },
+  },
+  {
+    name: "m5_fallback",
+    description:
+      `FALLBACK MODE: When parser fails to extract fields. ` +
+      `Returns raw M3 content + expected QFMD format for the question type. ` +
+      `Claude Desktop should generate QFMD and call m5_submit_qfmd.`,
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "m5_submit_qfmd",
+    description:
+      `Submit Claude-generated QFMD for current question. ` +
+      `Used after m5_fallback when manual QFMD generation is needed. ` +
+      `Validates structure, writes to file, advances to next question.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        qfmd_content: {
+          type: "string",
+          description: "Complete QFMD content for the current question",
+        },
+      },
+      required: ["qfmd_content"],
     },
   },
 ];
@@ -1568,12 +1600,124 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
+  // Handle m5_fallback
+  if (name === "m5_fallback") {
+    try {
+      const result = await m5Fallback();
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`# M5 FALLBACK MODE - ${result.question_number}`);
+        lines.push(``);
+        lines.push(`## Parser kunde inte extrahera alla fält automatiskt`);
+        lines.push(``);
+        lines.push(`**Detected type:** \`${result.detected_type}\``);
+        lines.push(``);
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(`## RAW M3 CONTENT (vad vi har)`);
+        lines.push(``);
+        lines.push("```markdown");
+        lines.push(result.raw_m3_content || "");
+        lines.push("```");
+        lines.push(``);
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(`## EXPECTED QFMD FORMAT (vad Step 4 behöver)`);
+        lines.push(``);
+        lines.push("```markdown");
+        lines.push(result.expected_qfmd_format || "");
+        lines.push("```");
+        lines.push(``);
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(result.instructions || "");
+        lines.push(``);
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error: ${result.error}` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_submit_qfmd
+  if (name === "m5_submit_qfmd") {
+    try {
+      const input = m5SubmitQfmdSchema.parse(args);
+      const result = await m5SubmitQfmd(input);
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`# ✅ QFMD Submitted - ${result.submitted_question}`);
+        lines.push(``);
+        lines.push(`**Skrivet till fil:** ${result.written_to_file ? "Ja" : "Nej"}`);
+        lines.push(``);
+
+        if (result.progress) {
+          lines.push(`**Progress:** ${result.progress.approved}/${result.progress.total} godkända, ${result.progress.remaining} kvar`);
+          lines.push(``);
+        }
+
+        if (result.session_complete) {
+          lines.push(`🎉 **Session klar!** Alla frågor är behandlade.`);
+          lines.push(``);
+          lines.push(`*Kör m5_finish för att se sammanfattning.*`);
+        } else if (result.next_question) {
+          const q = result.next_question;
+          lines.push(`---`);
+          lines.push(``);
+          lines.push(`## Nästa fråga: ${q.question_number}`);
+          lines.push(``);
+          lines.push(`| Fält | Värde | Status |`);
+          lines.push(`|------|-------|--------|`);
+          lines.push(`| Type | ${q.interpretation.type.value || "?"} | ${q.interpretation.type.needs_input ? "❓" : "✅"} |`);
+          lines.push(`| Title | ${q.interpretation.title.value || "?"} | ${q.interpretation.title.needs_input ? "❓" : "✅"} |`);
+          lines.push(`| Answer | ${q.interpretation.answer.value || "?"} | ${q.interpretation.answer.needs_input ? "❓" : "✅"} |`);
+          lines.push(``);
+
+          if (q.needs_user_input) {
+            lines.push(`⚠️ **Behöver input - överväg m5_fallback**`);
+          } else {
+            lines.push(`✅ **Redo för m5_approve**`);
+          }
+        }
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error: ${result.error}` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
   // Unknown tool
   return {
     content: [
       {
         type: "text",
-        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file, m5_check, m5_generate, m5_start, m5_approve, m5_update_field, m5_skip, m5_status, m5_finish`,
+        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file, m5_check, m5_generate, m5_start, m5_approve, m5_update_field, m5_skip, m5_status, m5_finish, m5_fallback, m5_submit_qfmd`,
       },
     ],
     isError: true,

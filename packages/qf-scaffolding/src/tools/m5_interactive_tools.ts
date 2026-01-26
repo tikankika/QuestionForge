@@ -57,6 +57,10 @@ export const m5SkipSchema = z.object({
   reason: z.string().optional().describe("Reason for skipping"),
 });
 
+export const m5SubmitQfmdSchema = z.object({
+  qfmd_content: z.string().describe("Complete QFMD content for the current question"),
+});
+
 // ============================================================================
 // Tool: m5_start
 // ============================================================================
@@ -513,5 +517,396 @@ export async function m5Finish(): Promise<M5FinishResult> {
   return {
     success: true,
     summary,
+  };
+}
+
+// ============================================================================
+// Tool: m5_fallback - When parser fails, present to Claude Desktop
+// ============================================================================
+
+// QFMD templates per question type (from qti-core fixtures)
+const QFMD_TEMPLATES: Record<string, string> = {
+  text_entry: `# Q00X [Title]
+^question Q00X
+^type text_entry
+^identifier TE_Q00X
+^title [Title]
+^points [N]
+^labels #Label1 #Label2
+
+@field: question_text
+[Question with {{blank_1}} and {{blank_2}} markers]
+@end_field
+
+@field: blanks
+
+@@field: blank_1
+^Correct_Answers
+- answer1
+- alternative1
+^Case_Sensitive No
+@@end_field
+
+@@field: blank_2
+^Correct_Answers
+- answer2
+- alternative2
+^Case_Sensitive No
+@@end_field
+
+@end_field
+
+@field: feedback
+
+@@field: correct_feedback
+[Feedback for all correct]
+@@end_field
+
+@@field: incorrect_feedback
+[Feedback for incorrect]
+@@end_field
+
+@@field: partial_feedback
+[Feedback for partially correct]
+@@end_field
+
+@end_field`,
+
+  inline_choice: `# Q00X [Title]
+^question Q00X
+^type inline_choice
+^identifier IC_Q00X
+^title [Title]
+^points [N]
+^labels #Label1 #Label2
+
+@field: question_text
+[Question with {{dropdown_1}} and {{dropdown_2}} markers]
+@end_field
+
+@field: dropdown_1
+^Shuffle Yes
+- correct_answer*
+- wrong_option1
+- wrong_option2
+@end_field
+
+@field: dropdown_2
+^Shuffle Yes
+- correct_answer*
+- wrong_option1
+- wrong_option2
+@end_field
+
+@field: feedback
+
+@@field: correct_feedback
+[Feedback for all correct]
+@@end_field
+
+@@field: incorrect_feedback
+[Feedback for incorrect]
+@@end_field
+
+@end_field`,
+
+  true_false: `# Q00X [Title]
+^question Q00X
+^type true_false
+^identifier TF_Q00X
+^title [Title]
+^points 1
+^labels #Label1 #Label2
+
+@field: question_text
+[Statement to evaluate as true or false]
+@end_field
+
+@field: answer
+True
+@end_field
+
+@field: feedback
+
+@@field: correct_feedback
+[Feedback for correct]
+@@end_field
+
+@@field: incorrect_feedback
+[Feedback for incorrect]
+@@end_field
+
+@end_field`,
+
+  match: `# Q00X [Title]
+^question Q00X
+^type match
+^identifier MATCH_Q00X
+^title [Title]
+^points [N = number of pairs]
+^labels #Label1 #Label2
+
+@field: question_text
+[Instructions for matching]
+@end_field
+
+@field: premises
+1. [Premise 1]
+2. [Premise 2]
+3. [Premise 3]
+@end_field
+
+@field: choices
+A. [Choice A]
+B. [Choice B]
+C. [Choice C]
+D. [Distractor]
+@end_field
+
+@field: answer
+1 -> A
+2 -> B
+3 -> C
+@end_field
+
+@field: feedback
+
+@@field: correct_feedback
+[Feedback for all correct]
+@@end_field
+
+@@field: incorrect_feedback
+[Feedback for incorrect]
+@@end_field
+
+@end_field`,
+
+  multiple_choice_single: `# Q00X [Title]
+^question Q00X
+^type multiple_choice_single
+^identifier MC_Q00X
+^title [Title]
+^points 1
+^labels #Label1 #Label2
+^shuffle Yes
+
+@field: question_text
+[Question text]
+@end_field
+
+@field: options
+A. [Option A]
+B. [Option B]
+C. [Option C]
+D. [Option D]
+@end_field
+
+@field: answer
+[A/B/C/D]
+@end_field
+
+@field: feedback
+
+@@field: correct_feedback
+[Feedback for correct]
+@@end_field
+
+@@field: incorrect_feedback
+[Feedback for incorrect]
+@@end_field
+
+@end_field`,
+
+  multiple_response: `# Q00X [Title]
+^question Q00X
+^type multiple_response
+^identifier MR_Q00X
+^title [Title]
+^points 1
+^labels #Label1 #Label2
+^shuffle Yes
+
+@field: question_text
+[Question text - select all that apply]
+@end_field
+
+@field: options
+A. [Option A]
+B. [Option B]
+C. [Option C]
+D. [Option D]
+E. [Option E]
+@end_field
+
+@field: answer
+A, C, E
+@end_field
+
+@field: feedback
+
+@@field: correct_feedback
+[Feedback for all correct]
+@@end_field
+
+@@field: incorrect_feedback
+[Feedback for incorrect]
+@@end_field
+
+@end_field`,
+};
+
+export interface M5FallbackResult {
+  success: boolean;
+  error?: string;
+  question_number?: string;
+  detected_type?: string;
+  raw_m3_content?: string;
+  expected_qfmd_format?: string;
+  instructions?: string;
+}
+
+export async function m5Fallback(): Promise<M5FallbackResult> {
+  const session = getSession();
+  if (!session) {
+    return { success: false, error: "Ingen aktiv M5-session. Kör m5_start först." };
+  }
+
+  const current = getCurrentQuestion();
+  if (!current) {
+    return { success: false, error: "Ingen aktuell fråga" };
+  }
+
+  // Get detected type
+  const detectedType = current.fields.type.value || "unknown";
+  const typeRaw = current.fields.type.raw || "unknown";
+
+  // Get template for this type
+  const template = QFMD_TEMPLATES[detectedType] || QFMD_TEMPLATES["multiple_choice_single"];
+
+  return {
+    success: true,
+    question_number: current.questionNumber,
+    detected_type: detectedType,
+    raw_m3_content: current.rawContent,
+    expected_qfmd_format: template,
+    instructions: `
+## FALLBACK MODE - Parser kunde inte extrahera alla fält
+
+### Din uppgift:
+1. Läs RAW M3 CONTENT nedan
+2. Skapa QFMD enligt EXPECTED FORMAT
+3. Anropa m5_submit_qfmd med den genererade QFMD:en
+
+### Detected type: ${detectedType} (raw: "${typeRaw}")
+
+### Viktig info:
+- Byt ut Q00X mot ${current.questionNumber}
+- Använd korrekt identifier-format (t.ex. TE_${current.questionNumber} för text_entry)
+- För text_entry: använd {{blank_N}} i question_text
+- För inline_choice: använd {{dropdown_N}} i question_text
+- Asterisk (*) markerar rätt svar i dropdown: "- correct*"
+- ^Correct_Answers måste vara en lista med - prefix
+
+När du är klar, anropa:
+m5_submit_qfmd({ qfmd_content: "..." })
+`,
+  };
+}
+
+// ============================================================================
+// Tool: m5_submit_qfmd - Submit Claude-generated QFMD
+// ============================================================================
+
+export interface M5SubmitQfmdResult {
+  success: boolean;
+  error?: string;
+  submitted_question?: string;
+  written_to_file?: boolean;
+  next_question?: QuestionReview;
+  progress?: {
+    approved: number;
+    total: number;
+    remaining: number;
+  };
+  session_complete?: boolean;
+}
+
+export async function m5SubmitQfmd(
+  input: z.infer<typeof m5SubmitQfmdSchema>
+): Promise<M5SubmitQfmdResult> {
+  const session = getSession();
+  if (!session) {
+    return { success: false, error: "Ingen aktiv M5-session" };
+  }
+
+  const current = getCurrentQuestion();
+  if (!current) {
+    return { success: false, error: "Ingen aktuell fråga att submitta" };
+  }
+
+  // Validate QFMD has basic structure
+  const qfmd = input.qfmd_content.trim();
+  if (!qfmd.includes("^type") || !qfmd.includes("@field:")) {
+    return {
+      success: false,
+      error: "Ogiltig QFMD: saknar ^type eller @field: struktur",
+    };
+  }
+
+  // Write to output file
+  const outputPath = path.join(session.projectPath, session.outputFile);
+
+  // Ensure directory exists
+  const outputDir = path.dirname(outputPath);
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  // Append or create file
+  const separator = fs.existsSync(outputPath) ? "\n---\n\n" : "";
+  const header = !fs.existsSync(outputPath)
+    ? `<!-- QFMD Format - Generated by M5 -->\n<!-- Generated: ${new Date().toISOString()} -->\n\n`
+    : "";
+
+  fs.appendFileSync(outputPath, header + separator + qfmd + "\n", "utf-8");
+
+  // Mark question as approved and advance
+  session.questionStatus[current.questionNumber] = "approved";
+  session.currentIndex++;
+
+  const progress = getProgress();
+
+  // Check if done
+  if (session.currentIndex >= session.questions.length) {
+    return {
+      success: true,
+      submitted_question: current.questionNumber,
+      written_to_file: true,
+      session_complete: true,
+      progress: progress
+        ? {
+            approved: progress.approved,
+            total: progress.total,
+            remaining: 0,
+          }
+        : undefined,
+    };
+  }
+
+  // Get next question
+  const nextQ = getCurrentQuestion();
+
+  return {
+    success: true,
+    submitted_question: current.questionNumber,
+    written_to_file: true,
+    next_question: nextQ ? formatQuestionReview(nextQ) : undefined,
+    progress: progress
+      ? {
+          approved: progress.approved,
+          total: progress.total,
+          remaining: progress.pending,
+        }
+      : undefined,
   };
 }

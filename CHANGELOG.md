@@ -6,6 +6,21 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-26
 
+#### M5: Fallback Mode for Claude Desktop (v0.4.1)
+- **Hybrid workflow:** Auto-parse when possible, fallback to Claude Desktop when stuck
+- **New MCP Tools:**
+  - `m5_fallback` - When parser fails: shows raw M3 + expected QFMD format per type
+  - `m5_submit_qfmd` - Accept Claude-generated QFMD, validate, write to file
+- **QFMD Templates:** Built-in templates for all question types from qti-core fixtures
+  - text_entry, inline_choice, true_false, match, multiple_choice, multiple_response
+- **Workflow when parser fails (e.g., Q3 text_entry):**
+  1. Parser detects missing fields → `needs_user_input: true`
+  2. User calls `m5_fallback` → Shows raw M3 + expected QFMD format
+  3. Claude Desktop generates correct QFMD
+  4. User calls `m5_submit_qfmd` → Validates and writes to file
+- **Removed:** `qti-core/docs/markdown_specification.md` (old conflicting spec)
+- **Source of truth:** `qti-core/src/parser/markdown_parser.py` (v6.5 QFMD format)
+
 #### M5: Interactive Question-by-Question QFMD Generation (v0.4.0 REBUILD)
 - **New Approach:** Human-guided, flexible parsing instead of rigid format
   - Best-effort parsing with confidence scores
