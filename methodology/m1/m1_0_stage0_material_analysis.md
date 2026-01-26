@@ -8,21 +8,29 @@ This is the simplified version. Full details below.
 Say: "Start M1 Stage 0 material analysis"
 
 ### Step 2: For Each Material
-Say: "Analyze [filename.pdf]" 
+Say: "Analyze [filename.pdf]"
 [Upload the file when Claude asks]
-Review Claude's analysis
-Say: "Save and continue to next file"
+Claude saves analysis DIRECTLY to file (no chat preview needed)
+Say: "Continue to next file"
 
-### Step 3: Complete Stage 0  
+### Step 3: Complete Stage 0
 Say: "Finalize Stage 0"
 
 ## Overview
-You will guide Claude through analyzing your instructional materials 
-one file at a time. This takes 60-90 minutes and requires your 
-feedback after each material.
+You will guide Claude through analyzing your instructional materials
+one file at a time. Each analysis is saved to its OWN file in preparation/.
+
+**Output structure:**
+```
+preparation/
+├── m1_material_01_[name].md    ← Analysis of first material
+├── m1_material_02_[name].md    ← Analysis of second material
+├── m1_material_03_[name].md    ← ... and so on
+└── m1_stage0_summary.md        ← Final summary (after all materials)
+```
 
 ## Before Starting
-- Have all materials in: project/00_materials/
+- Have all materials in: project/materials/
 - Block out 60-90 minutes
 - Be ready to provide feedback on Claude's analysis
 
@@ -46,31 +54,28 @@ feedback after each material.
 
 **Claude will:**
 - Read the material
-- Identify topics, emphasis patterns, examples
-- Present findings (3-5 minutes)
-- Ask: "Does this look correct?"
+- Analyze and save DIRECTLY to file
+- Report: "✅ Saved to preparation/m1_material_01_lecture_week1.md"
+- Ask: "Continue to next file?"
 
 **You should:**
-- Review Claude's analysis
-- Correct any misunderstandings
-- Confirm: "Yes, this looks good" or provide corrections
+- Say "yes" to continue, or
+- Say "show me" to review the saved analysis
 
 ---
 
-### STEP 3: Save and Continue
-**You say:** "Save this analysis and continue"
+### STEP 3: Continue with Next Material
+**You say:** "Yes, continue" or "Next"
 
 **Claude will:**
-- Save the material analysis
-- Report progress (e.g., "1/10 materials complete")
-- Ask: "Which file should I analyze next?"
-
-**You say:** "Analyze [next_filename.pdf]"
+- Analyze next material
+- Save DIRECTLY to file
+- Report progress (e.g., "2/10 materials complete")
 
 ---
 
 ### STEP 4: Repeat for All Materials
-Repeat Steps 2-3 for each material file.
+Repeat until all materials analyzed.
 
 ---
 
@@ -80,76 +85,116 @@ After all materials analyzed:
 **You say:** "Finalize Stage 0"
 
 **Claude will:**
-- Create Stage 0 summary document
+- Create summary: preparation/m1_stage0_summary.md
 - Ask if you want to proceed to Stage 1
 
 ---
 
 ## Common Issues
 
-**Q: Claude tries to analyze multiple files at once**
-A: Say: "Stop. Analyze ONLY [filename.pdf], present findings, and wait."
+**Q: Claude shows analysis in chat instead of saving directly**
+A: Say: "Don't show in chat. Save DIRECTLY to file."
 
-**Q: Claude skips to next file without my feedback**
-A: Say: "Stop. Present your analysis of [current file] and wait for my feedback."
+**Q: Claude tries to analyze multiple files at once**
+A: Say: "Stop. Analyze ONLY [filename.pdf] and save to file."
+
+**Q: I want to review an analysis**
+A: Say: "Show me m1_material_01.md" or check the file directly
 
 **Q: I need to pause mid-stage**
-A: Say: "Save progress and pause." You can resume later with: "Continue Stage 0"
+A: Progress is saved in individual files. Resume anytime with: "Continue Stage 0"
 
 ---
 
 #### FOR CLAUDE: Critical Execution Rules
 
-**RULE 1: ONE file per turn**
+**RULE 1: DIRECT FILE WRITE - NO CHAT PREVIEW**
+- Analyze material internally
+- Write DIRECTLY to file using write_project_file
+- Do NOT show full analysis in chat
+- Only show confirmation: "✅ Saved to [filename]"
+
+**RULE 2: ONE FILE PER MATERIAL**
+Each material gets its own file:
+```
+preparation/m1_material_01_[sanitized_name].md
+preparation/m1_material_02_[sanitized_name].md
+...
+```
+
+Filename format:
+- `m1_material_` + 2-digit number + `_` + sanitized original name
+- Sanitize: lowercase, spaces→underscores, remove special chars
+- Example: "Vad är AI?.pdf" → "m1_material_01_vad_ar_ai.md"
+
+**RULE 3: ONE file per turn**
 After listing materials:
 - Ask user to upload FIRST file ONLY
 - STOP - do not proceed until file uploaded
 
-**RULE 2: Present before proceeding**
-After user uploads ONE file:
-- Analyze ONLY that ONE file
-- Present findings
-- Ask: "Ready to save this analysis?"
-- STOP - do not analyze more files
+**RULE 4: Save then ask for next**
+After analyzing ONE file:
+- Save to file immediately
+- Report: "✅ Saved to preparation/m1_material_XX_name.md (X/N complete)"
+- Ask: "Continue to next file?"
+- STOP - wait for user
 
-**RULE 3: Save then ask for next**
-After user confirms "save":
-- Call save_m1_progress with EXACT format below
-- Report progress: "X/N materials complete"
-- Ask: "Upload next file: [filename.pdf]"
-- STOP - do not proceed to next file
-
-**CRITICAL: save_m1_progress Format**
-The `content` field must contain the EXACT markdown you presented to the teacher.
-Copy the ENTIRE analysis you showed, not a summary.
+**CRITICAL: write_project_file Format**
 
 ```json
-save_m1_progress({
+write_project_file({
   project_path: "<project_path>",
-  action: "add_material",
-  stage: 0,
-  data: {
-    material: {
-      filename: "AI - ordboken.pdf",
-      content: "📊 Analys av Material 1: AI - ordboken\n\n**Typ:** Begreppsordbok...\n\n**Topics:**\n- Topic 1\n- Topic 2\n\n**Betoningar:**\n...\n\n**Instruktionsexempel:**\n...\n\n**Misconceptions:**\n..."
-    }
-  }
+  relative_path: "preparation/m1_material_01_vad_ar_ai.md",
+  content: "# Material 1: Vad är AI?\n\n**Typ:** Introduktion...\n\n## Topics & Begrepp\n...\n\n## Betoningar\n...\n\n## Instruktionsexempel\n...\n\n## Missuppfattningar\n..."
 })
 ```
 
-**What you presented = What gets saved.**
-Do NOT transform or summarize. Copy the FULL analysis markdown.
+**Analysis Template:**
+```markdown
+# Material N: [Original Filename]
+
+**Typ:** [Document type - lecture, textbook, slides, etc.]
+**Källa:** [Source/course]
+**Datum:** [Analysis date]
+
+## Topics & Begrepp
+
+**Primära begrepp (definierade):**
+- [Term] - [definition as presented]
+- ...
+
+**Sekundära begrepp (nämnda):**
+- [Term], [Term], ...
+
+## Betoningar & Prioriteringar
+
+1. **HÖGSTA:** [What's emphasized most]
+2. **HÖG:** [Secondary emphasis]
+3. **MEDEL:** [Moderate coverage]
+...
+
+## Instruktionsexempel
+
+- [Concrete example from material]
+- [Another example]
+...
+
+## Missuppfattningar
+
+- **"[Common misconception]"** ❌ → [Correct understanding]
+- ...
+```
 
 ## TROUBLESHOOTING
 
+**Problem: Claude shows long analysis in chat**
+Solution: Say "STOP. Write DIRECTLY to file, don't show in chat."
+
 **Problem: Claude tries to analyze multiple files at once**
-Solution: Say "STOP. Analyze ONLY [filename.pdf]. Present findings and wait for my feedback."
+Solution: Say "STOP. Analyze ONLY [filename.pdf]. Save to file and wait."
 
-**Problem: Claude proceeds to next file without my approval**
-Solution: Say "STOP. Wait for my confirmation to save and continue."
+**Problem: Claude overwrites previous analysis**
+Solution: Each material has unique filename - this shouldn't happen. Check filenames.
 
-**Problem: Claude skips to Stage 1 before all materials analyzed**
-Solution: Say "STOP. Return to Stage 0. We have N materials remaining to analyze."
-
-**Problem: Claude doesn't wait for file upload**
-Solution: Say "STOP. I need to upload the file first. Ask me to upload [filename.pdf]."
+**Problem: Claude uses save_m1_progress instead of write_project_file**
+Solution: Say "Use write_project_file to create separate files per material."
