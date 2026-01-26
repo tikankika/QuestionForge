@@ -188,6 +188,39 @@ async def list_tools() -> List[Tool]:
                 },
             },
         ),
+        # Step 3: Auto-Fix
+        Tool(
+            name="step3_autofix",
+            description=(
+                "Auto-fix mechanical errors in markdown. "
+                "Runs validation → fix → validation loop until valid or max rounds. "
+                "Fixes: colon in metadata (^type: → ^type), field positioning. "
+                "Returns 'valid', 'needs_m5' (pedagogical errors), or 'max_rounds'."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to markdown file",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Or provide content directly (instead of file_path)",
+                    },
+                    "max_rounds": {
+                        "type": "integer",
+                        "description": "Maximum fix iterations (default: 10)",
+                        "default": 10,
+                    },
+                    "save": {
+                        "type": "boolean",
+                        "description": "Save fixed content to file (default: true)",
+                        "default": True,
+                    },
+                },
+            },
+        ),
         # Step 4: Export
         Tool(
             name="step4_export",
@@ -507,6 +540,8 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_step2_validate_content(arguments)
         elif name == "step2_read":
             return await handle_step2_read(arguments)
+        elif name == "step3_autofix":
+            return await handle_step3_autofix(arguments)
         elif name == "step4_export":
             return await handle_step4_export(arguments)
         elif name == "list_types":
@@ -1148,6 +1183,167 @@ async def handle_step2_read(arguments: dict) -> List[TextContent]:
             type="text",
             text=f"Error: Kunde inte lasa filen: {e}"
         )]
+
+
+# =============================================================================
+# Step 3: Auto-Fix
+# =============================================================================
+
+async def handle_step3_autofix(arguments: dict) -> List[TextContent]:
+    """
+    Handle step3_autofix - auto-fix mechanical errors.
+
+    Runs validation → fix → validation loop until valid or max rounds.
+    """
+    from .tools.step3_autofix import autofix_file, autofix_content, Step3Result
+
+    file_path = arguments.get('file_path')
+    content = arguments.get('content')
+    max_rounds = arguments.get('max_rounds', 10)
+    save = arguments.get('save', True)
+
+    # Check for active session
+    session = get_current_session()
+    project_path = None
+
+    if session:
+        project_path = session.project_path
+        # If no file_path, use session's questions file
+        if not file_path and not content:
+            questions_dir = project_path / "questions"
+            if questions_dir.exists():
+                md_files = list(questions_dir.glob("*.md"))
+                if md_files:
+                    file_path = str(md_files[0])
+
+    # Need either file_path or content
+    if not file_path and not content:
+        return [TextContent(
+            type="text",
+            text="Error: Provide file_path or content"
+        )]
+
+    try:
+        if content:
+            # Fix content string
+            result, fixed_content = autofix_content(content, max_rounds=max_rounds)
+
+            # Build response
+            lines = [
+                "# Step 3: Auto-Fix Result",
+                "",
+                f"**Status:** {result.status}",
+                f"**Rounds:** {result.rounds}",
+                f"**Fixes applied:** {len(result.fixes_applied)}",
+                "",
+            ]
+
+            if result.fixes_applied:
+                lines.append("## Fixes Applied")
+                for fix in result.fixes_applied:
+                    lines.append(f"- [{fix.rule_id}] {fix.fix_applied}")
+                lines.append("")
+
+            if result.remaining_errors:
+                lines.append(f"## Remaining Errors ({len(result.remaining_errors)})")
+                for err in result.remaining_errors[:10]:
+                    q_id = err.get('question_id', '?')
+                    msg = err.get('message', 'Unknown')
+                    lines.append(f"- [{q_id}] {msg}")
+                lines.append("")
+
+            lines.append(f"**Message:** {result.message}")
+
+            # If valid and caller wants the content back
+            if result.status == "valid":
+                lines.append("")
+                lines.append("---")
+                lines.append("")
+                lines.append("## Fixed Content")
+                lines.append("```markdown")
+                lines.append(fixed_content[:2000] + ("..." if len(fixed_content) > 2000 else ""))
+                lines.append("```")
+
+            return [TextContent(type="text", text="\n".join(lines))]
+
+        else:
+            # Fix file
+            input_path = Path(file_path)
+
+            if not input_path.exists():
+                return [TextContent(
+                    type="text",
+                    text=f"Error: File not found: {file_path}"
+                )]
+
+            result = autofix_file(
+                input_path,
+                output_path=input_path if save else None,
+                max_rounds=max_rounds
+            )
+
+            # Log if session active
+            if project_path:
+                log_event(
+                    str(project_path),
+                    session.session_id if session else "",
+                    "step3_autofix",
+                    "autofix_complete",
+                    "info",
+                    {
+                        "status": result.status,
+                        "rounds": result.rounds,
+                        "fixes_applied": len(result.fixes_applied),
+                        "remaining_errors": len(result.remaining_errors),
+                    }
+                )
+
+            # Build response
+            lines = [
+                "# Step 3: Auto-Fix Result",
+                "",
+                f"**File:** {input_path.name}",
+                f"**Status:** {result.status}",
+                f"**Rounds:** {result.rounds}",
+                f"**Fixes applied:** {len(result.fixes_applied)}",
+                "",
+            ]
+
+            if result.fixes_applied:
+                lines.append("## Fixes Applied")
+                for fix in result.fixes_applied:
+                    lines.append(f"- [{fix.rule_id}] {fix.fix_applied}")
+                lines.append("")
+
+            if result.remaining_errors:
+                lines.append(f"## Remaining Errors ({len(result.remaining_errors)})")
+                for err in result.remaining_errors[:10]:
+                    q_id = err.get('question_id', '?')
+                    msg = err.get('message', 'Unknown')
+                    lines.append(f"- [{q_id}] {msg}")
+                lines.append("")
+
+            lines.append(f"**Message:** {result.message}")
+
+            # Next step suggestion
+            if result.status == "valid":
+                lines.append("")
+                lines.append("---")
+                lines.append("**Next:** `step4_export` to create QTI package")
+            elif result.status == "needs_m5":
+                lines.append("")
+                lines.append("---")
+                lines.append("**Next:** Return to M5 to fix pedagogical errors")
+            elif result.status == "needs_step1":
+                lines.append("")
+                lines.append("---")
+                lines.append("**Next:** Use `step1_*` tools to fix structural errors")
+
+            return [TextContent(type="text", text="\n".join(lines))]
+
+    except Exception as e:
+        error_msg = f"Step 3 error: {str(e)}\n\n{traceback.format_exc()}"
+        return [TextContent(type="text", text=error_msg)]
 
 
 # =============================================================================
