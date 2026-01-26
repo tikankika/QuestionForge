@@ -146,6 +146,7 @@ export const writeProjectFileSchema = z.object({
   content: z.string(), // Content to write
   create_dirs: z.boolean().default(true), // Create parent directories if needed
   overwrite: z.boolean().default(true), // Overwrite if file exists
+  append: z.boolean().default(false), // Append to end of file instead of replacing
 });
 
 export type WriteProjectFileInput = z.infer<typeof writeProjectFileSchema>;
@@ -165,7 +166,7 @@ export interface WriteProjectFileResult {
 export async function writeProjectFile(
   input: WriteProjectFileInput
 ): Promise<WriteProjectFileResult> {
-  const { project_path, relative_path, content, create_dirs, overwrite } = input;
+  const { project_path, relative_path, content, create_dirs, overwrite, append } = input;
 
   // Build full path
   const fullPath = join(project_path, relative_path);
@@ -191,6 +192,7 @@ export async function writeProjectFile(
     content_length: content.length,
     create_dirs,
     overwrite,
+    append,
   });
 
   try {
@@ -220,12 +222,23 @@ export async function writeProjectFile(
       }
     }
 
+    // Determine final content (append mode or replace)
+    let finalContent = content;
+    const fileExisted = existsSync(fullPath);
+    const didAppend = append && fileExisted;
+
+    if (didAppend) {
+      const existingContent = await readFile(fullPath, "utf-8");
+      finalContent = existingContent + content;
+    }
+
     // Write file
-    await writeFile(fullPath, content, "utf-8");
+    await writeFile(fullPath, finalContent, "utf-8");
 
     logEvent(project_path, "", "write_project_file", "tool_end", "info", {
       relative_path,
-      bytes_written: Buffer.byteLength(content, "utf-8"),
+      bytes_written: Buffer.byteLength(finalContent, "utf-8"),
+      appended: didAppend,
       created_dirs: createdDirs,
     });
 
@@ -233,7 +246,7 @@ export async function writeProjectFile(
       success: true,
       file_path: fullPath,
       relative_path,
-      bytes_written: Buffer.byteLength(content, "utf-8"),
+      bytes_written: Buffer.byteLength(finalContent, "utf-8"),
       created_dirs: createdDirs,
     };
   } catch (error) {
