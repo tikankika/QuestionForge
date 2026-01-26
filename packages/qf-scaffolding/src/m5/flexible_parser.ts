@@ -443,12 +443,13 @@ function extractAnswer(content: string): {
     };
   }
 
-  // Pattern 4: True/False answer
+  // Pattern 4: True/False answer - return A or B per qti-core format
   const tfMatch = content.match(/\*\*(?:Correct Answer|Rätt svar):?\*\*:?\s*(True|False|Sant|Falskt)/i);
   if (tfMatch) {
     const tfVal = tfMatch[1].toLowerCase();
+    // qti-core format: A = True/Sant, B = False/Falskt
     return {
-      value: tfVal === "true" || tfVal === "sant" ? "True" : "False",
+      value: tfVal === "true" || tfVal === "sant" ? "A" : "B",
       confidence: 95,
       source: "True/False answer",
     };
@@ -487,29 +488,29 @@ function parseFeedbackFlexible(
   text: string,
   interpretation: ParsedInterpretation
 ): void {
-  // Pattern 1: **Correct (A):** text
-  const correctMatch = text.match(/\*\*Correct \([^)]+\):?\*\*:?\s*([^\n*]+(?:\n(?!\*\*)[^\n*]+)*)/i);
-  if (correctMatch) {
+  // Pattern 1: **Correct (A/Falskt/etc):** text - capture until next section or ---
+  const correctMatch = text.match(/\*\*Correct \([^)]+\):?\*\*:?\s*([\s\S]*?)(?=\*\*Incorrect|\*\*---|\n---|\n\n\*\*[A-Z]|$)/i);
+  if (correctMatch && correctMatch[1].trim()) {
     interpretation.fields.feedback.correct = {
       value: correctMatch[1].trim(),
       confidence: 90,
     };
   }
 
-  // Pattern 2: **Incorrect (B):** text - extract all
-  const incorrectPattern = /\*\*Incorrect \(([A-F])[^)]*\):?\*\*:?\s*([^\n*]+(?:\n(?!\*\*)[^\n*]+)*)/gi;
+  // Pattern 2: **Incorrect (B/Sant/etc):** text - capture until next section or ---
+  const incorrectPattern = /\*\*Incorrect \(([^)]+)\):?\*\*:?\s*([\s\S]*?)(?=\*\*(?:Correct|Incorrect)|\n---|\n\n\*\*[A-Z]|$)/gi;
   let match;
   while ((match = incorrectPattern.exec(text)) !== null) {
-    interpretation.fields.feedback.incorrect.value[match[1].toUpperCase()] =
-      match[2].trim();
+    const key = match[1].trim().toUpperCase().charAt(0);
+    interpretation.fields.feedback.incorrect.value[key] = match[2].trim();
     interpretation.fields.feedback.incorrect.confidence = 90;
   }
 
   // Pattern 3: General feedback without option indicator
   if (!interpretation.fields.feedback.correct.value) {
     // Look for any feedback-like text after "**Feedback:**"
-    const generalMatch = text.match(/\*\*Feedback:?\*\*\s*\n+([^*\n][^\n]+)/i);
-    if (generalMatch) {
+    const generalMatch = text.match(/\*\*Feedback:?\*\*\s*\n+([\s\S]*?)(?=\n---|\n\n\*\*|$)/i);
+    if (generalMatch && generalMatch[1].trim()) {
       interpretation.fields.feedback.general = {
         value: generalMatch[1].trim(),
         confidence: 70,

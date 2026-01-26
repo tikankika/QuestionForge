@@ -402,8 +402,17 @@ function generateQFMDForQuestion(
   lines.push(`@end_field`);
   lines.push("");
 
-  // Options (for MC)
-  if (f.options.value.length > 0) {
+  // Options (for MC and true_false)
+  if (f.type.value === "true_false") {
+    // qti-core requires options field for true_false
+    lines.push(`@field: options`);
+    lines.push(`^True_label Sant`);
+    lines.push(`^False_label Falskt`);
+    lines.push(`A. Sant`);
+    lines.push(`B. Falskt`);
+    lines.push(`@end_field`);
+    lines.push("");
+  } else if (f.options.value.length > 0) {
     lines.push(`@field: options`);
     for (const opt of f.options.value) {
       lines.push(opt);
