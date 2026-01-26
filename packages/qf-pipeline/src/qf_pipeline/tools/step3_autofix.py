@@ -4,12 +4,17 @@ Step 3: Auto-Fix Iteration Engine
 Automatically fixes mechanical errors in MQG markdown files.
 Runs validation → fix → validation loop until valid or max rounds.
 
+Self-Learning Features:
+- Logs iterations to logs/step3_iterations.jsonl
+- Reads/writes fix rules from logs/step3_fix_rules.json
+- Updates rule confidence based on success rate
+
 Usage:
     # As MCP tool
     step3_autofix({project_path: "...", input_file: "questions/draft.md"})
 
     # As CLI
-    python -m qf_pipeline.tools.step3_autofix input.md [--max-rounds 10]
+    python -m qf_pipeline.tools.step3_autofix input.md [--project-path /path]
 
 RFC-013: Pipeline Architecture v2.1
 """
@@ -17,7 +22,8 @@ RFC-013: Pipeline Architecture v2.1
 import json
 import re
 import sys
-from dataclasses import dataclass, field
+import uuid
+from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -42,6 +48,27 @@ class FixRule:
     description: str
     success_count: int = 0
     applied_count: int = 0
+    created_at: str = ""
+    last_used: str = ""
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'FixRule':
+        """Create from dictionary."""
+        return cls(**data)
+
+    def update_stats(self, success: bool):
+        """Update statistics after applying rule."""
+        self.applied_count += 1
+        if success:
+            self.success_count += 1
+        self.last_used = get_timestamp()
+        # Recalculate confidence based on success rate
+        if self.applied_count >= 5:  # Only adjust after 5 uses
+            self.confidence = min(0.99, self.success_count / self.applied_count)
 
 
 @dataclass
@@ -62,33 +89,170 @@ class Step3Result:
     fixes_applied: List[FixResult] = field(default_factory=list)
     remaining_errors: List[Dict] = field(default_factory=list)
     message: str = ""
+    session_id: str = ""
 
 
-# Built-in fix rules
+# Built-in fix rules (used if no learned rules exist)
 DEFAULT_FIX_RULES = [
     FixRule(
         rule_id="STEP3_001",
         error_pattern="\\^type has colon",
         fix_function="fix_metadata_colon",
         confidence=0.95,
-        description="Remove colon from ^type field"
+        description="Remove colon from ^type field",
+        created_at="2026-01-26T00:00:00Z"
     ),
     FixRule(
         rule_id="STEP3_002",
         error_pattern="\\^identifier has colon",
         fix_function="fix_metadata_colon",
         confidence=0.95,
-        description="Remove colon from ^identifier field"
+        description="Remove colon from ^identifier field",
+        created_at="2026-01-26T00:00:00Z"
     ),
     FixRule(
         rule_id="STEP3_003",
         error_pattern="\\^points has colon",
         fix_function="fix_metadata_colon",
         confidence=0.95,
-        description="Remove colon from ^points field"
+        description="Remove colon from ^points field",
+        created_at="2026-01-26T00:00:00Z"
     ),
 ]
 
+
+# =============================================================================
+# Fix Rules Persistence (logs/step3_fix_rules.json)
+# =============================================================================
+
+def load_fix_rules(project_path: Optional[Path]) -> List[FixRule]:
+    """
+    Load fix rules from project's logs/step3_fix_rules.json.
+    Falls back to DEFAULT_FIX_RULES if file doesn't exist.
+    """
+    if not project_path:
+        return [FixRule(**asdict(r)) for r in DEFAULT_FIX_RULES]
+
+    rules_file = project_path / "logs" / "step3_fix_rules.json"
+
+    if not rules_file.exists():
+        # Initialize with default rules
+        save_fix_rules(project_path, DEFAULT_FIX_RULES)
+        return [FixRule(**asdict(r)) for r in DEFAULT_FIX_RULES]
+
+    try:
+        with open(rules_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        rules = []
+        for rule_data in data.get('rules', []):
+            rules.append(FixRule.from_dict(rule_data))
+
+        return rules if rules else [FixRule(**asdict(r)) for r in DEFAULT_FIX_RULES]
+
+    except Exception as e:
+        print(f"Warning: Could not load fix rules: {e}")
+        return [FixRule(**asdict(r)) for r in DEFAULT_FIX_RULES]
+
+
+def save_fix_rules(project_path: Path, rules: List[FixRule]):
+    """Save fix rules to project's logs/step3_fix_rules.json."""
+    logs_dir = project_path / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+
+    rules_file = logs_dir / "step3_fix_rules.json"
+
+    data = {
+        "version": "1.0",
+        "updated_at": get_timestamp(),
+        "rules": [r.to_dict() for r in rules]
+    }
+
+    with open(rules_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+# =============================================================================
+# Iterations Log (logs/step3_iterations.jsonl)
+# =============================================================================
+
+def log_iteration(
+    project_path: Path,
+    session_id: str,
+    round_num: int,
+    error: Dict,
+    rule: FixRule,
+    result: FixResult,
+    file_path: str
+):
+    """
+    Append iteration to logs/step3_iterations.jsonl.
+    JSONL format: one JSON object per line.
+    """
+    logs_dir = project_path / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+
+    log_file = logs_dir / "step3_iterations.jsonl"
+
+    entry = {
+        "ts": get_timestamp(),
+        "v": 1,
+        "session_id": session_id,
+        "round": round_num,
+        "file": file_path,
+        "error": {
+            "question_id": error.get('question_id', 'UNKNOWN'),
+            "field": error.get('field', ''),
+            "message": error.get('message', '')
+        },
+        "rule": {
+            "rule_id": rule.rule_id,
+            "confidence": rule.confidence,
+            "description": rule.description
+        },
+        "result": {
+            "success": result.success,
+            "lines_changed": result.lines_changed
+        }
+    }
+
+    with open(log_file, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+
+
+def log_session_result(
+    project_path: Path,
+    session_id: str,
+    result: 'Step3Result',
+    file_path: str
+):
+    """Log final session result."""
+    logs_dir = project_path / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+
+    log_file = logs_dir / "step3_iterations.jsonl"
+
+    entry = {
+        "ts": get_timestamp(),
+        "v": 1,
+        "session_id": session_id,
+        "event": "session_complete",
+        "file": file_path,
+        "result": {
+            "status": result.status,
+            "rounds": result.rounds,
+            "fixes_applied": len(result.fixes_applied),
+            "remaining_errors": len(result.remaining_errors)
+        }
+    }
+
+    with open(log_file, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+
+
+# =============================================================================
+# Step 3 Auto-Fix Engine
+# =============================================================================
 
 class Step3AutoFix:
     """
@@ -101,17 +265,28 @@ class Step3AutoFix:
     4. If pedagogical: return "needs M5"
     5. If valid: return "ready for Step 4"
     6. Max rounds protection
+
+    Self-Learning:
+    - Loads rules from step3_fix_rules.json
+    - Updates rule confidence after each fix
+    - Logs iterations to step3_iterations.jsonl
     """
 
     def __init__(
         self,
         content: str,
         max_rounds: int = 10,
-        fix_rules: Optional[List[FixRule]] = None
+        project_path: Optional[Path] = None,
+        file_path: str = ""
     ):
         self.content = content
         self.max_rounds = max_rounds
-        self.fix_rules = fix_rules or DEFAULT_FIX_RULES
+        self.project_path = project_path
+        self.file_path = file_path
+        self.session_id = str(uuid.uuid4())[:8]
+
+        # Load rules (from file if project_path, else defaults)
+        self.fix_rules = load_fix_rules(project_path)
         self.iteration_log: List[Dict] = []
 
     def run(self) -> Step3Result:
@@ -129,12 +304,15 @@ class Step3AutoFix:
 
             # Check if valid
             if validation['valid']:
-                return Step3Result(
+                result = Step3Result(
                     status="valid",
                     rounds=round_num,
                     fixes_applied=fixes_applied,
-                    message=f"✅ Valid after {round_num} fix(es)"
+                    message=f"✅ Valid after {round_num} fix(es)",
+                    session_id=self.session_id
                 )
+                self._finalize(result)
+                return result
 
             # Categorize errors
             errors = validation['errors']
@@ -142,69 +320,95 @@ class Step3AutoFix:
 
             # If only pedagogical errors remain, exit to M5
             if not mechanical and pedagogical:
-                return Step3Result(
+                result = Step3Result(
                     status="needs_m5",
                     rounds=round_num,
                     fixes_applied=fixes_applied,
                     remaining_errors=pedagogical,
-                    message=f"❌ {len(pedagogical)} pedagogical error(s) - needs M5"
+                    message=f"❌ {len(pedagogical)} pedagogical error(s) - needs M5",
+                    session_id=self.session_id
                 )
+                self._finalize(result)
+                return result
 
             # If no errors but not valid (shouldn't happen)
             if not mechanical and not pedagogical:
-                return Step3Result(
+                result = Step3Result(
                     status="error",
                     rounds=round_num,
                     fixes_applied=fixes_applied,
-                    message="Unexpected state: no errors but not valid"
+                    message="Unexpected state: no errors but not valid",
+                    session_id=self.session_id
                 )
+                self._finalize(result)
+                return result
 
-            # Pick one mechanical error to fix
-            error = mechanical[0]
-
-            # Find matching fix rule
-            rule = self._match_rule(error)
+            # Pick one mechanical error to fix (highest confidence rule first)
+            error, rule = self._pick_best_fix(mechanical)
 
             if not rule:
-                # No rule for this error - skip to next or exit
-                if len(mechanical) == 1:
-                    return Step3Result(
-                        status="needs_step1",
-                        rounds=round_num,
-                        fixes_applied=fixes_applied,
-                        remaining_errors=mechanical,
-                        message=f"❌ No fix rule for: {error.get('message', 'unknown')}"
-                    )
-                # Try next error
-                mechanical.pop(0)
-                continue
+                # No rule for any mechanical error
+                result = Step3Result(
+                    status="needs_step1",
+                    rounds=round_num,
+                    fixes_applied=fixes_applied,
+                    remaining_errors=mechanical,
+                    message=f"❌ No fix rule for: {mechanical[0].get('message', 'unknown')}",
+                    session_id=self.session_id
+                )
+                self._finalize(result)
+                return result
 
             # Apply fix
             fix_result = self._apply_fix(error, rule)
 
+            # Update rule stats
+            rule.update_stats(fix_result.success)
+
             if fix_result.success:
                 fixes_applied.append(fix_result)
-                self._log_iteration(round_num, error, rule, fix_result)
-            else:
-                # Fix failed - try next error or exit
-                if len(mechanical) == 1:
-                    return Step3Result(
-                        status="error",
-                        rounds=round_num,
-                        fixes_applied=fixes_applied,
-                        remaining_errors=mechanical,
-                        message=f"❌ Fix failed: {fix_result.fix_applied}"
+
+                # Log iteration
+                if self.project_path:
+                    log_iteration(
+                        self.project_path,
+                        self.session_id,
+                        round_num,
+                        error,
+                        rule,
+                        fix_result,
+                        self.file_path
                     )
+
+                self._log_iteration_internal(round_num, error, rule, fix_result)
+            else:
+                # Fix failed - continue to next round (might pick different error)
+                pass
 
         # Max rounds reached
         final_validation = self._validate()
-        return Step3Result(
+        result = Step3Result(
             status="max_rounds",
             rounds=self.max_rounds,
             fixes_applied=fixes_applied,
             remaining_errors=final_validation.get('errors', []),
-            message=f"⚠️ Max rounds ({self.max_rounds}) reached"
+            message=f"⚠️ Max rounds ({self.max_rounds}) reached",
+            session_id=self.session_id
         )
+        self._finalize(result)
+        return result
+
+    def _finalize(self, result: Step3Result):
+        """Save rules and log final result."""
+        # Save updated rules (with new confidence scores)
+        if self.project_path:
+            save_fix_rules(self.project_path, self.fix_rules)
+            log_session_result(
+                self.project_path,
+                self.session_id,
+                result,
+                self.file_path
+            )
 
     def _validate(self) -> Dict[str, Any]:
         """Validate current content using markdown_parser."""
@@ -248,6 +452,27 @@ class Step3AutoFix:
 
         return mechanical, pedagogical
 
+    def _pick_best_fix(
+        self,
+        mechanical_errors: List[Dict]
+    ) -> Tuple[Optional[Dict], Optional[FixRule]]:
+        """
+        Pick the best error/rule combination.
+        Prioritizes highest confidence rules.
+        """
+        best_error = None
+        best_rule = None
+        best_confidence = 0.0
+
+        for error in mechanical_errors:
+            rule = self._match_rule(error)
+            if rule and rule.confidence > best_confidence:
+                best_error = error
+                best_rule = rule
+                best_confidence = rule.confidence
+
+        return best_error, best_rule
+
     def _match_rule(self, error: Dict) -> Optional[FixRule]:
         """Find a fix rule matching this error."""
         msg = error.get('message', '')
@@ -272,18 +497,15 @@ class Step3AutoFix:
 
         try:
             lines_changed = fix_func(error)
-            rule.applied_count += 1
-            rule.success_count += 1
 
             return FixResult(
-                success=True,
+                success=lines_changed > 0,
                 rule_id=rule.rule_id,
                 error_message=error.get('message', ''),
                 fix_applied=rule.description,
                 lines_changed=lines_changed
             )
         except Exception as e:
-            rule.applied_count += 1
             return FixResult(
                 success=False,
                 rule_id=rule.rule_id,
@@ -320,14 +542,14 @@ class Step3AutoFix:
 
         return 0
 
-    def _log_iteration(
+    def _log_iteration_internal(
         self,
         round_num: int,
         error: Dict,
         rule: FixRule,
         result: FixResult
     ):
-        """Log iteration for learning/debugging."""
+        """Log iteration internally (for return value)."""
         self.iteration_log.append({
             'timestamp': get_timestamp(),
             'round': round_num,
@@ -349,10 +571,15 @@ class Step3AutoFix:
         return self.iteration_log
 
 
+# =============================================================================
+# Public API
+# =============================================================================
+
 def autofix_file(
     input_path: Path,
     output_path: Optional[Path] = None,
-    max_rounds: int = 10
+    max_rounds: int = 10,
+    project_path: Optional[Path] = None
 ) -> Step3Result:
     """
     Auto-fix a markdown file.
@@ -361,6 +588,7 @@ def autofix_file(
         input_path: Path to input markdown file
         output_path: Path to save fixed file (default: overwrite input)
         max_rounds: Maximum fix iterations
+        project_path: Project root for logging (optional)
 
     Returns:
         Step3Result with status and details
@@ -368,12 +596,25 @@ def autofix_file(
     # Read input
     content = input_path.read_text(encoding='utf-8')
 
+    # Determine project_path if not provided
+    if not project_path:
+        # Try to find project root (has session.yaml)
+        for parent in input_path.parents:
+            if (parent / "session.yaml").exists():
+                project_path = parent
+                break
+
     # Run auto-fix
-    fixer = Step3AutoFix(content, max_rounds=max_rounds)
+    fixer = Step3AutoFix(
+        content,
+        max_rounds=max_rounds,
+        project_path=project_path,
+        file_path=str(input_path)
+    )
     result = fixer.run()
 
-    # Save if successful
-    if result.status == "valid" and result.fixes_applied:
+    # Save if fixes were applied
+    if result.fixes_applied:
         save_path = output_path or input_path
         save_path.write_text(fixer.get_fixed_content(), encoding='utf-8')
         result.message += f"\n📄 Saved to: {save_path}"
@@ -383,7 +624,8 @@ def autofix_file(
 
 def autofix_content(
     content: str,
-    max_rounds: int = 10
+    max_rounds: int = 10,
+    project_path: Optional[Path] = None
 ) -> Tuple[Step3Result, str]:
     """
     Auto-fix markdown content string.
@@ -391,30 +633,46 @@ def autofix_content(
     Args:
         content: Markdown content
         max_rounds: Maximum fix iterations
+        project_path: Project root for logging (optional)
 
     Returns:
         (Step3Result, fixed_content)
     """
-    fixer = Step3AutoFix(content, max_rounds=max_rounds)
+    fixer = Step3AutoFix(
+        content,
+        max_rounds=max_rounds,
+        project_path=project_path,
+        file_path="<content>"
+    )
     result = fixer.run()
     return result, fixer.get_fixed_content()
 
 
-# CLI entry point
+# =============================================================================
+# CLI
+# =============================================================================
+
 def main():
     """CLI entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python -m qf_pipeline.tools.step3_autofix <input.md> [--max-rounds N]")
+        print("Usage: python -m qf_pipeline.tools.step3_autofix <input.md> [--project-path PATH] [--max-rounds N]")
         sys.exit(2)
 
     input_path = Path(sys.argv[1])
 
-    # Parse --max-rounds
+    # Parse arguments
     max_rounds = 10
+    project_path = None
+
     if '--max-rounds' in sys.argv:
         idx = sys.argv.index('--max-rounds')
         if idx + 1 < len(sys.argv):
             max_rounds = int(sys.argv[idx + 1])
+
+    if '--project-path' in sys.argv:
+        idx = sys.argv.index('--project-path')
+        if idx + 1 < len(sys.argv):
+            project_path = Path(sys.argv[idx + 1])
 
     if not input_path.exists():
         print(f"Error: File not found: {input_path}")
@@ -422,11 +680,14 @@ def main():
 
     print(f"Step 3 Auto-Fix: {input_path}")
     print(f"Max rounds: {max_rounds}")
+    if project_path:
+        print(f"Project path: {project_path}")
     print("=" * 60)
 
-    result = autofix_file(input_path, max_rounds=max_rounds)
+    result = autofix_file(input_path, max_rounds=max_rounds, project_path=project_path)
 
-    print(f"\nStatus: {result.status}")
+    print(f"\nSession: {result.session_id}")
+    print(f"Status: {result.status}")
     print(f"Rounds: {result.rounds}")
     print(f"Fixes applied: {len(result.fixes_applied)}")
 

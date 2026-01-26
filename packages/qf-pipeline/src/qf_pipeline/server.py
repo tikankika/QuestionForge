@@ -1226,7 +1226,11 @@ async def handle_step3_autofix(arguments: dict) -> List[TextContent]:
     try:
         if content:
             # Fix content string
-            result, fixed_content = autofix_content(content, max_rounds=max_rounds)
+            result, fixed_content = autofix_content(
+                content,
+                max_rounds=max_rounds,
+                project_path=project_path
+            )
 
             # Build response
             lines = [
@@ -1279,10 +1283,11 @@ async def handle_step3_autofix(arguments: dict) -> List[TextContent]:
             result = autofix_file(
                 input_path,
                 output_path=input_path if save else None,
-                max_rounds=max_rounds
+                max_rounds=max_rounds,
+                project_path=project_path
             )
 
-            # Log if session active
+            # Log summary if session active (detailed logs in step3_iterations.jsonl)
             if project_path:
                 log_event(
                     str(project_path),
