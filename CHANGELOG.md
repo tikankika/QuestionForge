@@ -6,6 +6,48 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-26
 
+#### Step 3: Auto-Fix Iteration Engine (NEW)
+- **New Tool:** `step3_autofix` - Iterative mechanical error fixing
+  - Validates → fixes 1 error → repeats until valid or max rounds
+  - Mechanical errors (colon in metadata) auto-fixed
+  - Pedagogical errors (missing content) flagged for M5
+- **Self-learning system:**
+  - `step3_fix_rules.json` - Persisted fix rules with confidence scores
+  - `step3_iterations.jsonl` - Logs every fix iteration (JSONL format)
+  - Confidence updates after 5 uses based on success rate
+- **Dual interface:** MCP tool + CLI (`python step3_autofix.py file.md`)
+- **Fix rules:** Pattern matching against error messages
+  - Example: `metadata_colon` removes colons from `^type:`, `^identifier:`, `^points:`
+- **Files added:**
+  - `packages/qf-pipeline/src/qf_pipeline/tools/step3_autofix.py` (~400 lines)
+- **Files modified:**
+  - `packages/qf-pipeline/src/qf_pipeline/server.py` - registered MCP tool
+
+### Fixed - 2026-01-26
+
+#### qf-scaffolding: write_project_file Append Mode (Bug Fix)
+- **Bug:** `write_project_file` was overwriting files instead of appending
+  - M1 Stage 0 lost Material 1-4 when Material 5 was written
+- **Fix:** Added `append` parameter to `write_project_file`
+  - `append: true` - Adds content to end of existing file
+  - `append: false` (default) - Overwrites file (existing behavior)
+- **Files modified:**
+  - `packages/qf-scaffolding/src/tools/project_files.ts`
+
+### Changed - 2026-01-26
+
+#### M1 Stage 0: Separate Files Per Material
+- **Enhancement:** M1 Stage 0 now writes separate files per material
+  - Before: One combined `preparation/m1_stage0_materials.md`
+  - After: `preparation/m1_material_01_[name].md`, `preparation/m1_material_02_[name].md`, etc.
+- **New rules in methodology:**
+  - "DIRECT FILE WRITE - NO CHAT PREVIEW" - Analyze internally, save directly
+  - "ONE FILE PER MATERIAL" - Each material gets its own file
+- **Files modified:**
+  - `methodology/m1/m1_0_stage0_material_analysis.md`
+
+### Added - 2026-01-26
+
 #### Step 0: Auto-register materials in sources.yaml
 - **Enhancement:** Step 0 now automatically registers all copied materials in sources.yaml
 - **Materials registration:**
