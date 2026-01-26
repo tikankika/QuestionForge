@@ -6,6 +6,29 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-26
 
+#### Step 1: Dynamic Self-Learning Pattern System (RFC-013)
+- **Dynamic pattern creation** from unknown validation errors
+  - When parser returns error with no matching pattern → creates new tentative pattern
+  - New patterns start with low confidence (0.3)
+  - Teacher fix → pattern saved → confidence increases over time
+- **Source of truth:** `markdown_parser.py` validation (not static fixtures)
+- **Self-learning loop:**
+  1. Parser error: "multiple_response requires correct_answers"
+  2. No pattern exists → `create_pattern_from_error()` creates one
+  3. Teacher provides fix → pattern saved with action (accept_ai/modify/manual)
+  4. Next occurrence → pattern suggested with current confidence
+  5. After 5+ decisions → confidence recalculated from teacher acceptance rate
+- **New functions (patterns.py):**
+  - `create_pattern_from_error()` - Create pattern from validation error
+  - `find_or_create_pattern()` - Find existing or create new
+  - `update_pattern_from_teacher_fix()` - Learn from teacher decisions
+  - `generate_pattern_id()` - Generate unique STEP1_NNN ID
+- **Pattern derivation:**
+  - `mr_requires_correct_answers` from "multiple_response requires correct answers"
+  - `tf_requires_answer` from "true_false requires answer"
+  - Swedish descriptions auto-generated
+- **Bugfix:** `step1_start` parameter mismatch (output_folder → project_path)
+
 #### M5: Comprehensive Logging (v0.4.2)
 - **RFC-001 compliant logging** for all M5 tools to track bugs and patterns
 - **Events logged:**

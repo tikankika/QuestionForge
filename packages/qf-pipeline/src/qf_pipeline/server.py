@@ -253,21 +253,17 @@ async def list_tools() -> List[Tool]:
         # Step 1: Guided Build (Convert to QFMD)
         Tool(
             name="step1_start",
-            description="Start Step 1 Guided Build session. Uses Step 0 session if active, otherwise requires source_file and output_folder.",
+            description="Start Step 1 Guided Build session. Uses Step 0 session if active, otherwise requires project_path.",
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Path to project folder (optional if Step 0 session exists)",
+                    },
                     "source_file": {
                         "type": "string",
-                        "description": "Path to markdown file (optional if Step 0 session exists)",
-                    },
-                    "output_folder": {
-                        "type": "string",
-                        "description": "Directory for output files (optional if Step 0 session exists)",
-                    },
-                    "project_name": {
-                        "type": "string",
-                        "description": "Optional project name",
+                        "description": "Override source file path (optional)",
                     },
                 },
                 "required": [],
@@ -1807,12 +1803,11 @@ async def handle_write_project_file(arguments: dict) -> List[TextContent]:
 async def handle_step1_start(arguments: dict) -> List[TextContent]:
     """Handle step1_start - start guided build session.
 
-    Uses Step 0 session if active, otherwise requires source_file and output_folder.
+    Uses Step 0 session if active, otherwise requires project_path.
     """
     result = await step1_start(
-        source_file=arguments.get("source_file"),
-        output_folder=arguments.get("output_folder"),
-        project_name=arguments.get("project_name")
+        project_path=arguments.get("project_path"),
+        source_file=arguments.get("source_file")
     )
 
     if result.get("error"):

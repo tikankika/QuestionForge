@@ -41,6 +41,8 @@ from ..step1.patterns import (
     load_patterns,
     save_patterns,
     find_pattern_for_issue,
+    find_or_create_pattern,
+    update_pattern_from_teacher_fix,
 )
 from ..step1.structural_issues import (
     StructuralIssue,
@@ -118,25 +120,55 @@ def _get_question_display(question: ParsedQuestion, issues: List[StructuralIssue
     }
 
 
-def _get_ai_suggestions(issues: List[StructuralIssue], patterns: List[Pattern]) -> List[Dict[str, Any]]:
-    """Get AI suggestions for issues based on learned patterns."""
+def _get_ai_suggestions(
+    issues: List[StructuralIssue],
+    patterns: List[Pattern],
+    question_type: Optional[str] = None
+) -> Tuple[List[Dict[str, Any]], List[Pattern]]:
+    """
+    Get AI suggestions for issues based on learned patterns.
+
+    Uses dynamic pattern creation: if no pattern exists for an issue,
+    a new tentative pattern is created with low confidence.
+
+    Args:
+        issues: List of structural issues
+        patterns: List of existing patterns
+        question_type: Type of question (for pattern creation)
+
+    Returns:
+        Tuple of (suggestions, new_patterns_created)
+    """
     suggestions = []
+    new_patterns = []
 
     for issue in issues:
-        pattern = find_pattern_for_issue(patterns, issue.issue_type)
+        # Try to find existing pattern, or create new one
+        pattern, is_new = find_or_create_pattern(
+            patterns=patterns,
+            error_message=issue.message,
+            error_field=getattr(issue, 'field', None),
+            question_type=question_type
+        )
+
+        if is_new:
+            new_patterns.append(pattern)
+            # Add to patterns list for future lookups in this session
+            patterns.append(pattern)
 
         suggestion = {
             "issue_type": issue.issue_type,
             "message": issue.message,
-            "fix_suggestion": issue.fix_suggestion,
+            "fix_suggestion": pattern.fix_suggestion if pattern else issue.fix_suggestion,
             "auto_fixable": issue.auto_fixable,
             "pattern_id": pattern.pattern_id if pattern else None,
-            "confidence": pattern.confidence if pattern else 0.5,
-            "learned_from": pattern.learned_from if pattern else 0
+            "confidence": pattern.confidence if pattern else 0.3,
+            "learned_from": pattern.learned_from if pattern else 0,
+            "is_new_pattern": is_new
         }
         suggestions.append(suggestion)
 
-    return suggestions
+    return suggestions, new_patterns
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -275,7 +307,13 @@ async def step1_start(
     first_q_sep_issues = [i for i in separator_issues if first_q.question_id in i.message]
 
     all_issues = structural_issues + first_q_sep_issues
-    ai_suggestions = _get_ai_suggestions(all_issues, _patterns)
+    ai_suggestions, new_patterns = _get_ai_suggestions(
+        all_issues, _patterns, question_type=first_q.detected_type
+    )
+
+    # Save new patterns immediately (they'll have low confidence until teacher confirms)
+    if new_patterns:
+        save_patterns(_project_path, _patterns)
 
     return {
         "session_id": session_id,
@@ -287,6 +325,7 @@ async def step1_start(
         "current_question": _get_question_display(first_q, all_issues),
         "ai_suggestions": ai_suggestions,
         "patterns_loaded": len(_patterns),
+        "new_patterns_created": len(new_patterns),
         "message": f"Session startad! {len(questions)} frågor, {len(all_issues)} strukturella problem i första frågan.",
         "next_action": "step1_apply_fix" if all_issues else "step1_next"
     }
@@ -404,7 +443,13 @@ async def step1_navigate(direction: str = "next") -> Dict[str, Any]:
     q_sep_issues = [i for i in separator_issues if new_question.question_id in i.message]
 
     all_issues = structural_issues + q_sep_issues
-    ai_suggestions = _get_ai_suggestions(all_issues, _patterns)
+    ai_suggestions, new_patterns = _get_ai_suggestions(
+        all_issues, _patterns, question_type=new_question.detected_type
+    )
+
+    # Save new patterns immediately
+    if new_patterns:
+        save_patterns(_project_path, _patterns)
 
     return {
         "navigated_from": old_question_id,
@@ -412,6 +457,7 @@ async def step1_navigate(direction: str = "next") -> Dict[str, Any]:
         "position": f"{new_idx + 1} av {len(questions)}",
         "current_question": _get_question_display(new_question, all_issues),
         "ai_suggestions": ai_suggestions,
+        "new_patterns_created": len(new_patterns),
         "next_action": "step1_apply_fix" if all_issues else "step1_next"
     }
 
@@ -479,8 +525,14 @@ async def step1_analyze_question(question_id: Optional[str] = None) -> Dict[str,
     legacy_issues = analyze_question(question.raw_content, question.detected_type)
     structural_legacy, pedagogical, mechanical = categorize_issues(legacy_issues)
 
-    # Get AI suggestions for structural issues
-    ai_suggestions = _get_ai_suggestions(all_structural, _patterns)
+    # Get AI suggestions for structural issues (with dynamic pattern creation)
+    ai_suggestions, new_patterns = _get_ai_suggestions(
+        all_structural, _patterns, question_type=question.detected_type
+    )
+
+    # Save new patterns immediately
+    if new_patterns:
+        save_patterns(_project_path, _patterns)
 
     return {
         "question_id": target_id,

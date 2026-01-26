@@ -9,7 +9,7 @@ import json
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 
 def get_timestamp() -> str:
@@ -226,3 +226,240 @@ def get_pattern_by_id(patterns: List[Pattern], pattern_id: str) -> Optional[Patt
         if p.pattern_id == pattern_id:
             return p
     return None
+
+
+def generate_pattern_id(patterns: List[Pattern]) -> str:
+    """
+    Generate a unique pattern ID.
+
+    Format: STEP1_NNN where NNN is sequential.
+    """
+    existing_nums = []
+    for p in patterns:
+        if p.pattern_id.startswith("STEP1_"):
+            try:
+                num = int(p.pattern_id.replace("STEP1_", ""))
+                existing_nums.append(num)
+            except ValueError:
+                pass
+
+    next_num = max(existing_nums, default=0) + 1
+    return f"STEP1_{next_num:03d}"
+
+
+def create_pattern_from_error(
+    patterns: List[Pattern],
+    error_message: str,
+    error_field: Optional[str] = None,
+    question_type: Optional[str] = None,
+    teacher_fix: Optional[str] = None
+) -> Pattern:
+    """
+    Create a new pattern from a validation error.
+
+    This is the core of the self-learning system:
+    1. Parser gives error message
+    2. We create a tentative pattern with low confidence
+    3. Teacher provides fix → pattern is saved
+    4. Next time same error → pattern is suggested
+    5. Teacher accepts → confidence increases
+
+    Args:
+        patterns: Existing patterns (to generate unique ID)
+        error_message: Error from markdown_parser validation
+        error_field: Field that caused error (e.g., "answer", "correct_answers")
+        question_type: Type of question (e.g., "multiple_response")
+        teacher_fix: Optional fix provided by teacher (for learning)
+
+    Returns:
+        New Pattern with low initial confidence
+    """
+    # Generate unique ID
+    pattern_id = generate_pattern_id(patterns)
+
+    # Derive issue_type from error message
+    issue_type = _derive_issue_type(error_message, error_field, question_type)
+
+    # Create description in Swedish
+    description = _create_description(error_message, question_type)
+
+    # Create fix suggestion (will be refined by teacher)
+    fix_suggestion = _create_fix_suggestion(error_message, error_field, question_type)
+
+    # New patterns start with low confidence until teacher confirms
+    initial_confidence = 0.3
+
+    return Pattern(
+        pattern_id=pattern_id,
+        issue_type=issue_type,
+        description=description,
+        fix_suggestion=fix_suggestion,
+        confidence=initial_confidence,
+        teacher_accepted=0,
+        teacher_modified=0,
+        teacher_manual=0,
+        learned_from=0
+    )
+
+
+def _derive_issue_type(error_message: str, error_field: Optional[str], question_type: Optional[str]) -> str:
+    """
+    Derive a canonical issue_type from error message.
+
+    This creates a key for pattern matching. Examples:
+    - "multiple_response question requires correct answers" → "mr_requires_correct_answers"
+    - "true_false question requires answer" → "tf_requires_answer"
+    """
+    msg_lower = error_message.lower()
+
+    # Type-specific issues
+    if question_type:
+        type_prefix = {
+            "multiple_response": "mr",
+            "multiple_choice_single": "mc",
+            "true_false": "tf",
+            "inline_choice": "ic",
+            "text_entry": "te",
+            "match": "match",
+        }.get(question_type, question_type[:3])
+    else:
+        type_prefix = "generic"
+
+    # Extract key action from error message
+    if "requires" in msg_lower:
+        if error_field:
+            return f"{type_prefix}_requires_{error_field}"
+        elif "correct answers" in msg_lower:
+            return f"{type_prefix}_requires_correct_answers"
+        elif "answer" in msg_lower:
+            return f"{type_prefix}_requires_answer"
+        elif "options" in msg_lower:
+            return f"{type_prefix}_requires_options"
+        else:
+            return f"{type_prefix}_requires_unknown"
+
+    elif "missing" in msg_lower:
+        if error_field:
+            return f"{type_prefix}_missing_{error_field}"
+        else:
+            return f"{type_prefix}_missing_field"
+
+    elif "invalid" in msg_lower:
+        if error_field:
+            return f"{type_prefix}_invalid_{error_field}"
+        else:
+            return f"{type_prefix}_invalid_format"
+
+    # Fallback: use sanitized error message
+    sanitized = msg_lower.replace(" ", "_")[:40]
+    return f"{type_prefix}_{sanitized}"
+
+
+def _create_description(error_message: str, question_type: Optional[str]) -> str:
+    """Create Swedish description from error message."""
+    msg_lower = error_message.lower()
+
+    # Type names in Swedish
+    type_sv = {
+        "multiple_response": "flervalsfråga",
+        "multiple_choice_single": "envalsfråga",
+        "true_false": "sant/falskt-fråga",
+        "inline_choice": "dropdown-fråga",
+        "text_entry": "textinmatningsfråga",
+        "match": "matchningsfråga",
+    }.get(question_type, "fråga")
+
+    if "requires correct answers" in msg_lower:
+        return f"En {type_sv} kräver correct_answers (plural), inte answer"
+    elif "requires answer" in msg_lower:
+        return f"En {type_sv} saknar svarsfält"
+    elif "requires options" in msg_lower:
+        return f"En {type_sv} saknar svarsalternativ"
+    else:
+        return f"Valideringsfel: {error_message}"
+
+
+def _create_fix_suggestion(error_message: str, error_field: Optional[str], question_type: Optional[str]) -> str:
+    """Create fix suggestion based on error."""
+    msg_lower = error_message.lower()
+
+    if question_type == "multiple_response" and "correct answers" in msg_lower:
+        return "Byt @field: answer till @field: correct_answers för multiple_response"
+
+    elif "requires answer" in msg_lower:
+        return "Lägg till @field: answer med korrekt svar"
+
+    elif "requires options" in msg_lower:
+        return "Lägg till @field: options med svarsalternativ"
+
+    elif "requires correct answers" in msg_lower:
+        return "Lägg till @field: correct_answers med korrekta svar (kommaseparerade)"
+
+    else:
+        return f"Fixa: {error_message}"
+
+
+def find_or_create_pattern(
+    patterns: List[Pattern],
+    error_message: str,
+    error_field: Optional[str] = None,
+    question_type: Optional[str] = None
+) -> Tuple[Pattern, bool]:
+    """
+    Find existing pattern or create new one.
+
+    Args:
+        patterns: List of existing patterns
+        error_message: Error from validation
+        error_field: Field that caused error
+        question_type: Question type
+
+    Returns:
+        Tuple of (pattern, is_new) where is_new=True if pattern was created
+    """
+    # Derive what the issue_type would be
+    issue_type = _derive_issue_type(error_message, error_field, question_type)
+
+    # Try to find existing pattern
+    existing = find_pattern_for_issue(patterns, issue_type)
+    if existing:
+        return existing, False
+
+    # Create new pattern
+    new_pattern = create_pattern_from_error(
+        patterns=patterns,
+        error_message=error_message,
+        error_field=error_field,
+        question_type=question_type
+    )
+
+    return new_pattern, True
+
+
+def update_pattern_from_teacher_fix(
+    pattern: Pattern,
+    teacher_action: str,
+    teacher_fix: Optional[str] = None,
+    teacher_note: Optional[str] = None
+) -> None:
+    """
+    Update pattern based on teacher's fix.
+
+    This is how patterns learn:
+    - accept_ai: AI suggestion was correct → confidence increases
+    - modify: AI was close but teacher tweaked → moderate increase
+    - manual: Teacher had different idea → low increase
+
+    Args:
+        pattern: Pattern to update
+        teacher_action: "accept_ai", "modify", "manual", "skip"
+        teacher_fix: The actual fix content (for learning)
+        teacher_note: Teacher's reasoning
+    """
+    pattern.update_stats(teacher_action)
+
+    # If teacher provided a better fix suggestion, update it (for modify/manual)
+    if teacher_action in ["modify", "manual"] and teacher_note:
+        # Could update fix_suggestion based on teacher's note
+        # For now, just let confidence handle it
+        pass
