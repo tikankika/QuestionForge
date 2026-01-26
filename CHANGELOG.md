@@ -6,6 +6,40 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-26
 
+#### Step 1: RFC-013 Rebuild - Interactive Guided Build (MAJOR)
+- **Architecture:** Step 1 is now a "safety net" for structural issues
+  - M5 should generate structurally correct output
+  - Step 1 catches: M5 bugs, file corruption, older format imports, edge cases
+  - If M5 is perfect → Step 1 finds 0 issues
+- **YAML Progress Frontmatter:** Obsidian-compatible progress tracking in working file
+  - Tracks: session_id, current_question, questions_completed/skipped, issues_fixed
+  - Automatically removed on step1_finish
+- **Self-learning Pattern System:**
+  - `logs/step1_patterns.json` - Persisted patterns with confidence scores
+  - `logs/step1_decisions.jsonl` - Logs every teacher decision (JSONL)
+  - Confidence updates based on teacher acceptance rate (after 5+ decisions)
+- **New MCP Tools (RFC-013):**
+  - `step1_navigate` - Navigate: 'next', 'previous', or question_id
+  - `step1_previous` / `step1_jump` - Navigation aliases
+  - `step1_analyze_question` - STRUCTURAL issues only (pedagogical → M5)
+  - `step1_apply_fix` - Teacher-approved fix with action: accept_ai/modify/manual/skip
+- **Question-by-Question Workflow:**
+  - Teacher reviews each question's structural issues
+  - AI provides suggestions from learned patterns
+  - Teacher approves/modifies/skips → patterns learn
+- **Files added:**
+  - `step1/frontmatter.py` - YAML frontmatter management
+  - `step1/patterns.py` - Self-learning pattern system
+  - `step1/structural_issues.py` - Structural issue detection
+  - `step1/decision_logger.py` - JSONL decision logging
+- **Files modified:**
+  - `step1/__init__.py` - Export new modules
+  - `tools/step1_tools.py` - Complete rebuild for RFC-013
+  - `tools/__init__.py` - Export new tools
+  - `server.py` - Register RFC-013 MCP tools and handlers
+- **Legacy Tools Kept:** step1_transform, step1_preview, step1_batch_* (backwards compat)
+- **Working File Location:** `pipeline/step1_working.md` (was `output/`)
+
 #### Step 3: Auto-Fix Iteration Engine (NEW)
 - **New Tool:** `step3_autofix` - Iterative mechanical error fixing
   - Validates → fixes 1 error → repeats until valid or max rounds

@@ -45,20 +45,26 @@ from .tools import (
     get_session_status_tool,
     load_session_tool,
     get_current_session,
-    # Step 1 tools
+    # Step 1 tools - RFC-013 core
     step1_start,
     step1_status,
+    step1_navigate,
+    step1_next,
+    step1_previous,
+    step1_jump,
+    step1_analyze_question,
+    step1_apply_fix,
+    step1_skip,
+    step1_finish,
+    # Step 1 tools - Legacy (backwards compatibility)
     step1_analyze,
     step1_fix_auto,
     step1_fix_manual,
     step1_suggest,
     step1_batch_preview,
     step1_batch_apply,
-    step1_skip,
     step1_transform,
-    step1_next,
     step1_preview,
-    step1_finish,
     # Project file tools
     read_project_file,
     write_project_file,
@@ -447,6 +453,95 @@ async def list_tools() -> List[Tool]:
                 },
             },
         ),
+        # RFC-013 Step 1 tools
+        Tool(
+            name="step1_navigate",
+            description="[RFC-013] Navigate between questions. Direction: 'next', 'previous', or question_id.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "direction": {
+                        "type": "string",
+                        "description": "'next', 'previous', or question_id (e.g. 'Q007')",
+                        "default": "next",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="step1_previous",
+            description="[RFC-013] Move to previous question.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        Tool(
+            name="step1_jump",
+            description="[RFC-013] Jump to specific question by ID.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question ID to jump to (e.g. 'Q007')",
+                    },
+                },
+                "required": ["question_id"],
+            },
+        ),
+        Tool(
+            name="step1_analyze_question",
+            description=(
+                "[RFC-013] Analyze question for STRUCTURAL issues only. "
+                "Pedagogical issues are reported but should go to M5. "
+                "Returns AI suggestions from learned patterns."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question to analyze (default: current)",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="step1_apply_fix",
+            description=(
+                "[RFC-013] Apply a teacher-approved fix. "
+                "Actions: 'accept_ai' (use AI suggestion), 'modify' (teacher edits), 'manual' (teacher writes), 'skip'. "
+                "Updates pattern confidence and logs decision."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question being fixed",
+                    },
+                    "issue_type": {
+                        "type": "string",
+                        "description": "Type of structural issue",
+                    },
+                    "action": {
+                        "type": "string",
+                        "description": "'accept_ai', 'modify', 'manual', or 'skip'",
+                        "enum": ["accept_ai", "modify", "manual", "skip"],
+                    },
+                    "fix_content": {
+                        "type": "string",
+                        "description": "Content for 'modify' or 'manual' actions",
+                    },
+                    "teacher_note": {
+                        "type": "string",
+                        "description": "Optional teacher reasoning",
+                    },
+                },
+                "required": ["question_id", "issue_type", "action"],
+            },
+        ),
         # Cross-step utility
         Tool(
             name="list_types",
@@ -580,6 +675,17 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_step1_finish()
         elif name == "step1_next":
             return await handle_step1_next(arguments)
+        # RFC-013 Step 1 tools
+        elif name == "step1_navigate":
+            return await handle_step1_navigate(arguments)
+        elif name == "step1_previous":
+            return await handle_step1_previous()
+        elif name == "step1_jump":
+            return await handle_step1_jump(arguments)
+        elif name == "step1_analyze_question":
+            return await handle_step1_analyze_question(arguments)
+        elif name == "step1_apply_fix":
+            return await handle_step1_apply_fix(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except WrapperError as e:
@@ -2267,6 +2373,135 @@ async def handle_step1_next(arguments: dict) -> List[TextContent]:
              f"Problem: {issues} ({auto_fix} auto-fixbara)\n\n"
              f"{summary}"
     )]
+
+
+# =============================================================================
+# RFC-013 Step 1 Handlers
+# =============================================================================
+
+async def handle_step1_navigate(arguments: dict) -> List[TextContent]:
+    """Handle step1_navigate - RFC-013 navigation."""
+    direction = arguments.get("direction", "next")
+    result = await step1_navigate(direction)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    q = result.get("current_question", {})
+    suggestions = result.get("ai_suggestions", [])
+
+    output = f"""Navigerade: {result.get('navigated_from')} → {result.get('navigated_to')}
+Position: {result.get('position')}
+
+**{q.get('question_id')}** ({q.get('type')})
+{q.get('title', '')}
+
+Strukturella problem: {q.get('issues_count', 0)}
+"""
+
+    if suggestions:
+        output += "\n**AI-förslag:**\n"
+        for s in suggestions[:3]:
+            conf = int(s.get('confidence', 0) * 100)
+            output += f"- {s.get('message')} (confidence: {conf}%)\n"
+            output += f"  Förslag: {s.get('fix_suggestion')}\n"
+
+    output += f"\n**Nästa:** {result.get('next_action')}"
+
+    return [TextContent(type="text", text=output)]
+
+
+async def handle_step1_previous() -> List[TextContent]:
+    """Handle step1_previous - move to previous question."""
+    result = await step1_previous()
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    return await handle_step1_navigate({"direction": "previous"})
+
+
+async def handle_step1_jump(arguments: dict) -> List[TextContent]:
+    """Handle step1_jump - jump to specific question."""
+    question_id = arguments.get("question_id")
+    if not question_id:
+        return [TextContent(type="text", text="Error: question_id krävs")]
+
+    result = await step1_jump(question_id)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    q = result.get("current_question", {})
+    return [TextContent(
+        type="text",
+        text=f"Hoppade till {q.get('question_id')}\nPosition: {result.get('position')}"
+    )]
+
+
+async def handle_step1_analyze_question(arguments: dict) -> List[TextContent]:
+    """Handle step1_analyze_question - RFC-013 structural analysis."""
+    question_id = arguments.get("question_id")
+    result = await step1_analyze_question(question_id)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    output = f"""## Analys: {result.get('question_id')} ({result.get('question_type')})
+
+### Strukturella problem ({result.get('structural_count', 0)})
+"""
+
+    for issue in result.get("structural_issues", []):
+        output += f"- **{issue.get('type')}**: {issue.get('message')}\n"
+        output += f"  Förslag: {issue.get('fix_suggestion')}\n"
+        if issue.get('auto_fixable'):
+            output += "  ✓ Auto-fixbar\n"
+
+    if result.get('pedagogical_count', 0) > 0:
+        output += f"\n### Pedagogiska problem ({result.get('pedagogical_count')}) → M5\n"
+        for issue in result.get("pedagogical_issues", [])[:3]:
+            output += f"- {issue.get('message')}\n"
+
+    output += f"\n**Instruktion:** {result.get('instruction')}"
+    output += f"\n**Nästa:** {result.get('next_action')}"
+
+    return [TextContent(type="text", text=output)]
+
+
+async def handle_step1_apply_fix(arguments: dict) -> List[TextContent]:
+    """Handle step1_apply_fix - RFC-013 teacher-approved fix."""
+    question_id = arguments.get("question_id")
+    issue_type = arguments.get("issue_type")
+    action = arguments.get("action")
+    fix_content = arguments.get("fix_content")
+    teacher_note = arguments.get("teacher_note")
+
+    if not all([question_id, issue_type, action]):
+        return [TextContent(type="text", text="Error: question_id, issue_type och action krävs")]
+
+    result = await step1_apply_fix(question_id, issue_type, action, fix_content, teacher_note)
+
+    if result.get("error"):
+        return [TextContent(type="text", text=f"Error: {result['error']}")]
+
+    output = f"""## Fix applicerad
+
+**Fråga:** {result.get('question_id')}
+**Åtgärd:** {result.get('action')}
+**Resultat:** {'✓ Lyckades' if result.get('success') else '✗ Misslyckades'}
+
+"""
+
+    if result.get('pattern_updated'):
+        output += f"**Pattern uppdaterad:** {result.get('pattern_updated')} "
+        output += f"(confidence: {int(result.get('pattern_confidence', 0) * 100)}%)\n\n"
+
+    output += f"**Kvarvarande problem:** {result.get('remaining_issues', 0)}\n"
+    output += f"**Totalt fixade:** {result.get('issues_fixed_total', 0)}\n"
+    output += f"\n**Nästa:** {result.get('next_action')}"
+
+    return [TextContent(type="text", text=output)]
 
 
 # =============================================================================

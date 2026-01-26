@@ -1,25 +1,70 @@
 """
-MCP Tool implementations for Step 1: Guided Build.
-Convert questions to QFMD (QuestionForge Markdown) format.
+MCP Tool implementations for Step 1: Interactive Guided Build.
+
+RFC-013 Architecture:
+- Step 1 is a SAFETY NET for structural issues
+- M5 should generate structurally correct output
+- Step 1 catches: M5 bugs, file corruption, older formats, edge cases
+- If M5 is perfect → Step 1 finds 0 issues
+
+Key Features:
+- YAML progress frontmatter in working file
+- Question-by-question workflow with teacher approval
+- Self-learning pattern system
+- Decision logging for analytics
 """
 
+import uuid
+import shutil
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 
 from ..step1.session import Session, QuestionStatus
 from ..step1.parser import parse_file, ParsedQuestion, get_question_by_id
-from ..step1.detector import detect_format, FormatLevel, get_format_description, is_transformable
-from ..step1.analyzer import analyze_question, get_auto_fixable_issues, count_issues_by_severity
+from ..step1.detector import detect_format, FormatLevel, get_format_description
+from ..step1.analyzer import analyze_question, get_auto_fixable_issues
 from ..step1.transformer import transformer
-from ..step1.prompts import format_issue_summary, format_progress, get_prompt, BLOOM_LEVELS, DIFFICULTY_LEVELS
+from ..step1.prompts import format_issue_summary, get_prompt
+
+# RFC-013 new modules
+from ..step1.frontmatter import (
+    add_frontmatter,
+    update_frontmatter,
+    remove_frontmatter,
+    parse_frontmatter,
+    has_frontmatter,
+    create_progress_dict,
+    update_progress,
+)
+from ..step1.patterns import (
+    Pattern,
+    load_patterns,
+    save_patterns,
+    find_pattern_for_issue,
+)
+from ..step1.structural_issues import (
+    StructuralIssue,
+    detect_structural_issues,
+    detect_separator_issues,
+    categorize_issues,
+)
+from ..step1.decision_logger import (
+    log_decision,
+    log_session_start,
+    log_session_complete,
+    log_navigation,
+)
 from .session import get_current_session  # Step 0 session
-import re
-from typing import List
 
 
-# Global session state
+# ════════════════════════════════════════════════════════════════════
+# GLOBAL STATE
+# ════════════════════════════════════════════════════════════════════
+
 _step1_session: Optional[Session] = None
-_parsed_questions: list = []
+_parsed_questions: List[ParsedQuestion] = []
+_patterns: List[Pattern] = []
+_project_path: Optional[Path] = None
 
 
 def get_step1_session() -> Optional[Session]:
@@ -34,113 +79,153 @@ def set_step1_session(session: Optional[Session]) -> None:
 
 
 # ════════════════════════════════════════════════════════════════════
-# MCP TOOLS
+# HELPER FUNCTIONS
+# ════════════════════════════════════════════════════════════════════
+
+def _get_working_file_path(project_path: Path) -> Path:
+    """Get path to Step 1 working file in pipeline/ folder."""
+    return project_path / "pipeline" / "step1_working.md"
+
+
+def _ensure_pipeline_folder(project_path: Path) -> Path:
+    """Ensure pipeline/ folder exists."""
+    pipeline_dir = project_path / "pipeline"
+    pipeline_dir.mkdir(parents=True, exist_ok=True)
+    return pipeline_dir
+
+
+def _get_question_display(question: ParsedQuestion, issues: List[StructuralIssue]) -> Dict[str, Any]:
+    """Format question for display with issues."""
+    return {
+        "question_id": question.question_id,
+        "title": question.title,
+        "type": question.detected_type,
+        "line_start": question.line_start,
+        "line_end": question.line_end,
+        "preview": question.raw_content[:500] + "..." if len(question.raw_content) > 500 else question.raw_content,
+        "issues_count": len(issues),
+        "issues": [
+            {
+                "type": i.issue_type,
+                "severity": i.severity.value,
+                "message": i.message,
+                "line": i.line_number,
+                "fix_suggestion": i.fix_suggestion,
+                "auto_fixable": i.auto_fixable
+            }
+            for i in issues
+        ]
+    }
+
+
+def _get_ai_suggestions(issues: List[StructuralIssue], patterns: List[Pattern]) -> List[Dict[str, Any]]:
+    """Get AI suggestions for issues based on learned patterns."""
+    suggestions = []
+
+    for issue in issues:
+        pattern = find_pattern_for_issue(patterns, issue.issue_type)
+
+        suggestion = {
+            "issue_type": issue.issue_type,
+            "message": issue.message,
+            "fix_suggestion": issue.fix_suggestion,
+            "auto_fixable": issue.auto_fixable,
+            "pattern_id": pattern.pattern_id if pattern else None,
+            "confidence": pattern.confidence if pattern else 0.5,
+            "learned_from": pattern.learned_from if pattern else 0
+        }
+        suggestions.append(suggestion)
+
+    return suggestions
+
+
+# ════════════════════════════════════════════════════════════════════
+# MCP TOOLS - RFC-013 SPEC
 # ════════════════════════════════════════════════════════════════════
 
 async def step1_start(
-    source_file: Optional[str] = None,
-    output_folder: Optional[str] = None,
-    project_name: Optional[str] = None
+    project_path: Optional[str] = None,
+    source_file: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Start a new Step 1 session.
+    Initialize Step 1 session.
 
-    Uses Step 0 session if available, otherwise requires source_file and output_folder.
+    RFC-013 Flow:
+    1. Load source (default: questions/m5_output.md or working_file from Step 0)
+    2. Add YAML frontmatter for progress tracking
+    3. Copy to pipeline/step1_working.md
+    4. Parse questions, detect structural issues
+    5. Return session info + first question
 
     Args:
-        source_file: Path to markdown file (optional if Step 0 session exists)
-        output_folder: Directory for output files (optional if Step 0 session exists)
-        project_name: Optional project name
+        project_path: Path to project (uses Step 0 session if not provided)
+        source_file: Override source file path
 
     Returns:
-        Session info and initial analysis
+        Session info with first question and structural issues
     """
-    global _step1_session, _parsed_questions
+    global _step1_session, _parsed_questions, _patterns, _project_path
 
-    # Check for Step 0 session first
+    # Get project path from Step 0 session or argument
     step0_session = get_current_session()
 
-    if step0_session:
-        # Use Step 0 session paths
+    if step0_session and not project_path:
         status = step0_session.get_status()
-        source_file = status.get('working_file')  # Use working copy from Step 0
         project_path = status.get('project_path')
+        if not source_file:
+            source_file = status.get('working_file')
 
-        if not source_file or not project_path:
-            return {"error": "Step 0 session saknar nödvändiga sökvägar"}
+    if not project_path:
+        return {
+            "error": "Ingen projekt-sökväg angiven",
+            "recommendation": "Kör step0_start först, eller ange project_path"
+        }
 
-        # Output folder is output/ within project structure
-        output_folder = str(Path(project_path) / "output")
-    else:
-        # No Step 0 session - require explicit paths
-        if not source_file or not output_folder:
+    _project_path = Path(project_path)
+
+    # Determine source file
+    if not source_file:
+        # Try common locations
+        m5_output = _project_path / "questions" / "m5_output.md"
+        questions_md = _project_path / "questions" / "questions.md"
+
+        if m5_output.exists():
+            source_file = str(m5_output)
+        elif questions_md.exists():
+            source_file = str(questions_md)
+        else:
             return {
-                "error": "Ingen aktiv Step 0 session",
-                "recommendation": "Kör step0_start först, eller ange source_file och output_folder"
+                "error": "Ingen källfil hittad",
+                "tried": [str(m5_output), str(questions_md)],
+                "recommendation": "Ange source_file eller kör M5 först"
             }
 
-    # Validate source file
     source_path = Path(source_file)
     if not source_path.exists():
-        return {"error": f"File not found: {source_file}"}
+        return {"error": f"Fil ej hittad: {source_file}"}
 
-    if not source_path.suffix.lower() == '.md':
-        return {"error": f"Not a markdown file: {source_file}"}
-
-    # Create output folder
-    output_path = Path(output_folder)
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    # Read file
+    # Read source content
     content = source_path.read_text(encoding='utf-8')
 
     # Detect format
     format_level = detect_format(content)
-    format_warning = None
-
-    # Accept ALL formats - only warn, don't reject
-    if format_level == FormatLevel.UNSTRUCTURED:
-        format_warning = {
-            "level": "severe",
-            "message": "Filen saknar tydlig struktur. Step 1 försöker ändå.",
-            "recommendation": "Om många fel uppstår, överväg M1-M4 för att strukturera innehållet först."
-        }
-    elif format_level == FormatLevel.QFMD:
-        # Already QFMD - still allow step1 to run for any remaining fixes
-        format_warning = {
-            "level": "info",
-            "message": "Filen är redan i QFMD-format.",
-            "recommendation": "Kör step2_validate direkt, eller fortsätt här för eventuella justeringar."
-        }
-    elif format_level == FormatLevel.SEMI_STRUCTURED:
-        format_warning = {
-            "level": "moderate",
-            "message": "Filen är semi-strukturerad. Step 1 försöker fixa.",
-            "recommendation": "Om många strukturella fel, överväg M3 för omgenerering."
-        }
 
     # Parse questions
     questions = parse_file(content)
 
     if not questions:
-        # If no questions found and format is problematic, give helpful guidance
-        if format_level in [FormatLevel.UNSTRUCTURED, FormatLevel.UNKNOWN]:
-            return {
-                "error": "Inga frågor hittades i filen",
-                "format": format_level.value,
-                "recommendation": "Filen verkar sakna frågestruktur. Använd M3 (Question Generation) för att skapa frågor från ditt material.",
-                "format_warning": format_warning
-            }
         return {
-            "error": "Inga frågor hittades i filen",
+            "error": "Inga frågor hittades",
             "format": format_level.value,
-            "recommendation": "Kontrollera att filen innehåller frågor med # Q001 eller liknande headers."
+            "recommendation": "Kontrollera att filen innehåller frågor med # Q001 headers"
         }
 
     _parsed_questions = questions
 
     # Create session
-    _step1_session = Session.create_new(source_file, output_folder)
+    session_id = str(uuid.uuid4())[:8]
+    _step1_session = Session.create_new(source_file, str(_project_path / "pipeline"))
+    _step1_session.session_id = session_id
     _step1_session.total_questions = len(questions)
     _step1_session.detected_format = format_level.value
 
@@ -150,55 +235,60 @@ async def step1_start(
         for q in questions
     ]
 
-    # Copy source to working file
-    working_path = Path(_step1_session.working_file)
-    working_path.write_text(content, encoding='utf-8')
+    # Load patterns for self-learning
+    _patterns = load_patterns(_project_path)
 
-    # Save session
-    session_file = output_path / f"step1_session_{_step1_session.session_id}.json"
-    _step1_session.save(session_file)
+    # Create progress frontmatter
+    progress = create_progress_dict(
+        session_id=session_id,
+        total_questions=len(questions),
+        current_question=1,
+        current_question_id=questions[0].question_id
+    )
 
-    # Analyze first question
-    first_question = questions[0]
-    issues = analyze_question(first_question.raw_content, first_question.detected_type)
-    _step1_session.questions[0].issues_found = len(issues)
+    # Add frontmatter to content
+    content_with_fm = add_frontmatter(content, progress)
 
-    # Count total issues across all questions for severity assessment
-    total_issues = 0
-    severe_issues = 0
-    for q in questions:
-        q_issues = analyze_question(q.raw_content, q.detected_type)
-        total_issues += len(q_issues)
-        # Count severe issues (missing required fields)
-        severe_issues += sum(1 for i in q_issues if hasattr(i, 'severity') and i.severity.value == 'error')
+    # Ensure pipeline/ folder exists
+    _ensure_pipeline_folder(_project_path)
 
-    # Build recommendation based on issue count
-    if severe_issues > len(questions) * 3:  # More than 3 severe issues per question on average
-        m1m4_recommendation = f"Filen har {severe_issues} allvarliga problem. Överväg M1-M4 för bättre struktur."
-    else:
-        m1m4_recommendation = None
+    # Save to working file
+    working_file = _get_working_file_path(_project_path)
+    working_file.write_text(content_with_fm, encoding='utf-8')
+    _step1_session.working_file = str(working_file)
+
+    # Log session start
+    log_session_start(
+        project_path=_project_path,
+        session_id=session_id,
+        source_file=source_file,
+        total_questions=len(questions),
+        detected_format=format_level.value
+    )
+
+    # Analyze first question for structural issues
+    first_q = questions[0]
+    structural_issues = detect_structural_issues(first_q.raw_content, first_q.question_id)
+
+    # Also check separators (needs full content)
+    separator_issues = detect_separator_issues(content, questions)
+    first_q_sep_issues = [i for i in separator_issues if first_q.question_id in i.message]
+
+    all_issues = structural_issues + first_q_sep_issues
+    ai_suggestions = _get_ai_suggestions(all_issues, _patterns)
 
     return {
-        "session_id": _step1_session.session_id,
+        "session_id": session_id,
         "source_file": source_file,
-        "working_file": _step1_session.working_file,
+        "working_file": str(working_file),
         "format": format_level.value,
         "format_description": get_format_description(format_level),
-        "format_warning": format_warning,
         "total_questions": len(questions),
-        "total_issues": total_issues,
-        "severe_issues": severe_issues,
-        "m1m4_recommendation": m1m4_recommendation,
-        "first_question": {
-            "id": first_question.question_id,
-            "title": first_question.title,
-            "type": first_question.detected_type,
-            "line_start": first_question.line_start,
-            "issues_count": len(issues),
-            "auto_fixable": len(get_auto_fixable_issues(issues)),
-            "issues_summary": format_issue_summary(issues)
-        },
-        "message": f"Session started! {len(questions)} frågor hittades. Kör step1_analyze eller step1_transform för att fixa."
+        "current_question": _get_question_display(first_q, all_issues),
+        "ai_suggestions": ai_suggestions,
+        "patterns_loaded": len(_patterns),
+        "message": f"Session startad! {len(questions)} frågor, {len(all_issues)} strukturella problem i första frågan.",
+        "next_action": "step1_apply_fix" if all_issues else "step1_next"
     }
 
 
@@ -206,921 +296,600 @@ async def step1_status() -> Dict[str, Any]:
     """
     Get current session status.
 
-    Returns:
-        Session progress and statistics
+    Returns progress from frontmatter in working file.
     """
-    if not _step1_session:
-        return {"error": "No active session. Use step1_start first."}
+    if not _step1_session or not _project_path:
+        return {"error": "Ingen aktiv session. Kör step1_start först."}
 
-    progress = _step1_session.get_progress()
-    current = _step1_session.get_current_question()
+    working_file = _get_working_file_path(_project_path)
+
+    if not working_file.exists():
+        return {"error": "Working file saknas"}
+
+    content = working_file.read_text(encoding='utf-8')
+    frontmatter = parse_frontmatter(content)
+
+    if not frontmatter or "step1_progress" not in frontmatter:
+        return {"error": "Frontmatter saknas i working file"}
+
+    progress = frontmatter["step1_progress"]
 
     return {
-        "session_id": _step1_session.session_id,
-        "progress": progress,
-        "progress_display": format_progress(progress),
-        "current_question": current.question_id if current else None,
-        "format": _step1_session.detected_format,
-        "changes_made": len(_step1_session.changes),
-        "working_file": _step1_session.working_file
+        "session_id": progress.get("session_id"),
+        "status": progress.get("status"),
+        "total_questions": progress.get("total_questions"),
+        "current_question": progress.get("current_question"),
+        "current_question_id": progress.get("current_question_id"),
+        "questions_completed": progress.get("questions_completed", 0),
+        "questions_skipped": progress.get("questions_skipped", 0),
+        "questions_deleted": progress.get("questions_deleted", 0),
+        "issues_fixed": progress.get("issues_fixed", 0),
+        "started_at": progress.get("started_at"),
+        "last_updated": progress.get("last_updated"),
+        "progress_percent": round(
+            (progress.get("questions_completed", 0) / progress.get("total_questions", 1)) * 100, 1
+        ),
+        "working_file": str(working_file)
     }
 
 
-async def step1_analyze(question_id: Optional[str] = None) -> Dict[str, Any]:
+async def step1_navigate(direction: str = "next") -> Dict[str, Any]:
     """
-    Analyze a question and return categorized issues.
+    Navigate between questions.
+
+    Args:
+        direction: "next", "previous", or question_id (e.g., "Q007")
+
+    Returns:
+        Current question with structural issues and AI suggestions
+    """
+    if not _step1_session or not _project_path:
+        return {"error": "Ingen aktiv session"}
+
+    working_file = _get_working_file_path(_project_path)
+    content = working_file.read_text(encoding='utf-8')
+
+    # Parse frontmatter
+    frontmatter = parse_frontmatter(content)
+    if not frontmatter:
+        return {"error": "Frontmatter saknas"}
+
+    progress = frontmatter.get("step1_progress", {})
+    current_idx = progress.get("current_question", 1) - 1  # 0-indexed
+
+    # Re-parse questions from content without frontmatter
+    content_body = remove_frontmatter(content) if has_frontmatter(content) else content
+    questions = parse_file(content_body)
+
+    if not questions:
+        return {"error": "Inga frågor hittade i working file"}
+
+    # Calculate new index
+    old_idx = current_idx
+    old_question_id = progress.get("current_question_id", "Q001")
+
+    if direction == "next":
+        new_idx = min(current_idx + 1, len(questions) - 1)
+    elif direction == "previous":
+        new_idx = max(current_idx - 1, 0)
+    else:
+        # Assume it's a question_id
+        new_idx = next(
+            (i for i, q in enumerate(questions) if q.question_id == direction),
+            current_idx
+        )
+
+    new_question = questions[new_idx]
+
+    # Update frontmatter
+    content = update_progress(
+        content,
+        current_question=new_idx + 1,
+        current_question_id=new_question.question_id
+    )
+    working_file.write_text(content, encoding='utf-8')
+
+    # Log navigation
+    log_navigation(
+        project_path=_project_path,
+        session_id=progress.get("session_id", "unknown"),
+        from_question=old_question_id,
+        to_question=new_question.question_id,
+        direction=direction
+    )
+
+    # Analyze new question
+    structural_issues = detect_structural_issues(new_question.raw_content, new_question.question_id)
+    separator_issues = detect_separator_issues(content_body, questions)
+    q_sep_issues = [i for i in separator_issues if new_question.question_id in i.message]
+
+    all_issues = structural_issues + q_sep_issues
+    ai_suggestions = _get_ai_suggestions(all_issues, _patterns)
+
+    return {
+        "navigated_from": old_question_id,
+        "navigated_to": new_question.question_id,
+        "position": f"{new_idx + 1} av {len(questions)}",
+        "current_question": _get_question_display(new_question, all_issues),
+        "ai_suggestions": ai_suggestions,
+        "next_action": "step1_apply_fix" if all_issues else "step1_next"
+    }
+
+
+# Aliases for RFC-013 tool names
+async def step1_next() -> Dict[str, Any]:
+    """Move to next question."""
+    return await step1_navigate("next")
+
+
+async def step1_previous() -> Dict[str, Any]:
+    """Move to previous question."""
+    return await step1_navigate("previous")
+
+
+async def step1_jump(question_id: str) -> Dict[str, Any]:
+    """Jump to specific question."""
+    return await step1_navigate(question_id)
+
+
+async def step1_analyze_question(question_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Analyze current or specified question for STRUCTURAL issues.
+
+    Only detects structural issues that Step 1 should fix.
+    Pedagogical issues are reported but should go to M5.
 
     Args:
         question_id: Question to analyze (default: current)
 
     Returns:
-        Categorized issues: auto_fixable and needs_input
+        Structural issues with AI suggestions
     """
-    if not _step1_session:
-        return {"error": "No active session"}
+    if not _step1_session or not _project_path:
+        return {"error": "Ingen aktiv session"}
 
-    # Read working file
-    working_path = Path(_step1_session.working_file)
-    content = working_path.read_text(encoding='utf-8')
+    working_file = _get_working_file_path(_project_path)
+    content = working_file.read_text(encoding='utf-8')
 
-    # Parse and find question
-    questions = parse_file(content)
+    # Get current question from frontmatter
+    frontmatter = parse_frontmatter(content)
+    progress = frontmatter.get("step1_progress", {}) if frontmatter else {}
 
-    target_id = question_id or _step1_session.questions[_step1_session.current_index].question_id
+    # Parse questions
+    content_body = remove_frontmatter(content) if has_frontmatter(content) else content
+    questions = parse_file(content_body)
+
+    # Find target question
+    target_id = question_id or progress.get("current_question_id", "Q001")
     question = get_question_by_id(questions, target_id)
 
     if not question:
-        return {"error": f"Question not found: {target_id}"}
+        return {"error": f"Fråga ej hittad: {target_id}"}
 
-    # Analyze
-    issues = analyze_question(question.raw_content, question.detected_type)
-    counts = count_issues_by_severity(issues)
+    # Detect structural issues
+    structural_issues = detect_structural_issues(question.raw_content, question.question_id)
 
-    # Categorize issues
-    auto_fixable = [i for i in issues if i.auto_fixable]
-    needs_input = [i for i in issues if not i.auto_fixable and i.prompt_key]
-    other = [i for i in issues if not i.auto_fixable and not i.prompt_key]
+    # Detect separator issues
+    separator_issues = detect_separator_issues(content_body, questions)
+    q_sep_issues = [i for i in separator_issues if question.question_id in i.message]
+
+    all_structural = structural_issues + q_sep_issues
+
+    # Also run legacy analyzer to catch pedagogical issues
+    legacy_issues = analyze_question(question.raw_content, question.detected_type)
+    structural_legacy, pedagogical, mechanical = categorize_issues(legacy_issues)
+
+    # Get AI suggestions for structural issues
+    ai_suggestions = _get_ai_suggestions(all_structural, _patterns)
 
     return {
         "question_id": target_id,
         "question_type": question.detected_type,
-        "question_title": question.title,
-        "question_preview": question.raw_content[:300] + "..." if len(question.raw_content) > 300 else question.raw_content,
-        "total_issues": len(issues),
-        "by_severity": counts,
-
-        # Categorized issues
-        "auto_fixable": [
+        "structural_issues": [
             {
-                "id": idx,
-                "field": i.field,
+                "type": i.issue_type,
+                "severity": i.severity.value,
                 "message": i.message,
-                "transform_id": i.transform_id
+                "line": i.line_number,
+                "fix_suggestion": i.fix_suggestion,
+                "auto_fixable": i.auto_fixable
             }
-            for idx, i in enumerate(auto_fixable)
+            for i in all_structural
         ],
-        "auto_fixable_count": len(auto_fixable),
-
-        "needs_input": [
+        "structural_count": len(all_structural),
+        "pedagogical_issues": [
             {
-                "id": idx,
-                "field": i.field,
-                "message": i.message,
-                "prompt_key": i.prompt_key,
-                "current_value": i.current_value,
-                "prompt": get_prompt(i.prompt_key) if i.prompt_key else None
+                "message": getattr(i, 'message', str(i)),
+                "field": getattr(i, 'field', None)
             }
-            for idx, i in enumerate(needs_input)
+            for i in pedagogical
         ],
-        "needs_input_count": len(needs_input),
-
-        "other_issues": [
-            {
-                "id": idx,
-                "field": i.field,
-                "message": i.message,
-                "severity": i.severity.value
-            }
-            for idx, i in enumerate(other)
-        ],
-
-        # Instructions for Claude
+        "pedagogical_count": len(pedagogical),
+        "ai_suggestions": ai_suggestions,
         "instruction": (
-            f"{len(auto_fixable)} auto-fixable (kör step1_fix_auto), "
-            f"{len(needs_input)} kräver input (fråga användaren), "
-            f"{len(other)} övriga"
-        ) if issues else "Inga problem hittades!",
-
-        "next_action": "step1_fix_auto" if auto_fixable else ("ask_user" if needs_input else "step1_next")
+            f"{len(all_structural)} strukturella problem (Step 1 fixar), "
+            f"{len(pedagogical)} pedagogiska (M5 fixar)"
+        ),
+        "next_action": (
+            "step1_apply_fix" if all_structural else
+            ("route_to_m5" if pedagogical else "step1_next")
+        )
     }
 
 
-async def step1_transform(question_id: Optional[str] = None) -> Dict[str, Any]:
+async def step1_apply_fix(
+    question_id: str,
+    issue_type: str,
+    action: str,
+    fix_content: Optional[str] = None,
+    teacher_note: Optional[str] = None
+) -> Dict[str, Any]:
     """
-    Apply all auto-fixable transforms to a question or all questions.
+    Apply a teacher-approved fix.
+
+    RFC-013 Workflow:
+    1. Apply fix to working file
+    2. Update frontmatter (issues_fixed counter)
+    3. Log decision to step1_decisions.jsonl
+    4. Update pattern confidence
+    5. Save updated patterns
 
     Args:
-        question_id: Question to fix (default: all questions)
+        question_id: Question being fixed
+        issue_type: Type of structural issue
+        action: "accept_ai", "modify", "manual", "skip"
+        fix_content: Content for "modify" or "manual" actions
+        teacher_note: Optional teacher reasoning
 
     Returns:
-        List of changes made
+        Confirmation with updated question
     """
-    if not _step1_session:
-        return {"error": "No active session"}
+    global _patterns
 
-    # Read working file
-    working_path = Path(_step1_session.working_file)
-    content = working_path.read_text(encoding='utf-8')
+    if not _step1_session or not _project_path:
+        return {"error": "Ingen aktiv session"}
 
-    if question_id:
-        # Transform single question
-        questions = parse_file(content)
-        question = get_question_by_id(questions, question_id)
+    working_file = _get_working_file_path(_project_path)
+    content = working_file.read_text(encoding='utf-8')
 
-        if not question:
-            return {"error": f"Question not found: {question_id}"}
+    # Get session info from frontmatter
+    frontmatter = parse_frontmatter(content)
+    progress = frontmatter.get("step1_progress", {}) if frontmatter else {}
+    session_id = progress.get("session_id", "unknown")
 
+    # Parse questions
+    content_body = remove_frontmatter(content) if has_frontmatter(content) else content
+    questions = parse_file(content_body)
+
+    question = get_question_by_id(questions, question_id)
+    if not question:
+        return {"error": f"Fråga ej hittad: {question_id}"}
+
+    # Find the pattern for this issue
+    pattern = find_pattern_for_issue(_patterns, issue_type)
+
+    # Build AI suggestion for logging
+    ai_suggestion = {
+        "issue_type": issue_type,
+        "fix_suggestion": pattern.fix_suggestion if pattern else "Ingen AI-förslag",
+        "confidence": pattern.confidence if pattern else 0.5
+    }
+
+    # Apply fix based on action
+    applied_fix = None
+    fix_success = False
+
+    if action == "accept_ai":
+        # Apply auto-fix using transformer
         new_content, changes = transformer.apply_all_auto(question.raw_content)
+        if changes:
+            content_body = content_body.replace(question.raw_content, new_content)
+            applied_fix = {"action": "auto_transform", "changes": changes}
+            fix_success = True
 
-        if not changes:
-            return {
-                "question_id": question_id,
-                "changes": [],
-                "message": "Inga automatiska fixar att applicera"
-            }
+    elif action == "modify" and fix_content:
+        # Apply modified content from teacher
+        content_body = content_body.replace(question.raw_content, fix_content)
+        applied_fix = {"action": "teacher_modified", "content": fix_content[:100]}
+        fix_success = True
 
-        # Update file
-        full_content = content.replace(question.raw_content, new_content)
-        working_path.write_text(full_content, encoding='utf-8')
+    elif action == "manual" and fix_content:
+        # Apply teacher's manual fix
+        content_body = content_body.replace(question.raw_content, fix_content)
+        applied_fix = {"action": "teacher_manual", "content": fix_content[:100]}
+        fix_success = True
 
-        # Log changes
-        for change_desc in changes:
-            _step1_session.add_change(
-                question_id=question_id,
-                field='auto',
-                old_value=None,
-                new_value=change_desc,
-                change_type='auto'
-            )
+    elif action == "skip":
+        applied_fix = {"action": "skipped"}
+        # Don't update issues_fixed for skip
 
-        return {
-            "question_id": question_id,
-            "changes": changes,
-            "message": f"Applicerade {len(changes)} automatiska fixar på {question_id}"
-        }
-    else:
-        # Transform entire file
-        new_content, changes = transformer.apply_all_auto(content)
+    # Update pattern statistics
+    if pattern and action in ["accept_ai", "modify", "manual"]:
+        pattern.update_stats(action)
 
-        if not changes:
-            return {
-                "changes": [],
-                "message": "Inga automatiska fixar att applicera"
-            }
+    # Log decision
+    log_decision(
+        project_path=_project_path,
+        session_id=session_id,
+        question_id=question_id,
+        issue_type=issue_type,
+        issue_description=f"Structural issue: {issue_type}",
+        line_number=question.line_start,
+        ai_suggestion=ai_suggestion,
+        teacher_decision=action,
+        applied_fix=applied_fix,
+        teacher_note=teacher_note,
+        pattern_id=pattern.pattern_id if pattern else None
+    )
 
-        # Write transformed content
-        working_path.write_text(new_content, encoding='utf-8')
+    # Update frontmatter
+    issues_fixed = progress.get("issues_fixed", 0)
+    if fix_success:
+        issues_fixed += 1
 
-        # Log changes
-        for change_desc in changes:
-            _step1_session.add_change(
-                question_id='ALL',
-                field='auto',
-                old_value=None,
-                new_value=change_desc,
-                change_type='auto'
-            )
+    # Rebuild content with updated frontmatter
+    content = add_frontmatter(content_body, frontmatter)
+    content = update_progress(content, issues_fixed=issues_fixed)
 
-        # Mark all questions as completed
-        for q in _step1_session.questions:
-            q.status = 'completed'
+    # Save working file
+    working_file.write_text(content, encoding='utf-8')
 
-        return {
-            "changes": changes,
-            "questions_processed": len(_step1_session.questions),
-            "message": f"Applicerade {len(changes)} transformationer på hela filen",
-            "next_step": "Kör step2_validate för att verifiera resultatet"
-        }
+    # Save updated patterns
+    save_patterns(_project_path, _patterns)
 
-
-async def step1_next(direction: str = "forward") -> Dict[str, Any]:
-    """
-    Move to next/previous question.
-
-    Args:
-        direction: "forward", "back", or question_id
-
-    Returns:
-        New current question info with analysis
-    """
-    if not _step1_session:
-        return {"error": "No active session"}
-
-    if direction == "forward":
-        if _step1_session.current_index < len(_step1_session.questions) - 1:
-            _step1_session.current_index += 1
-    elif direction == "back":
-        if _step1_session.current_index > 0:
-            _step1_session.current_index -= 1
-    else:
-        # Assume it's a question_id
-        for i, q in enumerate(_step1_session.questions):
-            if q.question_id == direction:
-                _step1_session.current_index = i
-                break
-
-    current = _step1_session.get_current_question()
-    progress = _step1_session.get_progress()
-
-    # Analyze current question (like step1_start does for first question)
-    issues = analyze_question(current.raw_content, current.detected_type)
-    auto_fixable = get_auto_fixable_issues(issues)
+    # Re-analyze question
+    new_questions = parse_file(content_body)
+    new_question = get_question_by_id(new_questions, question_id)
+    remaining_issues = detect_structural_issues(new_question.raw_content, question_id) if new_question else []
 
     return {
-        "current_question": current.question_id,
-        "current_index": _step1_session.current_index,
-        "total_questions": len(_step1_session.questions),
-        "question_type": current.detected_type,
-        "question_title": current.title,
-        "issues_count": len(issues),
-        "auto_fixable": len(auto_fixable),
-        "issues_summary": format_issue_summary(issues),
-        "position": f"{progress['current']} av {progress['total']}",
-        "progress": progress
+        "question_id": question_id,
+        "action": action,
+        "success": fix_success,
+        "applied_fix": applied_fix,
+        "pattern_updated": pattern.pattern_id if pattern else None,
+        "pattern_confidence": pattern.confidence if pattern else None,
+        "remaining_issues": len(remaining_issues),
+        "issues_fixed_total": issues_fixed,
+        "message": f"Fix applicerad på {question_id}" if fix_success else f"Hoppade över {issue_type}",
+        "next_action": "step1_apply_fix" if remaining_issues else "step1_next"
+    }
+
+
+async def step1_skip(
+    question_id: Optional[str] = None,
+    reason: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Skip current question entirely.
+
+    Args:
+        question_id: Question to skip (default: current)
+        reason: Reason for skipping
+
+    Returns:
+        Confirmation and next question
+    """
+    if not _step1_session or not _project_path:
+        return {"error": "Ingen aktiv session"}
+
+    working_file = _get_working_file_path(_project_path)
+    content = working_file.read_text(encoding='utf-8')
+
+    frontmatter = parse_frontmatter(content)
+    progress = frontmatter.get("step1_progress", {}) if frontmatter else {}
+
+    target_id = question_id or progress.get("current_question_id", "Q001")
+
+    # Update skip count
+    skipped = progress.get("questions_skipped", 0) + 1
+
+    content = update_progress(content, questions_skipped=skipped)
+    working_file.write_text(content, encoding='utf-8')
+
+    # Log decision
+    log_decision(
+        project_path=_project_path,
+        session_id=progress.get("session_id", "unknown"),
+        question_id=target_id,
+        issue_type="skip_question",
+        issue_description=f"Hoppade över hela frågan: {reason or 'Ingen anledning'}",
+        line_number=None,
+        ai_suggestion={},
+        teacher_decision="skip",
+        applied_fix={"action": "skipped_question"},
+        teacher_note=reason
+    )
+
+    # Move to next
+    result = await step1_navigate("next")
+    result["skipped_question"] = target_id
+    result["skip_reason"] = reason
+
+    return result
+
+
+async def step1_finish() -> Dict[str, Any]:
+    """
+    Complete Step 1 session.
+
+    RFC-013 Flow:
+    1. Remove frontmatter from working file
+    2. Save final content to output/step1_complete.md
+    3. Generate summary report
+    4. Archive working files to pipeline/history/
+    5. Save updated patterns
+    """
+    global _patterns
+
+    if not _step1_session or not _project_path:
+        return {"error": "Ingen aktiv session"}
+
+    working_file = _get_working_file_path(_project_path)
+
+    if not working_file.exists():
+        return {"error": "Working file saknas"}
+
+    content = working_file.read_text(encoding='utf-8')
+
+    # Parse final frontmatter for stats
+    frontmatter = parse_frontmatter(content)
+    progress = frontmatter.get("step1_progress", {}) if frontmatter else {}
+
+    # Remove frontmatter
+    content_clean = remove_frontmatter(content)
+
+    # Save to output/step1_complete.md
+    output_dir = _project_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_file = output_dir / "step1_complete.md"
+    output_file.write_text(content_clean, encoding='utf-8')
+
+    # Archive working file
+    history_dir = _project_path / "pipeline" / "history"
+    history_dir.mkdir(parents=True, exist_ok=True)
+    archive_name = f"step1_working_{progress.get('session_id', 'unknown')}.md"
+    shutil.copy(working_file, history_dir / archive_name)
+
+    # Save patterns
+    save_patterns(_project_path, _patterns)
+
+    # Log completion
+    log_session_complete(
+        project_path=_project_path,
+        session_id=progress.get("session_id", "unknown"),
+        status="completed",
+        questions_completed=progress.get("questions_completed", 0),
+        questions_skipped=progress.get("questions_skipped", 0),
+        questions_deleted=progress.get("questions_deleted", 0),
+        issues_fixed=progress.get("issues_fixed", 0),
+        patterns_updated=len([p for p in _patterns if p.learned_from > 0])
+    )
+
+    # Parse final questions for count
+    final_questions = parse_file(content_clean)
+
+    return {
+        "session_id": progress.get("session_id"),
+        "status": "completed",
+        "output_file": str(output_file),
+        "archived_to": str(history_dir / archive_name),
+        "summary": {
+            "total_questions": progress.get("total_questions", 0),
+            "questions_completed": progress.get("questions_completed", 0),
+            "questions_skipped": progress.get("questions_skipped", 0),
+            "questions_deleted": progress.get("questions_deleted", 0),
+            "issues_fixed": progress.get("issues_fixed", 0),
+            "final_question_count": len(final_questions)
+        },
+        "patterns_learned": len([p for p in _patterns if p.learned_from > 0]),
+        "message": "Step 1 klar! Kör step2_validate för validering.",
+        "next_step": "step2_validate"
+    }
+
+
+# ════════════════════════════════════════════════════════════════════
+# LEGACY TOOLS (kept for backwards compatibility)
+# ════════════════════════════════════════════════════════════════════
+
+async def step1_transform(question_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    [LEGACY] Apply all auto-fixable transforms at once.
+
+    Use step1_apply_fix for RFC-013 interactive workflow.
+    """
+    if not _step1_session or not _project_path:
+        return {"error": "Ingen aktiv session"}
+
+    working_file = _get_working_file_path(_project_path)
+    content = working_file.read_text(encoding='utf-8')
+
+    # Remove frontmatter for transformation
+    content_body = remove_frontmatter(content) if has_frontmatter(content) else content
+
+    # Transform
+    new_content, changes = transformer.apply_all_auto(content_body)
+
+    if not changes:
+        return {"changes": [], "message": "Inga automatiska fixar att applicera"}
+
+    # Re-add frontmatter
+    frontmatter = parse_frontmatter(content)
+    if frontmatter:
+        new_content = add_frontmatter(new_content, frontmatter)
+
+    working_file.write_text(new_content, encoding='utf-8')
+
+    return {
+        "changes": changes,
+        "message": f"Applicerade {len(changes)} transformationer",
+        "next_step": "Kör step2_validate för att verifiera"
     }
 
 
 async def step1_preview(lines: int = 50) -> Dict[str, Any]:
-    """
-    Preview the working file content.
+    """Preview working file content."""
+    if not _step1_session or not _project_path:
+        return {"error": "Ingen aktiv session"}
 
-    Args:
-        lines: Number of lines to show (default: 50)
-
-    Returns:
-        File content preview
-    """
-    if not _step1_session:
-        return {"error": "No active session"}
-
-    working_path = Path(_step1_session.working_file)
-    content = working_path.read_text(encoding='utf-8')
+    working_file = _get_working_file_path(_project_path)
+    content = working_file.read_text(encoding='utf-8')
 
     all_lines = content.split('\n')
     preview_lines = all_lines[:lines]
 
     return {
-        "file": _step1_session.working_file,
+        "file": str(working_file),
         "total_lines": len(all_lines),
         "showing": min(lines, len(all_lines)),
         "content": '\n'.join(preview_lines)
     }
 
 
-async def step1_finish() -> Dict[str, Any]:
-    """
-    Finish Step 1 and generate report.
+# Keep old function names for backwards compatibility
+async def step1_analyze(question_id: Optional[str] = None) -> Dict[str, Any]:
+    """[LEGACY] Alias for step1_analyze_question."""
+    return await step1_analyze_question(question_id)
 
-    Returns:
-        Summary report
-    """
-    if not _step1_session:
-        return {"error": "No active session"}
-
-    progress = _step1_session.get_progress()
-
-    # Count questions by status
-    completed = [q for q in _step1_session.questions if q.status == 'completed']
-    skipped = [q for q in _step1_session.questions if q.status == 'skipped']
-    pending = [q for q in _step1_session.questions if q.status == 'pending']
-    warnings = [q for q in _step1_session.questions if q.status == 'has_warnings']
-
-    # Save final session state
-    output_path = Path(_step1_session.output_folder)
-    session_file = output_path / f"step1_session_{_step1_session.session_id}_final.json"
-    _step1_session.save(session_file)
-
-    ready = len(pending) == 0 and len(skipped) == 0
-
-    return {
-        "session_id": _step1_session.session_id,
-        "working_file": _step1_session.working_file,
-        "summary": {
-            "total_questions": _step1_session.total_questions,
-            "completed": len(completed),
-            "skipped": len(skipped),
-            "pending": len(pending),
-            "with_warnings": len(warnings),
-            "total_changes": len(_step1_session.changes)
-        },
-        "changes": [
-            {"question": c.question_id, "description": c.new_value}
-            for c in _step1_session.changes[:10]  # Show first 10
-        ],
-        "skipped_questions": [q.question_id for q in skipped],
-        "ready_for_step2": ready,
-        "next_action": "Kör step2_validate på working_file" if ready else f"Fixa {len(pending)} väntande frågor först"
-    }
-
-
-# ════════════════════════════════════════════════════════════════════
-# INTERACTIVE TOOLS (NEW)
-# ════════════════════════════════════════════════════════════════════
 
 async def step1_fix_auto(question_id: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Apply ONLY auto-fixable transforms to a question.
-    Returns remaining issues that need user input.
+    """[LEGACY] Apply auto-fixes. Use step1_apply_fix(action='accept_ai') instead."""
+    if not question_id and _step1_session:
+        # Get current question from session
+        frontmatter = parse_frontmatter(
+            _get_working_file_path(_project_path).read_text(encoding='utf-8')
+        ) if _project_path else None
+        question_id = frontmatter.get("step1_progress", {}).get("current_question_id") if frontmatter else None
 
-    Args:
-        question_id: Question to fix (default: current)
+    if not question_id:
+        return {"error": "Inget question_id"}
 
-    Returns:
-        What was fixed and what remains
-    """
-    if not _step1_session:
-        return {"error": "No active session"}
-
-    # Read working file
-    working_path = Path(_step1_session.working_file)
-    content = working_path.read_text(encoding='utf-8')
-
-    # Parse and find question
-    questions = parse_file(content)
-
-    target_id = question_id or _step1_session.questions[_step1_session.current_index].question_id
-    question = get_question_by_id(questions, target_id)
-
-    if not question:
-        return {"error": f"Question not found: {target_id}"}
-
-    # Apply auto transforms
-    new_content, changes = transformer.apply_all_auto(question.raw_content)
-
-    if changes:
-        # Update file
-        full_content = content.replace(question.raw_content, new_content)
-        working_path.write_text(full_content, encoding='utf-8')
-
-        # Log changes
-        for change_desc in changes:
-            _step1_session.add_change(
-                question_id=target_id,
-                field='auto',
-                old_value=None,
-                new_value=change_desc,
-                change_type='auto'
-            )
-
-    # Re-analyze to see what remains
-    updated_content = working_path.read_text(encoding='utf-8')
-    updated_questions = parse_file(updated_content)
-    updated_question = get_question_by_id(updated_questions, target_id)
-
-    remaining_issues = analyze_question(updated_question.raw_content, updated_question.detected_type) if updated_question else []
-    needs_input = [i for i in remaining_issues if not i.auto_fixable and i.prompt_key]
-
-    return {
-        "question_id": target_id,
-        "fixed": changes,
-        "fixed_count": len(changes),
-
-        # What remains and needs input
-        "remaining": [
-            {
-                "field": i.field,
-                "message": i.message,
-                "prompt_key": i.prompt_key,
-                "prompt": get_prompt(i.prompt_key) if i.prompt_key else None
-            }
-            for i in needs_input
-        ],
-        "remaining_count": len(needs_input),
-
-        # Instruction for Claude
-        "instruction": (
-            f"Fixade {len(changes)} auto-issues. "
-            f"{len(needs_input)} kräver användarinput."
-            if needs_input else
-            "Alla issues fixade! Kör step1_next() för nästa fråga."
-        ),
-        "next_action": "ask_user" if needs_input else "step1_next"
-    }
+    return await step1_apply_fix(question_id, "auto_transform", "accept_ai")
 
 
-async def step1_fix_manual(
-    question_id: str,
-    field: str,
-    value: str
-) -> Dict[str, Any]:
-    """
-    Apply a single manual fix based on user input.
+async def step1_fix_manual(question_id: str, field: str, value: str) -> Dict[str, Any]:
+    """[LEGACY] Apply manual fix. Use step1_apply_fix(action='manual') instead."""
+    return await step1_apply_fix(question_id, field, "manual", fix_content=value)
 
-    Args:
-        question_id: Question ID
-        field: Field to update (bloom, difficulty, partial_feedback, etc.)
-        value: Value from user
 
-    Returns:
-        Confirmation of change
-    """
-    if not _step1_session:
-        return {"error": "No active session"}
-
-    working_path = Path(_step1_session.working_file)
-    content = working_path.read_text(encoding='utf-8')
-    questions = parse_file(content)
-
-    question = get_question_by_id(questions, question_id)
-    if not question:
-        return {"error": f"Question not found: {question_id}"}
-
-    new_content = question.raw_content
-    success = False
-
-    # Handle different field types
-    if field == "bloom":
-        # Add Bloom level to ^tags
-        new_content = _add_to_tags(new_content, f"#Bloom:{value}")
-        success = True
-
-    elif field == "difficulty":
-        # Add difficulty to ^tags
-        new_content = _add_to_tags(new_content, f"#{value}")
-        success = True
-
-    elif field == "partial_feedback":
-        # Add partial_feedback subfield
-        new_content = _add_feedback_subfield(new_content, "partial_feedback", value)
-        success = True
-
-    elif field == "correct_answers":
-        # Add correct_answers for multiple_response
-        new_content = _add_correct_answers(new_content, value)
-        success = True
-
-    elif field == "identifier":
-        # Update ^identifier
-        new_content = re.sub(
-            r'\^identifier\s+\w+',
-            f'^identifier {value}',
-            new_content
-        )
-        success = True
-
-    else:
-        return {"error": f"Unknown field: {field}"}
-
-    if success and new_content != question.raw_content:
-        # Update file
-        full_content = content.replace(question.raw_content, new_content)
-        working_path.write_text(full_content, encoding='utf-8')
-
-        # Log change
-        _step1_session.add_change(
-            question_id=question_id,
-            field=field,
-            old_value=None,
-            new_value=value,
-            change_type='user_input'
-        )
-
-        return {
-            "question_id": question_id,
-            "field": field,
-            "value": value,
-            "success": True,
-            "message": f"Uppdaterade {field} för {question_id}"
-        }
+async def step1_suggest(question_id: str, field: str) -> Dict[str, Any]:
+    """[LEGACY] Get suggestion for field."""
+    pattern = find_pattern_for_issue(_patterns, field) if _patterns else None
 
     return {
         "question_id": question_id,
         "field": field,
-        "success": False,
-        "message": "Ingen ändring gjordes"
-    }
-
-
-async def step1_suggest(
-    question_id: str,
-    field: str
-) -> Dict[str, Any]:
-    """
-    Generate a suggestion for a field based on context.
-
-    Args:
-        question_id: Question ID
-        field: Field to suggest value for
-
-    Returns:
-        Suggestion that user can accept/modify
-    """
-    if not _step1_session:
-        return {"error": "No active session"}
-
-    working_path = Path(_step1_session.working_file)
-    content = working_path.read_text(encoding='utf-8')
-    questions = parse_file(content)
-
-    question = get_question_by_id(questions, question_id)
-    if not question:
-        return {"error": f"Question not found: {question_id}"}
-
-    suggestion = None
-    options = []
-
-    if field == "partial_feedback":
-        # Copy from correct_feedback
-        match = re.search(
-            r'@@field:\s*correct_feedback\s*\n(.*?)@@end_field',
-            question.raw_content,
-            re.DOTALL
-        )
-        if match:
-            suggestion = match.group(1).strip()
-
-    elif field == "bloom":
-        # Suggest based on question type
-        if question.detected_type == 'text_entry':
-            suggestion = "Remember"
-        elif question.detected_type in ['multiple_response', 'multiple_choice_single']:
-            suggestion = "Understand"
-        elif question.detected_type == 'match':
-            suggestion = "Analyze"
-        else:
-            suggestion = "Understand"
-        options = [level[0] for level in BLOOM_LEVELS]
-
-    elif field == "difficulty":
-        suggestion = "Medium"
-        options = [level[0] for level in DIFFICULTY_LEVELS]
-
-    return {
-        "question_id": question_id,
-        "field": field,
-        "suggestion": suggestion,
-        "options": options if options else None,
-        "instruction": (
-            f"Förslag för {field}: '{suggestion}'. "
-            "Acceptera, modifiera, eller hoppa över?"
-        ) if suggestion else f"Inget förslag för {field}. Ange värde."
+        "suggestion": pattern.fix_suggestion if pattern else None,
+        "confidence": pattern.confidence if pattern else 0.5,
+        "instruction": "Använd step1_apply_fix för att applicera"
     }
 
 
 async def step1_batch_preview(issue_type: str) -> Dict[str, Any]:
-    """
-    Show all questions with the same type of issue.
-
-    Args:
-        issue_type: E.g. "missing_partial_feedback", "missing_bloom"
-
-    Returns:
-        List of affected questions
-    """
-    if not _step1_session:
-        return {"error": "No active session"}
-
-    working_path = Path(_step1_session.working_file)
-    content = working_path.read_text(encoding='utf-8')
-    questions = parse_file(content)
-
-    affected = []
-
-    for q in questions:
-        issues = analyze_question(q.raw_content, q.detected_type)
-        for issue in issues:
-            if _matches_issue_type(issue, issue_type):
-                affected.append({
-                    "question_id": q.question_id,
-                    "title": q.title,
-                    "type": q.detected_type,
-                    "preview": q.raw_content[:100] + "..."
-                })
-                break
-
-    return {
-        "issue_type": issue_type,
-        "count": len(affected),
-        "questions": affected[:5],  # Show max 5 as preview
-        "all_ids": [a["question_id"] for a in affected],
-        "instruction": (
-            f"{len(affected)} frågor har samma problem ({issue_type}). "
-            "Vill du applicera samma fix på alla?"
-        ),
-        "options": [
-            ("all", f"Applicera på alla {len(affected)}"),
-            ("select", "Låt mig välja vilka"),
-            ("one", "Bara nuvarande fråga")
-        ] if affected else []
-    }
+    """[LEGACY] Preview questions with same issue."""
+    return {"message": "Batch operations removed in RFC-013. Use question-by-question workflow."}
 
 
-async def step1_batch_apply(
-    issue_type: str,
-    fix_type: str,
-    question_ids: Optional[List[str]] = None
-) -> Dict[str, Any]:
-    """
-    Apply the same fix to multiple questions.
-
-    Args:
-        issue_type: E.g. "missing_partial_feedback"
-        fix_type: How to fix (e.g. "copy_from_correct", "add_bloom_remember")
-        question_ids: Specific questions, or None for all
-
-    Returns:
-        Result of batch operation
-    """
-    if not _step1_session:
-        return {"error": "No active session"}
-
-    # Find affected questions if not specified
-    if question_ids is None:
-        preview = await step1_batch_preview(issue_type)
-        question_ids = preview.get("all_ids", [])
-
-    if not question_ids:
-        return {"error": "No questions to fix", "issue_type": issue_type}
-
-    success = []
-    failed = []
-
-    for qid in question_ids:
-        try:
-            if issue_type == "missing_partial_feedback" and fix_type == "copy_from_correct":
-                result = await step1_suggest(qid, "partial_feedback")
-                if result.get("suggestion"):
-                    fix_result = await step1_fix_manual(qid, "partial_feedback", result["suggestion"])
-                    if fix_result.get("success"):
-                        success.append(qid)
-                    else:
-                        failed.append(qid)
-                else:
-                    failed.append(qid)
-
-            elif issue_type == "missing_bloom":
-                bloom_level = fix_type.replace("add_bloom_", "").capitalize()
-                fix_result = await step1_fix_manual(qid, "bloom", bloom_level)
-                if fix_result.get("success"):
-                    success.append(qid)
-                else:
-                    failed.append(qid)
-
-            elif issue_type == "missing_difficulty":
-                difficulty = fix_type.replace("add_difficulty_", "").capitalize()
-                fix_result = await step1_fix_manual(qid, "difficulty", difficulty)
-                if fix_result.get("success"):
-                    success.append(qid)
-                else:
-                    failed.append(qid)
-
-            else:
-                failed.append(qid)
-
-        except Exception as e:
-            failed.append(qid)
-
-    # Log batch change
-    if success:
-        _step1_session.add_change(
-            question_id="BATCH",
-            field=issue_type,
-            old_value=None,
-            new_value=f"Fixed {len(success)} questions with {fix_type}",
-            change_type="batch"
-        )
-
-    return {
-        "issue_type": issue_type,
-        "fix_type": fix_type,
-        "success": success,
-        "success_count": len(success),
-        "failed": failed,
-        "failed_count": len(failed),
-        "message": f"Fixade {len(success)} av {len(question_ids)} frågor"
-    }
-
-
-async def step1_skip(
-    question_id: Optional[str] = None,
-    issue_field: Optional[str] = None,
-    reason: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    Skip an issue or entire question.
-
-    Args:
-        question_id: Question ID (default: current)
-        issue_field: Specific field to skip (None = skip whole question)
-        reason: Reason for skipping
-
-    Returns:
-        Confirmation
-    """
-    if not _step1_session:
-        return {"error": "No active session"}
-
-    target_id = question_id or _step1_session.questions[_step1_session.current_index].question_id
-
-    if issue_field:
-        # Skip specific issue
-        _step1_session.add_change(
-            question_id=target_id,
-            field=f"skip_{issue_field}",
-            old_value=None,
-            new_value=reason or "User skipped",
-            change_type="skip"
-        )
-
-        return {
-            "question_id": target_id,
-            "skipped_field": issue_field,
-            "reason": reason,
-            "message": f"Hoppade över {issue_field} för {target_id}",
-            "next_action": "step1_analyze"  # Re-check for more issues
-        }
-    else:
-        # Skip entire question
-        q_status = next((q for q in _step1_session.questions if q.question_id == target_id), None)
-        if q_status:
-            q_status.status = 'skipped'
-
-        _step1_session.add_change(
-            question_id=target_id,
-            field="skip_question",
-            old_value=None,
-            new_value=reason or "User skipped entire question",
-            change_type="skip"
-        )
-
-        return {
-            "question_id": target_id,
-            "skipped": True,
-            "reason": reason,
-            "message": f"Hoppade över hela {target_id}",
-            "next_action": "step1_next"
-        }
-
-
-# ════════════════════════════════════════════════════════════════════
-# HELPER FUNCTIONS
-# ════════════════════════════════════════════════════════════════════
-
-def _add_to_tags(content: str, tag: str) -> str:
-    """Add a tag to ^tags line."""
-    match = re.search(r'(\^tags\s+.+)', content, re.MULTILINE)
-    if match:
-        old_tags = match.group(1)
-        new_tags = f"{old_tags} {tag}"
-        return content.replace(old_tags, new_tags)
-    return content
-
-
-def _add_feedback_subfield(content: str, subfield_name: str, value: str) -> str:
-    """Add a feedback subfield before @end_field of feedback section."""
-    # Find the feedback section and add before its @end_field
-    pattern = r'(@field:\s*feedback\s*\n.*?)(@@end_field\s*\n@end_field)'
-
-    def replacement(m):
-        return f"{m.group(1)}@@end_field\n\n#### Partial Feedback\n@@field: {subfield_name}\n{value}\n\n{m.group(2)}"
-
-    result = re.sub(pattern, replacement, content, flags=re.DOTALL)
-
-    # If no match, try simpler pattern
-    if result == content:
-        pattern = r'(@@field:\s*\w+_feedback\s*\n.*?@@end_field)\s*\n(@end_field)'
-
-        def replacement2(m):
-            return f"{m.group(1)}\n\n#### Partial Feedback\n@@field: {subfield_name}\n{value}\n\n@@end_field\n{m.group(2)}"
-
-        result = re.sub(pattern, replacement2, content, flags=re.DOTALL)
-
-    return result
-
-
-def _add_correct_answers(content: str, answers: str) -> str:
-    """Add correct_answers section for multiple_response."""
-    # Add after options section
-    pattern = r'(@field:\s*options\s*\n.*?@end_field)'
-
-    def replacement(m):
-        return f"{m.group(1)}\n\n### Correct Answers\n@field: correct_answers\n{answers}\n@end_field"
-
-    return re.sub(pattern, replacement, content, flags=re.DOTALL)
-
-
-def _matches_issue_type(issue, issue_type: str) -> bool:
-    """Check if issue matches type."""
-    type_mapping = {
-        "missing_partial_feedback": lambda i: "partial_feedback" in i.message.lower() or "partial feedback" in i.message.lower(),
-        "missing_bloom": lambda i: "bloom" in i.message.lower(),
-        "missing_difficulty": lambda i: "svårighetsgrad" in i.message.lower() or "difficulty" in i.message.lower(),
-        "missing_correct_answers": lambda i: "correct_answers" in i.message.lower(),
-        "missing_labels": lambda i: "labels" in i.message.lower() or "tags" in i.message.lower(),
-    }
-    check = type_mapping.get(issue_type)
-    return check(issue) if check else False
-
-
-# ════════════════════════════════════════════════════════════════════
-# TOOL REGISTRATION INFO
-# ════════════════════════════════════════════════════════════════════
-
-STEP1_TOOLS = [
-    {
-        "name": "step1_start",
-        "description": "Starta Step 1 interaktiv session. Använder Step 0 session om aktiv.",
-        "parameters": {
-            "source_file": {"type": "string", "description": "Sökväg till markdown-fil (optional om Step 0 session finns)", "optional": True},
-            "output_folder": {"type": "string", "description": "Mapp för output (optional om Step 0 session finns)", "optional": True},
-            "project_name": {"type": "string", "description": "Valfritt projektnamn", "optional": True}
-        }
-    },
-    {
-        "name": "step1_status",
-        "description": "Visa status för aktiv Step 1 session.",
-        "parameters": {}
-    },
-    {
-        "name": "step1_analyze",
-        "description": "Analysera en fråga. Returnerar auto_fixable och needs_input kategorier.",
-        "parameters": {
-            "question_id": {"type": "string", "description": "Fråge-ID (default: aktuell)", "optional": True}
-        }
-    },
-    {
-        "name": "step1_fix_auto",
-        "description": "Applicera ENDAST automatiska transforms. Returnerar remaining issues som kräver input.",
-        "parameters": {
-            "question_id": {"type": "string", "description": "Fråge-ID (default: aktuell)", "optional": True}
-        }
-    },
-    {
-        "name": "step1_fix_manual",
-        "description": "Applicera EN manuell fix baserat på användarinput.",
-        "parameters": {
-            "question_id": {"type": "string", "description": "Fråge-ID"},
-            "field": {"type": "string", "description": "Fält (bloom, difficulty, partial_feedback, etc.)"},
-            "value": {"type": "string", "description": "Värde från användaren"}
-        }
-    },
-    {
-        "name": "step1_suggest",
-        "description": "Generera förslag för ett fält. Användaren kan acceptera/modifiera.",
-        "parameters": {
-            "question_id": {"type": "string", "description": "Fråge-ID"},
-            "field": {"type": "string", "description": "Fält att föreslå för"}
-        }
-    },
-    {
-        "name": "step1_batch_preview",
-        "description": "Visa alla frågor med samma issue-typ.",
-        "parameters": {
-            "issue_type": {"type": "string", "description": "T.ex. missing_partial_feedback, missing_bloom"}
-        }
-    },
-    {
-        "name": "step1_batch_apply",
-        "description": "Applicera samma fix på flera frågor.",
-        "parameters": {
-            "issue_type": {"type": "string", "description": "Issue-typ"},
-            "fix_type": {"type": "string", "description": "Hur fixas (copy_from_correct, add_bloom_remember, etc.)"},
-            "question_ids": {"type": "array", "description": "Lista av fråge-ID (optional, None = alla)", "optional": True}
-        }
-    },
-    {
-        "name": "step1_skip",
-        "description": "Hoppa över issue eller hel fråga.",
-        "parameters": {
-            "question_id": {"type": "string", "description": "Fråge-ID (optional)", "optional": True},
-            "issue_field": {"type": "string", "description": "Specifikt fält, eller None för hel fråga", "optional": True},
-            "reason": {"type": "string", "description": "Anledning (optional)", "optional": True}
-        }
-    },
-    {
-        "name": "step1_transform",
-        "description": "[LEGACY] Applicera ALLA transforms på en gång. Använd step1_fix_auto för interaktivt flöde.",
-        "parameters": {
-            "question_id": {"type": "string", "description": "Fråge-ID (default: alla)", "optional": True}
-        }
-    },
-    {
-        "name": "step1_next",
-        "description": "Gå till nästa/föregående fråga.",
-        "parameters": {
-            "direction": {"type": "string", "description": "'forward', 'back', eller fråge-ID", "optional": True}
-        }
-    },
-    {
-        "name": "step1_preview",
-        "description": "Förhandsgranska working file.",
-        "parameters": {
-            "lines": {"type": "integer", "description": "Antal rader (default: 50)", "optional": True}
-        }
-    },
-    {
-        "name": "step1_finish",
-        "description": "Avsluta Step 1 och generera rapport.",
-        "parameters": {}
-    }
-]
+async def step1_batch_apply(issue_type: str, fix_type: str, question_ids: Optional[List[str]] = None) -> Dict[str, Any]:
+    """[LEGACY] Batch apply removed in RFC-013."""
+    return {"message": "Batch operations removed in RFC-013. Use step1_apply_fix for each question."}
