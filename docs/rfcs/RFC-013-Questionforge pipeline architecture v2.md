@@ -661,7 +661,11 @@ def merge_patterns(step1_pattern, step3_rule):
 3. Copies method guides to methodology/
 4. Fetches reference documents (kursplan, etc.) to project root
 5. Initializes session.yaml and sources.yaml
-6. Creates empty logs/ directory
+6. **Auto-registers all materials in sources.yaml** with:
+   - File path and type detection (pdf→lecture_slides, docx→document, etc.)
+   - Original path and copy timestamp
+   - Reference documents registered as type "syllabus"
+7. Creates empty logs/ directory
 
 **Session Initialization:**
 - Determines entry point (m1/m2/m3/m4/pipeline)

@@ -4,6 +4,23 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-26
+
+#### Step 0: Auto-register materials in sources.yaml
+- **Enhancement:** Step 0 now automatically registers all copied materials in sources.yaml
+- **Materials registration:**
+  - All files copied to `materials/` are registered with type detection (pdf→lecture_slides, etc.)
+  - Reference documents (kursplan for m1) registered as type "syllabus"
+  - Questions files (for m2/m3/m4 entry points) registered as type "questions"
+- **Metadata tracked:**
+  - `path`: relative path in project
+  - `type`: auto-detected from file extension
+  - `location`: "local" or "fetched"
+  - `original_path`: where file came from
+  - `copied_at`: timestamp
+- **Files modified:**
+  - `packages/qf-pipeline/src/qf_pipeline/utils/session_manager.py`
+
 ### Changed - 2026-01-25
 
 #### RFC-013: Pipeline Architecture v2.1 + Updated Folder Structure

@@ -385,6 +385,44 @@ class SessionManager:
                 create_empty_sources_yaml(project_path, created_by="qf-pipeline:step0_start")
                 logger.info("Created empty sources.yaml")
 
+            # Register copied materials in sources.yaml
+            if materials_copied > 0:
+                materials_sources = []
+                for item in materials_dest.rglob('*'):
+                    if item.is_file():
+                        ext = item.suffix.lower()
+                        file_type = {
+                            '.pdf': 'lecture_slides',
+                            '.pptx': 'lecture_slides',
+                            '.ppt': 'lecture_slides',
+                            '.docx': 'document',
+                            '.doc': 'document',
+                            '.txt': 'text',
+                            '.md': 'markdown',
+                            '.mp4': 'video',
+                            '.mp3': 'audio',
+                            '.wav': 'audio',
+                        }.get(ext, 'unknown')
+
+                        materials_sources.append({
+                            "path": f"materials/{item.relative_to(materials_dest)}",
+                            "type": file_type,
+                            "location": "local",
+                            "metadata": {
+                                "original_path": str(materials_src / item.relative_to(materials_dest)),
+                                "copied_at": get_timestamp(),
+                            }
+                        })
+
+                if materials_sources:
+                    result = update_sources_yaml(
+                        project_path,
+                        materials_sources,
+                        updated_by="qf-pipeline:step0_start",
+                        append=True
+                    )
+                    logger.info(f"Registered {result.get('sources_added', 0)} materials in sources.yaml")
+
             # Copy source file if provided
             questions_dest = None
             reference_doc = None
@@ -395,12 +433,45 @@ class SessionManager:
                     reference_doc = project_path / source_path.name
                     shutil.copy2(source_path, reference_doc)
                     logger.info(f"Saved reference document: {reference_doc}")
+                    # Register reference doc in sources.yaml
+                    update_sources_yaml(
+                        project_path,
+                        [{
+                            "path": source_path.name,
+                            "type": "syllabus",
+                            "location": "fetched" if "fetched" in str(source_path) else "local",
+                            "metadata": {
+                                "original_path": str(source_path),
+                                "copied_at": get_timestamp(),
+                            }
+                        }],
+                        updated_by="qf-pipeline:step0_start",
+                        append=True
+                    )
+                    logger.info(f"Registered reference document in sources.yaml")
                 else:
                     # For m2/m3/m4/pipeline: copy to questions/
                     # Use original filename or 'questions.md' as default
                     questions_dest = project_path / "questions" / source_path.name
                     shutil.copy2(source_path, questions_dest)
                     logger.info(f"Copied questions to: {questions_dest}")
+
+                    # Register questions file in sources.yaml
+                    update_sources_yaml(
+                        project_path,
+                        [{
+                            "path": f"questions/{source_path.name}",
+                            "type": "questions",
+                            "location": "local",
+                            "metadata": {
+                                "original_path": str(source_path),
+                                "copied_at": get_timestamp(),
+                            }
+                        }],
+                        updated_by="qf-pipeline:step0_start",
+                        append=True
+                    )
+                    logger.info(f"Registered questions file in sources.yaml")
 
             # Generate session ID
             session_id = str(uuid.uuid4())
