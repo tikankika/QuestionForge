@@ -1089,6 +1089,17 @@ async def handle_step2_validate(arguments: dict) -> List[TextContent]:
             text=f"Filen finns inte: {file_path}"
         )]
 
+    # Auto-load session from project if not already active
+    if not session:
+        input_path = Path(file_path).resolve()
+        if input_path.parent.name in ("pipeline", "questions"):
+            project_path = input_path.parent.parent
+            session_file = project_path / "session.yaml"
+            if session_file.exists():
+                result = await load_session_tool(str(project_path))
+                if result.get("success"):
+                    session = get_current_session()
+
     # Path to qti-core
     qti_core_path = Path(__file__).parent.parent.parent.parent / "qti-core"
     if not qti_core_path.exists():
@@ -1308,6 +1319,17 @@ async def handle_step3_autofix(arguments: dict) -> List[TextContent]:
     session = get_current_session()
     project_path = None
 
+    # Auto-load session from project if not already active
+    if not session and file_path:
+        input_path = Path(file_path).resolve()
+        if input_path.parent.name in ("pipeline", "questions"):
+            potential_project = input_path.parent.parent
+            session_file = potential_project / "session.yaml"
+            if session_file.exists():
+                result = await load_session_tool(str(potential_project))
+                if result.get("success"):
+                    session = get_current_session()
+
     if session:
         project_path = session.project_path
         # If no file_path, use session's questions file
@@ -1487,6 +1509,20 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
             text=f"Filen finns inte: {file_path}"
         )]
 
+    # Auto-load session from project if not already active
+    # This allows step4_export to work without explicit step0_start
+    if not session:
+        input_path = Path(file_path).resolve()
+        # Check if file is in a project structure (pipeline/ or questions/ folder)
+        if input_path.parent.name in ("pipeline", "questions"):
+            project_path = input_path.parent.parent
+            session_file = project_path / "session.yaml"
+            if session_file.exists():
+                # Load session from project
+                result = await load_session_tool(str(project_path))
+                if result.get("success"):
+                    session = get_current_session()
+
     language = arguments.get("language", "sv")
 
     # Path to qti-core
@@ -1500,7 +1536,7 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
     # Quiz name from file
     quiz_name = Path(file_path).stem
 
-    # Output directory (map to project's output folder or qti-core/output)
+    # Output directory - use session's output folder or fallback to qti-core/output
     output_dir = Path(session.output_folder) if session and session.output_folder else qti_core_path / "output"
 
     # Quiz directory (where step2 creates the structure)

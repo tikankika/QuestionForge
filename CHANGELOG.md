@@ -4,6 +4,17 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-28
+
+#### Auto-Load Session from Project Path
+- **Feature:** Step 2/3/4 now automatically load session from project structure
+- **How it works:**
+  - If input file is in `pipeline/` or `questions/` folder
+  - And parent directory has `session.yaml`
+  - Session is auto-loaded (no need for explicit `step0_start`)
+- **Benefit:** Output files now go to correct project folder instead of `qti-core/output/`
+- **Files modified:** `server.py` (handle_step2_validate, handle_step3_autofix, handle_step4_export)
+
 ### Fixed - 2026-01-28
 
 #### Step 3: Rule Selection Bug (Critical)

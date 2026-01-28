@@ -1327,7 +1327,7 @@ Future: Auto-suggest this fix with high confidence
 
 ### Step 4: Export (QTI/Canvas)
 
-**Location:** `qf-pipeline` (Python)  
+**Location:** `qf-pipeline` (Python)
 **Purpose:** Generate QTI package for LMS import
 
 **What it does:**
@@ -1337,8 +1337,14 @@ Future: Auto-suggest this fix with high confidence
 4. Package as .zip
 5. Save to output/qti/
 
-**Input:** Valid MQG markdown  
+**Input:** Valid MQG markdown
 **Output:** QTI package (.zip)
+
+**Session Auto-Loading (2026-01-28):**
+- Step 2/3/4 automatically load session from project structure
+- If input file is in `pipeline/` or `questions/` folder AND parent has `session.yaml`
+- No need for explicit `step0_start` - session loaded automatically
+- Ensures output goes to correct project folder (not qti-core/output/)
 
 ---
 
@@ -2038,6 +2044,11 @@ When Step 1 fixes a SEMANTIC error with human confirmation:
 ---
 
 ## Document Changelog
+
+**v2.3 - 2026-01-28**
+- Added Session Auto-Loading for Step 2/3/4
+- No need for explicit step0_start if input file is in project structure
+- Fixes output directory issue (was going to qti-core/output instead of project/output)
 
 **v2.2 - 2026-01-27**
 - Added Appendix A: Error Routing & Categorization
