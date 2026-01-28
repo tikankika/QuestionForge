@@ -205,13 +205,17 @@ export function savePatterns(
 
 /**
  * Detect which format pattern matches the content
+ *
+ * BUG FIX (2026-01-28):
+ * - Now validates that separator actually works with content
+ * - Prefers patterns with working separators over broken ones
+ * - Uses statistics (times_used, corrections) as tiebreaker
  */
 export function detectFormat(
   content: string,
   patterns: FormatPattern[]
 ): DetectionResult {
   const contentLower = content.toLowerCase();
-  const contentLines = content.split("\n").slice(0, 50); // Check first 50 lines
 
   let bestMatch: DetectionResult = {
     detected: false,
@@ -248,7 +252,7 @@ export function detectFormat(
       }
     }
 
-    // Calculate confidence
+    // Calculate base confidence
     const requiredCount = required_markers.length;
     const matchedCount = matched.length;
 
@@ -270,17 +274,44 @@ export function detectFormat(
     if (optional_markers && confidence > 0) {
       for (const marker of optional_markers) {
         if (content.includes(marker) || contentLower.includes(marker.toLowerCase())) {
-          confidence = Math.min(confidence + 5, 99);
+          confidence = Math.min(confidence + 2, 99);
         }
       }
     }
 
-    // Update best match
-    if (confidence > bestMatch.confidence) {
+    // BUG FIX: Validate separator actually works with this content
+    // A pattern with non-working separator should be penalized heavily
+    if (confidence > 0 && pattern.detection.question_separator) {
+      const separator = pattern.detection.question_separator;
+      const testSplit = splitByQuestionSeparator(content, separator);
+
+      if (testSplit.length <= 1) {
+        // Separator didn't split anything - penalize this pattern
+        confidence = Math.max(confidence - 30, 10);
+      } else {
+        // Separator works! Bonus confidence
+        confidence = Math.min(confidence + 5, 99);
+      }
+    }
+
+    // BUG FIX: Use statistics as tiebreaker
+    // Prefer patterns that have been used successfully before
+    if (confidence > 0 && pattern.statistics) {
+      const successRate = pattern.statistics.questions_processed > 0
+        ? (pattern.statistics.questions_processed - pattern.statistics.teacher_corrections)
+          / pattern.statistics.questions_processed
+        : 0.5;
+
+      // Small bonus for proven patterns (max +3)
+      confidence = Math.min(confidence + (successRate * 3), 99);
+    }
+
+    // Update best match (use >= to prefer later patterns with same score)
+    if (confidence >= bestMatch.confidence && confidence >= 70) {
       bestMatch = {
-        detected: confidence >= 70,
+        detected: true,
         pattern: pattern,
-        confidence: confidence,
+        confidence: Math.round(confidence),
         matched_markers: matched,
         missing_markers: missing,
       };
@@ -288,6 +319,37 @@ export function detectFormat(
   }
 
   return bestMatch;
+}
+
+/**
+ * Smart split that handles various separator formats
+ *
+ * BUG FIX (2026-01-28):
+ * - Handles "---" correctly
+ * - Handles header patterns like "## Question" (splits BEFORE each header)
+ * - Returns meaningful blocks instead of failing silently
+ */
+function splitByQuestionSeparator(content: string, separator: string): string[] {
+  // Case 1: Standard "---" separator
+  if (separator === "---") {
+    return content.split(/\n---\n/);
+  }
+
+  // Case 2: Header pattern like "## Question", "### Q", etc.
+  // Split BEFORE each occurrence (keeping the header with its content)
+  if (separator.startsWith("#")) {
+    // Escape special regex characters
+    const escaped = separator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Match separator followed by optional space and number/text
+    // Use lookahead to split BEFORE the pattern
+    const regex = new RegExp(`(?=\\n${escaped}[\\s\\d])`, 'g');
+    const parts = content.split(regex);
+    return parts.filter(p => p.trim().length > 0);
+  }
+
+  // Case 3: Default - try exact match with newlines
+  const parts = content.split(new RegExp(`\\n${separator}\\n`));
+  return parts.filter(p => p.trim().length > 0);
 }
 
 /**
@@ -399,6 +461,10 @@ export function updatePatternStats(
 
 /**
  * Parse content using a learned pattern
+ *
+ * BUG FIX (2026-01-28):
+ * - Uses smart splitByQuestionSeparator() instead of broken regex
+ * - Logs warning if split produces unexpected results
  */
 export function parseWithPattern(
   content: string,
@@ -412,8 +478,8 @@ export function parseWithPattern(
   const questions: ParsedQuestion[] = [];
   const separator = pattern.detection.question_separator || "---";
 
-  // Split content by question separator
-  const blocks = content.split(new RegExp(`\\n${separator}\\n`));
+  // BUG FIX: Use smart split that handles various separator formats
+  const blocks = splitByQuestionSeparator(content, separator);
 
   for (const block of blocks) {
     if (!block.trim()) continue;

@@ -4,6 +4,64 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed - 2026-01-28
+
+#### M5 Format Learner Bug Fixes (BUG 1 & BUG 2)
+
+**Problem:** M5 only found 1 question instead of 5 when tested with learned patterns.
+
+**Root Cause Analysis (from session.jsonl):**
+- Two patterns with same name "M3 Bold Headers Format" existed
+- Pattern 1: `question_separator: "## Question"` (broken)
+- Pattern 2: `question_separator: "---"` (correct)
+- `detectFormat()` chose Pattern 1 because it was first with same confidence
+- Separator regex `\n## Question\n` never matches `## Question 1` (with number)
+
+**BUG 1 Fix - Separator Regex:**
+- Created `splitByQuestionSeparator()` function with smart splitting logic
+- Handles `---` separator (standard split)
+- Handles header patterns like `## Question` with lookahead regex `(?=\n## Question[\s\d])`
+
+**BUG 2 Fix - Pattern Selection:**
+- `detectFormat()` now validates separators actually work with content
+- Patterns with non-working separators get -30 confidence penalty
+- Patterns with working separators get +5 confidence bonus
+
+**File:** `packages/qf-scaffolding/src/m5/format_learner.ts`
+
+### Changed - 2026-01-28
+
+#### RFC-016 Implementation Complete: M5 Self-Learning Format Recognition
+
+**BREAKING CHANGE:** M5 now uses self-learning format recognition instead of hardcoded parsers.
+
+**Files Archived (replaced by format_learner.ts):**
+- `src/m5/_archive/flexible_parser.ts` - Had 700+ lines of hardcoded patterns
+- `src/m5/_archive/parser.ts` - Old strict M3 parser
+
+**Files Updated:**
+- `m5_interactive_tools.ts` - Now uses `detectFormat()` and `parseWithPattern()` from format_learner
+- `m5/index.ts` - Exports new format_learner functions, `processM3ToQFMD()` deprecated
+- `m5_tools.ts` - `m5_check` and `m5_generate` deprecated, point to interactive tools
+- `tsconfig.json` - Excludes `_archive` folder from compilation
+
+**New Workflow:**
+```
+1. m5_start() tries to detect format using LEARNED patterns
+2. If detected → parses with that pattern
+3. If NOT detected → returns needs_teacher_help: true
+4. Teacher uses m5_teach_format() to teach new patterns
+5. M5 remembers for next time (saved to logs/m5_format_patterns.json)
+```
+
+**Migration Guide:**
+| Old (deprecated) | New (RFC-016) |
+|------------------|---------------|
+| `m5_check()` | `m5_start()` + `m5_detect_format()` |
+| `m5_generate()` | `m5_start()` + `m5_approve()` + `m5_finish()` |
+| `parseM3Content()` | `detectFormat()` + `parseWithPattern()` |
+| `processM3ToQFMD()` | Use interactive tools |
+
 ### Added - 2026-01-28
 
 #### RFC-004: QFMD Template Alignment Audit

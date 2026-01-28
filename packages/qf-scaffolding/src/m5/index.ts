@@ -26,7 +26,7 @@ export { M3_TYPE_MAP } from "./types.js";
 
 // Import internal modules for processM3ToQFMD
 import type { CompletenessResult, M5GenerationResult, M3Question } from "./types.js";
-import { parseM3Content as _parseM3Content, getQuestionSummary as _getQuestionSummary } from "./parser.js";
+// NOTE: parser.ts removed per RFC-016 (replaced by format_learner.ts)
 import {
   checkCompleteness as _checkCompleteness,
   checkQuestion as _checkQuestion,
@@ -38,9 +38,31 @@ import {
   generateQFMDFile as _generateQFMDFile,
   generateQFMDHeader as _generateQFMDHeader,
 } from "./generator.js";
+import {
+  loadPatterns,
+  detectFormat,
+  parseWithPattern,
+  type ParsedQuestion,
+} from "./format_learner.js";
 
-// Parser exports
-export { parseM3Content, getQuestionSummary } from "./parser.js";
+// Format Learner exports (RFC-016 - replaces old parser)
+export {
+  loadPatterns,
+  savePatterns,
+  detectFormat,
+  parseWithPattern,
+  findPotentialMarkers,
+  createPattern,
+  updatePatternStats,
+  toQFMD,
+} from "./format_learner.js";
+
+export type {
+  FormatPattern,
+  FieldMapping,
+  DetectionResult,
+  ParsedQuestion as FormatLearnerQuestion,
+} from "./format_learner.js";
 
 // Checker exports
 export {
@@ -58,69 +80,36 @@ export {
 } from "./generator.js";
 
 /**
- * Complete M5 workflow: Parse → Check → Generate
+ * @deprecated RFC-016: Use m5_start MCP tool instead.
  *
- * @param content - M3 human-readable format content
- * @param options - Generation options
- * @returns Combined result with completeness check and QFMD
+ * This function used the old static parser which has been replaced by
+ * the self-learning format_learner.ts. The interactive MCP tools
+ * (m5_start, m5_approve, etc.) now use the new approach which:
+ *
+ * 1. Tries to detect format using LEARNED patterns
+ * 2. If no pattern matches → asks teacher for help
+ * 3. Teacher can teach new formats via m5_teach_format
+ *
+ * For programmatic access, use:
+ * - loadPatterns(projectPath) - Load learned patterns
+ * - detectFormat(content, patterns) - Detect format
+ * - parseWithPattern(content, pattern) - Parse with a pattern
+ * - toQFMD(questions) - Convert to QFMD format
  */
 export function processM3ToQFMD(
-  content: string,
-  options: {
+  _content: string,
+  _options: {
     courseCode?: string;
     title?: string;
     includeHeader?: boolean;
     includeSourceComments?: boolean;
     skipIncomplete?: boolean;
+    projectPath?: string; // NEW: Required for self-learning
   } = {}
-): {
-  completeness: CompletenessResult;
-  generation: M5GenerationResult;
-  summary: {
-    totalQuestions: number;
-    passedCompleteness: number;
-    generatedQuestions: number;
-    skippedQuestions: string[];
-    hasErrors: boolean;
-  };
-} {
-  // Step 1: Parse
-  const questions: M3Question[] = _parseM3Content(content);
-
-  // Step 2: Check completeness
-  const completeness = _checkCompleteness(questions);
-
-  // Step 3: Filter if requested
-  let questionsToGenerate = questions;
-  const skipped: string[] = [];
-
-  if (options.skipIncomplete) {
-    questionsToGenerate = questions.filter((q: M3Question) => {
-      const status = completeness.questionStatus[q.questionNumber];
-      if (status && status.status === "errors") {
-        skipped.push(q.questionNumber);
-        return false;
-      }
-      return true;
-    });
-  }
-
-  // Step 4: Generate QFMD
-  const generation = _generateQFMDFile(questionsToGenerate, options);
-
-  // Combine skipped lists
-  const allSkipped = [...new Set([...skipped, ...generation.skippedQuestions])];
-
-  return {
-    completeness,
-    generation,
-    summary: {
-      totalQuestions: questions.length,
-      passedCompleteness: completeness.passedQuestions,
-      generatedQuestions: generation.questionCount,
-      skippedQuestions: allSkipped,
-      hasErrors:
-        completeness.status === "errors" || generation.errors.length > 0,
-    },
-  };
+): never {
+  throw new Error(
+    "processM3ToQFMD is deprecated (RFC-016). " +
+    "Use the m5_start MCP tool for interactive processing, or use " +
+    "loadPatterns(), detectFormat(), parseWithPattern() directly."
+  );
 }

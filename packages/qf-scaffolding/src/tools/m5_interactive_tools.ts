@@ -7,7 +7,8 @@
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
-import { parseM3Flexible } from "../m5/flexible_parser.js";
+// NOTE: flexible_parser.ts removed per RFC-016 (self-learning approach)
+// Now using format_learner.ts for all parsing
 import {
   createSession,
   getSession,
@@ -27,10 +28,113 @@ import {
   findPotentialMarkers,
   detectFormat,
   parseWithPattern,
+  updatePatternStats,
   toQFMD,
   type FieldMapping,
   type FormatPattern,
+  type ParsedQuestion,
 } from "../m5/format_learner.js";
+
+// ============================================================================
+// Convert ParsedQuestion to ParsedInterpretation
+// ============================================================================
+
+/**
+ * Convert format_learner's ParsedQuestion to session's ParsedInterpretation.
+ * This bridges the RFC-016 self-learning parser with the existing session system.
+ */
+function convertToInterpretation(
+  pq: ParsedQuestion,
+  index: number,
+  patternConfidence: number
+): ParsedInterpretation {
+  const questionNumber = pq.identifier || `Q${String(index + 1).padStart(3, "0")}`;
+
+  // Parse labels string to array
+  const labelsArray = pq.labels
+    ? pq.labels.split(/\s+/).filter(l => l.startsWith("#")).map(l => l.substring(1))
+    : [];
+
+  // Extract bloom and difficulty from labels if present
+  const bloomLevels = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"];
+  const difficultyLevels = ["Easy", "Medium", "Hard"];
+
+  const bloom = labelsArray.find(l => bloomLevels.some(b => l.toLowerCase() === b.toLowerCase())) || null;
+  const difficulty = labelsArray.find(l => difficultyLevels.some(d => l.toLowerCase() === d.toLowerCase())) || null;
+
+  // Build interpretation
+  const interpretation: ParsedInterpretation = {
+    questionNumber,
+    fields: {
+      title: {
+        value: pq.title || null,
+        confidence: pq.title ? 90 : 0,
+        source: pq.title ? "parsed" : "missing",
+      },
+      type: {
+        value: pq.type as any || null,
+        confidence: pq.type ? patternConfidence : 0,
+        source: pq.type ? "parsed" : "missing",
+        raw: pq.type || "",
+      },
+      stem: {
+        value: pq.question_text || null,
+        confidence: pq.question_text ? 90 : 0,
+        source: pq.question_text ? "parsed" : "missing",
+      },
+      options: {
+        value: [], // Format learner doesn't parse options (yet)
+        confidence: 0,
+        source: "missing",
+      },
+      answer: {
+        value: pq.answer || null,
+        confidence: pq.answer ? 90 : 0,
+        source: pq.answer ? "parsed" : "missing",
+      },
+      feedback: {
+        correct: { value: pq.feedback || null, confidence: pq.feedback ? 70 : 0 },
+        incorrect: { value: {}, confidence: 0 },
+        general: { value: pq.feedback || null, confidence: pq.feedback ? 70 : 0 },
+      },
+      labels: {
+        value: labelsArray,
+        confidence: labelsArray.length > 0 ? 90 : 0,
+        source: labelsArray.length > 0 ? "parsed" : "missing",
+      },
+      points: {
+        value: pq.points || 1,
+        confidence: pq.points ? 95 : 50,
+        source: pq.points ? "parsed" : "default",
+      },
+      bloom: {
+        value: bloom,
+        confidence: bloom ? 90 : 0,
+        source: bloom ? "labels" : "missing",
+      },
+      difficulty: {
+        value: difficulty,
+        confidence: difficulty ? 90 : 0,
+        source: difficulty ? "labels" : "missing",
+      },
+    },
+    missingFields: [],
+    uncertainFields: [],
+    rawContent: pq.raw_content,
+    lineNumber: 0,
+    detectionConfidence: patternConfidence,
+    detectionPattern: "format_learner",
+  };
+
+  // Determine missing/uncertain fields
+  if (!interpretation.fields.title.value) interpretation.missingFields.push("title");
+  if (!interpretation.fields.type.value) interpretation.missingFields.push("type");
+  if (!interpretation.fields.stem.value) interpretation.missingFields.push("stem");
+  if (!interpretation.fields.answer.value) interpretation.uncertainFields.push("answer"); // Not always required
+  if (!interpretation.fields.feedback.correct.value) interpretation.uncertainFields.push("feedback");
+
+  return interpretation;
+}
 
 // ============================================================================
 // Schemas
@@ -209,8 +313,55 @@ export async function m5Start(
     };
   }
 
-  // Parse with flexible parser
-  const questions = parseM3Flexible(content);
+  // =========================================================================
+  // RFC-016: Self-Learning Format Recognition
+  // =========================================================================
+  // 1. Load learned patterns
+  // 2. Try to detect format
+  // 3. If detected → parse with that pattern
+  // 4. If not detected → ASK TEACHER for help
+  // =========================================================================
+
+  const patternsData = loadPatterns(projectPath);
+  const detection = detectFormat(content, patternsData.patterns);
+
+  let questions: ParsedInterpretation[];
+
+  if (detection.detected && detection.pattern) {
+    // Format recognized! Parse with the learned pattern
+    const parsedQuestions = parseWithPattern(content, detection.pattern);
+
+    if (parsedQuestions.length === 0) {
+      // Pattern matched but no questions found - unusual case
+      return {
+        success: false,
+        needs_teacher_help: true,
+        teacher_question: `Formatet "${detection.pattern.name}" kändes igen men inga frågor hittades. Kan du verifiera att filen innehåller frågor?`,
+        file_preview: content.split("\n").slice(0, 30).join("\n"),
+        detected_sections: [],
+        suggested_action: "Kontrollera att frågorna följer det förväntade formatet.",
+        source_file: sourceFile,
+      };
+    }
+
+    // Convert to ParsedInterpretation format
+    questions = parsedQuestions.map((pq, idx) =>
+      convertToInterpretation(pq, idx, detection.confidence)
+    );
+
+    // Update pattern statistics
+    updatePatternStats(projectPath, detection.pattern.pattern_id, questions.length);
+
+    logEvent(projectPath, "", "m5_start", "format_detected", "info", {
+      pattern_id: detection.pattern.pattern_id,
+      pattern_name: detection.pattern.name,
+      confidence: detection.confidence,
+      questions_parsed: questions.length,
+    });
+  } else {
+    // No format detected - need teacher help
+    questions = []; // Will trigger the teacher help flow below
+  }
 
   // If no questions found, ASK THE TEACHER FOR HELP instead of failing
   if (questions.length === 0) {
