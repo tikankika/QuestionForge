@@ -2035,8 +2035,8 @@ When Step 1 fixes a SEMANTIC error with human confirmation:
 | Component | Status | File |
 |-----------|--------|------|
 | `step2_validate` | ✅ EXISTS | `server.py` |
-| `pipeline_route` tool | ❌ TODO | `server.py` |
-| `categorize_error()` | ❌ TODO | `routing.py` (new) |
+| `pipeline_route` tool | ✅ IMPLEMENTED | `pipeline_router.py` |
+| `categorize_error()` | ✅ IMPLEMENTED | `pipeline_router.py` |
 | Step 1 + markdown_parser | ❌ TODO | `step1_tools.py` |
 | Step 3 mechanical fixes | ✅ EXISTS | `step3_autofix.py` |
 | Pattern graduation | ❌ TODO | `patterns.py` |
@@ -2044,6 +2044,11 @@ When Step 1 fixes a SEMANTIC error with human confirmation:
 ---
 
 ## Document Changelog
+
+**v2.4 - 2026-01-28**
+- Implemented `pipeline_route` tool (Appendix A now has working code)
+- Error categorization: MECHANICAL → Step 3, STRUCTURAL → Step 1, PEDAGOGICAL → M5
+- Pattern-based routing with fix hints
 
 **v2.3 - 2026-01-28**
 - Added Session Auto-Loading for Step 2/3/4

@@ -38,6 +38,14 @@ from .project_files import (
     write_project_file,
 )
 
+from .pipeline_router import (
+    route_errors,
+    RouteDecision,
+    CategorizedError,
+    ErrorCategory,
+    format_route_decision,
+)
+
 __all__ = [
     # Session tools (Step 0)
     "start_session_tool",
@@ -70,4 +78,10 @@ __all__ = [
     # Project file tools
     "read_project_file",
     "write_project_file",
+    # Pipeline router
+    "route_errors",
+    "RouteDecision",
+    "CategorizedError",
+    "ErrorCategory",
+    "format_route_decision",
 ]

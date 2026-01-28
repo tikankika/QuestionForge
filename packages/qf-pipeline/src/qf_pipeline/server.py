@@ -227,6 +227,36 @@ async def list_tools() -> List[Tool]:
                 },
             },
         ),
+        # Pipeline Router (between Step 2 and Step 3/1/M5)
+        Tool(
+            name="pipeline_route",
+            description=(
+                "Route Step 2 validation errors to appropriate handler. "
+                "MECHANICAL errors → Step 3 (auto-fix). "
+                "STRUCTURAL errors → Step 1 (teacher decision). "
+                "PEDAGOGICAL errors → M5 (content authoring). "
+                "No errors → Step 4 (export)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to markdown file to validate and route",
+                    },
+                    "errors": {
+                        "type": "array",
+                        "description": "Or provide errors directly from Step 2",
+                        "items": {"type": "object"},
+                    },
+                    "verbose": {
+                        "type": "boolean",
+                        "description": "Include error details in output (default: true)",
+                        "default": True,
+                    },
+                },
+            },
+        ),
         # Step 4: Export
         Tool(
             name="step4_export",
@@ -633,6 +663,8 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_step2_read(arguments)
         elif name == "step3_autofix":
             return await handle_step3_autofix(arguments)
+        elif name == "pipeline_route":
+            return await handle_pipeline_route(arguments)
         elif name == "step4_export":
             return await handle_step4_export(arguments)
         elif name == "list_types":
@@ -1472,6 +1504,35 @@ async def handle_step3_autofix(arguments: dict) -> List[TextContent]:
 
     except Exception as e:
         error_msg = f"Step 3 error: {str(e)}\n\n{traceback.format_exc()}"
+        return [TextContent(type="text", text=error_msg)]
+
+
+# =============================================================================
+# Pipeline Router
+# =============================================================================
+
+async def handle_pipeline_route(arguments: dict) -> List[TextContent]:
+    """
+    Route Step 2 validation errors to appropriate handler.
+
+    RFC-013 Appendix A: Error Routing & Categorization
+    - MECHANICAL errors → Step 3 (auto-fix)
+    - STRUCTURAL errors → Step 1 (teacher decision)
+    - PEDAGOGICAL errors → M5 (content authoring)
+    - No errors → Step 4 (export)
+    """
+    from .tools.pipeline_router import handle_pipeline_route as router_handler
+
+    try:
+        result = await router_handler(arguments)
+
+        # Format output
+        output_text = result.get('formatted_output', '')
+
+        return [TextContent(type="text", text=output_text)]
+
+    except Exception as e:
+        error_msg = f"Router error: {str(e)}\n\n{traceback.format_exc()}"
         return [TextContent(type="text", text=error_msg)]
 
 

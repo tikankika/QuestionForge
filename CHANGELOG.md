@@ -6,6 +6,20 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Added - 2026-01-28
 
+#### Pipeline Router (New MCP Tool)
+- **Tool:** `pipeline_route` - Routes Step 2 validation errors to appropriate handler
+- **Error Categories:**
+  - MECHANICAL → Step 3 (auto-fix): colon in metadata, field renames
+  - STRUCTURAL → Step 1 (teacher): separators, malformed fields
+  - PEDAGOGICAL → M5 (content): missing options, content, feedback
+- **Priority Logic:**
+  1. If ANY mechanical errors → Step 3 first (fix what we can)
+  2. If only structural → Step 1 (teacher decision needed)
+  3. If only pedagogical → M5 (content authoring)
+  4. If no errors → Step 4 (ready for export!)
+- **Files added:** `tools/pipeline_router.py`
+- **Files modified:** `server.py`, `tools/__init__.py`
+
 #### Auto-Load Session from Project Path
 - **Feature:** Step 2/3/4 now automatically load session from project structure
 - **How it works:**
