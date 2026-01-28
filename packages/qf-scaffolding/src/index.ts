@@ -50,6 +50,13 @@ import {
   m5Status,
   m5Finish,
   // REMOVED: m5Fallback, m5SubmitQfmd (replaced by m5_manual)
+  // RFC-016: Self-learning format recognition
+  m5TeachFormat,
+  m5TeachFormatSchema,
+  m5ListFormats,
+  m5ListFormatsSchema,
+  m5DetectFormat,
+  m5DetectFormatSchema,
 } from "./tools/m5_interactive_tools.js";
 
 // Server version
@@ -505,6 +512,89 @@ const TOOLS: Tool[] = [
         },
       },
       required: ["qfmd_content"],
+    },
+  },
+  // RFC-016: Self-learning format recognition
+  {
+    name: "m5_teach_format",
+    description:
+      `Teach M5 to recognize a new question format. ` +
+      `Use when m5_start doesn't recognize the format. ` +
+      `Teacher defines how source markers map to QFMD fields.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder",
+        },
+        pattern_name: {
+          type: "string",
+          description: "Name for this format pattern (e.g., 'M3 Bold Headers')",
+        },
+        mappings: {
+          type: "object",
+          description: "Mappings from source markers to QFMD fields",
+          additionalProperties: {
+            type: "object",
+            properties: {
+              qfmd_field: {
+                type: "string",
+                nullable: true,
+                description: "QFMD field name or null to skip",
+              },
+              extraction: {
+                type: "string",
+                enum: ["single_line", "multiline_until_next", "number", "tags", "skip"],
+              },
+              transform: {
+                type: "string",
+                enum: ["prepend_hash", "keep_as_is"],
+              },
+              required: { type: "boolean" },
+            },
+          },
+        },
+        question_separator: {
+          type: "string",
+          description: "What separates questions (default: ---)",
+        },
+      },
+      required: ["project_path", "pattern_name", "mappings"],
+    },
+  },
+  {
+    name: "m5_list_formats",
+    description: "List all learned format patterns for M5.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder",
+        },
+      },
+      required: ["project_path"],
+    },
+  },
+  {
+    name: "m5_detect_format",
+    description:
+      `Analyze a file to detect its format. ` +
+      `Use before m5_start to check if format is recognized.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_path: {
+          type: "string",
+          description: "Absolute path to the project folder",
+        },
+        source_file: {
+          type: "string",
+          description: "Relative path to file to analyze",
+        },
+      },
+      required: ["project_path", "source_file"],
     },
   },
   // REMOVED: m5_fallback, m5_submit_qfmd (combined into m5_manual)
@@ -1482,12 +1572,131 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
+  // Handle m5_teach_format (RFC-016)
+  if (name === "m5_teach_format") {
+    try {
+      const validatedInput = m5TeachFormatSchema.parse(args);
+      const result = await m5TeachFormat(validatedInput);
+
+      if (!result.success) {
+        return {
+          content: [{ type: "text", text: `Error: ${result.error}` }],
+          isError: true,
+        };
+      }
+
+      const lines: string[] = [];
+      lines.push(`# M5 Format Pattern Saved`);
+      lines.push(``);
+      lines.push(`**Pattern ID:** ${result.pattern_id}`);
+      lines.push(`**Name:** ${result.pattern_name}`);
+      lines.push(``);
+      lines.push(`${result.message}`);
+      lines.push(``);
+      lines.push(`**Detected Markers:**`);
+      for (const marker of result.detected_markers || []) {
+        lines.push(`- \`${marker}\``);
+      }
+      lines.push(``);
+      lines.push(`**Nästa steg:** Kör \`m5_start\` för att bearbeta frågorna med det nya mönstret.`);
+
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_list_formats (RFC-016)
+  if (name === "m5_list_formats") {
+    try {
+      const validatedInput = m5ListFormatsSchema.parse(args);
+      const result = await m5ListFormats(validatedInput);
+
+      const lines: string[] = [];
+      lines.push(`# M5 Learned Format Patterns`);
+      lines.push(``);
+      lines.push(`**Total:** ${result.total_patterns} mönster`);
+      lines.push(``);
+
+      for (const p of result.patterns) {
+        lines.push(`## ${p.name} ${p.builtin ? "(inbyggd)" : ""}`);
+        lines.push(`- **ID:** ${p.pattern_id}`);
+        lines.push(`- **Använd:** ${p.times_used} gånger`);
+        lines.push(`- **Frågor processade:** ${p.questions_processed}`);
+        lines.push(`- **Detektionsmarkörer:** ${p.detection_markers.join(", ")}`);
+        if (p.learned_date) {
+          lines.push(`- **Lärd:** ${p.learned_date}`);
+        }
+        lines.push(``);
+      }
+
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_detect_format (RFC-016)
+  if (name === "m5_detect_format") {
+    try {
+      const validatedInput = m5DetectFormatSchema.parse(args);
+      const result = await m5DetectFormat(validatedInput);
+
+      const lines: string[] = [];
+
+      if (result.detected) {
+        lines.push(`# Format Detected!`);
+        lines.push(``);
+        lines.push(`**Pattern:** ${result.pattern_name}`);
+        lines.push(`**Confidence:** ${result.confidence}%`);
+        lines.push(``);
+        lines.push(result.suggestion || "");
+      } else {
+        lines.push(`# Unknown Format`);
+        lines.push(``);
+        lines.push(`Hittade dessa möjliga markörer i filen:`);
+        for (const marker of result.potential_markers || []) {
+          lines.push(`- \`${marker}\``);
+        }
+        lines.push(``);
+        lines.push(`**Förhandsvisning:**`);
+        lines.push("```");
+        lines.push(result.file_preview || "");
+        lines.push("```");
+        lines.push(``);
+        lines.push(result.suggestion || "");
+      }
+
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
   // Unknown tool
   return {
     content: [
       {
         type: "text",
-        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file, m5_start, m5_approve, m5_update_field, m5_skip, m5_status, m5_finish, m5_manual`,
+        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file, m5_start, m5_approve, m5_update_field, m5_skip, m5_status, m5_finish, m5_manual, m5_teach_format, m5_list_formats, m5_detect_format`,
       },
     ],
     isError: true,

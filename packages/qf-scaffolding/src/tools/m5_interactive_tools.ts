@@ -20,6 +20,17 @@ import {
   type ParsedInterpretation,
 } from "../m5/session.js";
 import { logEvent, logError } from "../utils/logger.js";
+import {
+  loadPatterns,
+  savePatterns,
+  createPattern,
+  findPotentialMarkers,
+  detectFormat,
+  parseWithPattern,
+  toQFMD,
+  type FieldMapping,
+  type FormatPattern,
+} from "../m5/format_learner.js";
 
 // ============================================================================
 // Schemas
@@ -1312,4 +1323,193 @@ ${answer || "[Teacher: please provide answer]"}
       error: `Kunde inte skriva fil: ${error}`,
     };
   }
+}
+
+// ============================================================================
+// Tool: m5_teach_format (RFC-016)
+// ============================================================================
+
+export const m5TeachFormatSchema = z.object({
+  project_path: z.string().describe("Absolute path to the project folder"),
+  pattern_name: z.string().describe("Name for this format pattern (e.g., 'M3 Bold Headers')"),
+  mappings: z.record(z.object({
+    qfmd_field: z.string().nullable().describe("QFMD field name (title, type, points, labels, question_text, answer, feedback) or null to skip"),
+    extraction: z.enum(["single_line", "multiline_until_next", "number", "tags", "skip"]).describe("How to extract the value"),
+    transform: z.enum(["prepend_hash", "keep_as_is"]).optional().describe("Optional transformation"),
+    required: z.boolean().optional().describe("Is this field required for detection?"),
+  })).describe("Mappings from source markers to QFMD fields"),
+  question_separator: z.string().optional().describe("What separates questions (default: ---)"),
+});
+
+export interface M5TeachFormatResult {
+  success: boolean;
+  error?: string;
+  pattern_id?: string;
+  pattern_name?: string;
+  message?: string;
+  detected_markers?: string[];
+}
+
+export async function m5TeachFormat(
+  input: z.infer<typeof m5TeachFormatSchema>
+): Promise<M5TeachFormatResult> {
+  const { project_path, pattern_name, mappings, question_separator } = input;
+
+  // Convert to internal format
+  const internalMappings: Record<string, FieldMapping> = {};
+  for (const [marker, mapping] of Object.entries(mappings)) {
+    internalMappings[marker] = {
+      qfmd_field: mapping.qfmd_field,
+      extraction: mapping.extraction,
+      transform: mapping.transform,
+      required: mapping.required,
+    };
+  }
+
+  // Generate session ID
+  const sessionId = `teach_${Date.now().toString(36)}`;
+
+  // Create and save pattern
+  const pattern = createPattern(
+    pattern_name,
+    internalMappings,
+    question_separator || "---",
+    sessionId
+  );
+
+  const data = loadPatterns(project_path);
+  data.patterns.push(pattern);
+  savePatterns(project_path, data);
+
+  logEvent(project_path, "", "m5_teach_format", "pattern_created", "info", {
+    pattern_id: pattern.pattern_id,
+    pattern_name: pattern_name,
+    mappings_count: Object.keys(mappings).length,
+  });
+
+  return {
+    success: true,
+    pattern_id: pattern.pattern_id,
+    pattern_name: pattern_name,
+    message: `Mönstret "${pattern_name}" har sparats! Nästa gång du kör m5_start kommer detta format att kännas igen automatiskt.`,
+    detected_markers: Object.keys(mappings),
+  };
+}
+
+// ============================================================================
+// Tool: m5_list_formats (RFC-016)
+// ============================================================================
+
+export const m5ListFormatsSchema = z.object({
+  project_path: z.string().describe("Absolute path to the project folder"),
+});
+
+export interface M5ListFormatsResult {
+  success: boolean;
+  patterns: Array<{
+    pattern_id: string;
+    name: string;
+    builtin: boolean;
+    times_used: number;
+    questions_processed: number;
+    detection_markers: string[];
+    learned_date?: string;
+  }>;
+  total_patterns: number;
+}
+
+export async function m5ListFormats(
+  input: z.infer<typeof m5ListFormatsSchema>
+): Promise<M5ListFormatsResult> {
+  const data = loadPatterns(input.project_path);
+
+  const patterns = data.patterns.map((p) => ({
+    pattern_id: p.pattern_id,
+    name: p.name,
+    builtin: p.builtin || false,
+    times_used: p.statistics.times_used,
+    questions_processed: p.statistics.questions_processed,
+    detection_markers: p.detection.required_markers,
+    learned_date: p.learned_from?.date,
+  }));
+
+  return {
+    success: true,
+    patterns: patterns,
+    total_patterns: patterns.length,
+  };
+}
+
+// ============================================================================
+// Tool: m5_detect_format (RFC-016) - Helper for teacher dialog
+// ============================================================================
+
+export const m5DetectFormatSchema = z.object({
+  project_path: z.string().describe("Absolute path to the project folder"),
+  source_file: z.string().describe("Relative path to file to analyze"),
+});
+
+export interface M5DetectFormatResult {
+  success: boolean;
+  detected: boolean;
+  pattern_name?: string;
+  confidence?: number;
+  potential_markers?: string[];
+  file_preview?: string;
+  suggestion?: string;
+}
+
+export async function m5DetectFormat(
+  input: z.infer<typeof m5DetectFormatSchema>
+): Promise<M5DetectFormatResult> {
+  const { project_path, source_file } = input;
+  const sourcePath = path.join(project_path, source_file);
+
+  if (!fs.existsSync(sourcePath)) {
+    return {
+      success: false,
+      detected: false,
+      suggestion: `Filen finns inte: ${source_file}`,
+    };
+  }
+
+  const content = fs.readFileSync(sourcePath, "utf-8");
+  const data = loadPatterns(project_path);
+
+  // Detect format using learned patterns
+  const result = detectFormat(content, data.patterns);
+
+  const lines = content.split("\n");
+  const preview = lines.slice(0, 25).join("\n") + (lines.length > 25 ? "\n..." : "");
+  const potentialMarkers = findPotentialMarkers(content);
+
+  if (result.detected && result.pattern) {
+    return {
+      success: true,
+      detected: true,
+      pattern_name: result.pattern.name,
+      confidence: result.confidence,
+      file_preview: preview,
+      suggestion: `Formatet "${result.pattern.name}" kändes igen (confidence: ${result.confidence}%). Kör m5_start för att bearbeta frågorna.`,
+    };
+  }
+
+  return {
+    success: true,
+    detected: false,
+    potential_markers: potentialMarkers,
+    file_preview: preview,
+    suggestion: `Okänt format. Hittade dessa möjliga markörer: ${potentialMarkers.join(", ")}
+
+Använd m5_teach_format för att lära mig detta format. Exempel:
+
+m5_teach_format({
+  project_path: "${project_path}",
+  pattern_name: "Mitt format",
+  mappings: {
+    "**Title:**": { qfmd_field: "title", extraction: "single_line" },
+    "**Stem:**": { qfmd_field: "question_text", extraction: "multiline_until_next" }
+  }
+})`,
+  };
 }
