@@ -1183,6 +1183,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const q = result.first_question;
         const lines: string[] = [];
 
+        // Get session progress for type info
+        const { getProgress: getM5Progress } = await import("./m5/session.js");
+        const progress = getM5Progress();
+
         lines.push(`# M5 Session Started`);
         lines.push(``);
         lines.push(`**Session ID:** ${result.session_id}`);
@@ -1190,9 +1194,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         lines.push(`**Source:** ${result.source_file}`);
         lines.push(`**Output:** ${result.output_file}`);
         lines.push(``);
+
+        // Show type grouping
+        if (progress && progress.typeOrder.length > 0) {
+          lines.push(`## Frågor grupperade per typ:`);
+          lines.push(``);
+          for (const type of progress.typeOrder) {
+            const typeProgress = progress.progressByType[type];
+            const isCurrent = type === progress.currentType;
+            const marker = isCurrent ? "→" : " ";
+            lines.push(`${marker} **${type}:** ${typeProgress.total} frågor`);
+          }
+          lines.push(``);
+          lines.push(`*Bearbetar en typ i taget. Nuvarande typ: **${progress.currentType}***`);
+          lines.push(``);
+        }
+
         lines.push(`---`);
         lines.push(``);
-        lines.push(`## ${q.question_number} - Review`);
+        lines.push(`## Fråga ${progress?.currentTypeIndex || 1} av ${progress?.questionsInCurrentType || 1} (${progress?.currentType || "unknown"})`);
+        lines.push(`### ${q.question_number} - Review`);
         lines.push(``);
 
         // Show interpretation
@@ -1253,11 +1274,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (result.success) {
         const lines: string[] = [];
 
+        // Get updated progress with type info
+        const { getProgress: getM5Progress } = await import("./m5/session.js");
+        const progress = getM5Progress();
+
         lines.push(`✅ **${result.approved_question} godkänd och skriven till fil**`);
         lines.push(``);
 
-        if (result.progress) {
-          lines.push(`**Progress:** ${result.progress.approved}/${result.progress.total} godkända`);
+        if (progress) {
+          // Show type-based progress
+          const typeProgress = progress.currentType
+            ? progress.progressByType[progress.currentType]
+            : null;
+
+          if (typeProgress) {
+            lines.push(`**Typ ${progress.currentType}:** ${typeProgress.approved}/${typeProgress.total} godkända`);
+          }
+          lines.push(`**Totalt:** ${progress.approved}/${progress.total} godkända`);
           lines.push(``);
         }
 
@@ -1267,9 +1300,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           lines.push(`*Kör m5_finish för att se sammanfattning.*`);
         } else if (result.next_question) {
           const q = result.next_question;
+
+          // Check if we moved to a new type
+          const prevType = q.interpretation.type.value;
+          if (progress && progress.currentTypeIndex === 1 && progress.remainingInCurrentType >= 0) {
+            // First question of a new type
+            lines.push(`---`);
+            lines.push(``);
+            lines.push(`## Ny frågetyp: **${progress.currentType}**`);
+            lines.push(``);
+            lines.push(`*${progress.questionsInCurrentType} frågor av denna typ*`);
+            lines.push(``);
+          }
+
           lines.push(`---`);
           lines.push(``);
-          lines.push(`## ${q.question_number} - Review`);
+          lines.push(`## Fråga ${progress?.currentTypeIndex || "?"} av ${progress?.questionsInCurrentType || "?"} (${progress?.currentType || "unknown"})`);
+          lines.push(`### ${q.question_number} - Review`);
           lines.push(``);
 
           lines.push(`### Min tolkning:`);
@@ -1408,6 +1455,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
       const result = await m5Status();
 
+      // Get detailed progress with type info
+      const { getProgress: getM5Progress } = await import("./m5/session.js");
+      const progress = getM5Progress();
+
       const lines: string[] = [];
       lines.push(`# M5 Session Status`);
       lines.push(``);
@@ -1420,15 +1471,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         lines.push(`**Session ID:** ${result.session_id}`);
         lines.push(`**Output:** ${result.output_file}`);
         lines.push(``);
+
+        // Show type-based progress
+        if (progress && progress.typeOrder.length > 0) {
+          lines.push(`## Progress per typ:`);
+          lines.push(``);
+          lines.push(`| Typ | Godkända | Kvar | Total |`);
+          lines.push(`|-----|----------|------|-------|`);
+
+          for (const type of progress.typeOrder) {
+            const tp = progress.progressByType[type];
+            const isCurrent = type === progress.currentType;
+            const marker = isCurrent ? "→ " : "  ";
+            lines.push(`| ${marker}**${type}** | ${tp.approved} | ${tp.pending} | ${tp.total} |`);
+          }
+          lines.push(``);
+
+          lines.push(`## Nuvarande:`);
+          lines.push(``);
+          lines.push(`- **Typ:** ${progress.currentType || "Klar"}`);
+          lines.push(`- **Fråga:** ${progress.currentTypeIndex} av ${progress.questionsInCurrentType}`);
+          lines.push(`- **Kvar i typ:** ${progress.remainingInCurrentType}`);
+          lines.push(``);
+        }
+
         if (result.progress) {
+          lines.push(`## Totalt:`);
+          lines.push(``);
           lines.push(`| Status | Antal |`);
           lines.push(`|--------|-------|`);
           lines.push(`| Godkända | ${result.progress.approved} |`);
           lines.push(`| Hoppade över | ${result.progress.skipped} |`);
           lines.push(`| Kvar | ${result.progress.pending} |`);
           lines.push(`| **Total** | ${result.progress.total} |`);
-          lines.push(``);
-          lines.push(`**Nuvarande:** ${result.progress.current_question || "-"}`);
         }
       }
 

@@ -97,6 +97,20 @@ export interface M5Session {
 
   /** Title for the output */
   title?: string;
+
+  // ========== TYPE GROUPING (RFC-016) ==========
+
+  /** Questions grouped by type */
+  questionsByType: Record<string, ParsedInterpretation[]>;
+
+  /** Order of types to process */
+  typeOrder: string[];
+
+  /** Current type being processed */
+  currentType: string | null;
+
+  /** Index within current type */
+  currentTypeIndex: number;
 }
 
 // Global session storage (in-memory for now)
@@ -119,6 +133,25 @@ export function createSession(
   questions: ParsedInterpretation[],
   options?: { courseCode?: string; title?: string }
 ): M5Session {
+  // Group questions by type
+  const questionsByType: Record<string, ParsedInterpretation[]> = {};
+  for (const q of questions) {
+    const qType = q.fields.type.value || "unknown";
+    if (!questionsByType[qType]) {
+      questionsByType[qType] = [];
+    }
+    questionsByType[qType].push(q);
+  }
+
+  // Determine type order (most common types first, unknown last)
+  const typeOrder = Object.keys(questionsByType).sort((a, b) => {
+    if (a === "unknown") return 1;
+    if (b === "unknown") return -1;
+    return questionsByType[b].length - questionsByType[a].length;
+  });
+
+  const firstType = typeOrder[0] || null;
+
   const session: M5Session = {
     sessionId: generateSessionId(),
     projectPath,
@@ -132,6 +165,11 @@ export function createSession(
     lastActivity: new Date().toISOString(),
     courseCode: options?.courseCode,
     title: options?.title,
+    // Type grouping
+    questionsByType,
+    typeOrder,
+    currentType: firstType,
+    currentTypeIndex: 0,
   };
 
   // Initialize all questions as pending
@@ -139,9 +177,9 @@ export function createSession(
     session.questionStatus[q.questionNumber] = "pending";
   }
 
-  // Mark first question as reviewing
-  if (questions.length > 0) {
-    session.questionStatus[questions[0].questionNumber] = "reviewing";
+  // Mark first question of first type as reviewing
+  if (firstType && questionsByType[firstType]?.length > 0) {
+    session.questionStatus[questionsByType[firstType][0].questionNumber] = "reviewing";
   }
 
   currentSession = session;
@@ -163,31 +201,146 @@ export function clearSession(): void {
 }
 
 /**
- * Get the current question being reviewed.
+ * Get the current question being reviewed (type-based).
  */
 export function getCurrentQuestion(): ParsedInterpretation | null {
   if (!currentSession) return null;
-  if (currentSession.currentIndex >= currentSession.questions.length) return null;
-  return currentSession.questions[currentSession.currentIndex];
+  if (!currentSession.currentType) return null;
+
+  const typeQuestions = currentSession.questionsByType[currentSession.currentType];
+  if (!typeQuestions || currentSession.currentTypeIndex >= typeQuestions.length) {
+    return null;
+  }
+
+  return typeQuestions[currentSession.currentTypeIndex];
 }
 
 /**
- * Move to the next question.
+ * Get current type info.
+ */
+export function getCurrentTypeInfo(): {
+  currentType: string | null;
+  questionsInType: number;
+  currentIndexInType: number;
+  remainingInType: number;
+  totalTypes: number;
+  currentTypeNumber: number;
+} | null {
+  if (!currentSession) return null;
+
+  const { currentType, currentTypeIndex, typeOrder, questionsByType } = currentSession;
+
+  if (!currentType) {
+    return {
+      currentType: null,
+      questionsInType: 0,
+      currentIndexInType: 0,
+      remainingInType: 0,
+      totalTypes: typeOrder.length,
+      currentTypeNumber: 0,
+    };
+  }
+
+  const typeQuestions = questionsByType[currentType] || [];
+
+  return {
+    currentType,
+    questionsInType: typeQuestions.length,
+    currentIndexInType: currentTypeIndex + 1, // 1-based for display
+    remainingInType: typeQuestions.length - currentTypeIndex - 1,
+    totalTypes: typeOrder.length,
+    currentTypeNumber: typeOrder.indexOf(currentType) + 1,
+  };
+}
+
+/**
+ * Move to the next question within current type.
+ * Returns null if no more questions of this type.
+ */
+export function moveToNextInType(): ParsedInterpretation | null {
+  if (!currentSession || !currentSession.currentType) return null;
+
+  const typeQuestions = currentSession.questionsByType[currentSession.currentType];
+  if (!typeQuestions) return null;
+
+  currentSession.currentTypeIndex++;
+  currentSession.lastActivity = new Date().toISOString();
+
+  if (currentSession.currentTypeIndex >= typeQuestions.length) {
+    return null; // No more questions of this type
+  }
+
+  const nextQ = typeQuestions[currentSession.currentTypeIndex];
+  currentSession.questionStatus[nextQ.questionNumber] = "reviewing";
+
+  return nextQ;
+}
+
+/**
+ * Move to the next type.
+ * Returns the first question of the new type, or null if all types done.
+ */
+export function moveToNextType(): {
+  newType: string | null;
+  firstQuestion: ParsedInterpretation | null;
+  isComplete: boolean;
+} {
+  if (!currentSession) {
+    return { newType: null, firstQuestion: null, isComplete: true };
+  }
+
+  const { typeOrder, currentType, questionsByType } = currentSession;
+  const currentTypeIndex = currentType ? typeOrder.indexOf(currentType) : -1;
+
+  // Find next type with pending questions
+  for (let i = currentTypeIndex + 1; i < typeOrder.length; i++) {
+    const nextType = typeOrder[i];
+    const typeQuestions = questionsByType[nextType];
+
+    // Check if this type has any pending questions
+    const hasPending = typeQuestions?.some(
+      (q) => currentSession!.questionStatus[q.questionNumber] === "pending"
+    );
+
+    if (hasPending) {
+      currentSession.currentType = nextType;
+      currentSession.currentTypeIndex = 0;
+      currentSession.lastActivity = new Date().toISOString();
+
+      // Find first pending question in this type
+      const firstPending = typeQuestions.find(
+        (q) => currentSession!.questionStatus[q.questionNumber] === "pending"
+      );
+
+      if (firstPending) {
+        currentSession.questionStatus[firstPending.questionNumber] = "reviewing";
+        return {
+          newType: nextType,
+          firstQuestion: firstPending,
+          isComplete: false,
+        };
+      }
+    }
+  }
+
+  // All types done
+  currentSession.currentType = null;
+  return { newType: null, firstQuestion: null, isComplete: true };
+}
+
+/**
+ * Move to the next question (legacy - uses type-based navigation).
  */
 export function moveToNext(): ParsedInterpretation | null {
   if (!currentSession) return null;
 
-  currentSession.currentIndex++;
-  currentSession.lastActivity = new Date().toISOString();
+  // First try within current type
+  const nextInType = moveToNextInType();
+  if (nextInType) return nextInType;
 
-  if (currentSession.currentIndex >= currentSession.questions.length) {
-    return null; // No more questions
-  }
-
-  const nextQ = currentSession.questions[currentSession.currentIndex];
-  currentSession.questionStatus[nextQ.questionNumber] = "reviewing";
-
-  return nextQ;
+  // Then try next type
+  const { firstQuestion } = moveToNextType();
+  return firstQuestion;
 }
 
 /**
@@ -519,10 +672,40 @@ export function getProgress(): {
   pending: number;
   current: number;
   currentQuestion: string | null;
+  // Type-based progress
+  currentType: string | null;
+  currentTypeIndex: number;
+  questionsInCurrentType: number;
+  remainingInCurrentType: number;
+  typeOrder: string[];
+  progressByType: Record<string, { total: number; approved: number; pending: number }>;
 } | null {
   if (!currentSession) return null;
 
   const statuses = Object.values(currentSession.questionStatus);
+  const { questionsByType, typeOrder, currentType, currentTypeIndex } = currentSession;
+
+  // Calculate progress by type
+  const progressByType: Record<string, { total: number; approved: number; pending: number }> = {};
+  for (const type of typeOrder) {
+    const typeQuestions = questionsByType[type] || [];
+    const typeApproved = typeQuestions.filter(
+      (q) => currentSession!.questionStatus[q.questionNumber] === "approved"
+    ).length;
+    const typePending = typeQuestions.filter(
+      (q) =>
+        currentSession!.questionStatus[q.questionNumber] === "pending" ||
+        currentSession!.questionStatus[q.questionNumber] === "reviewing"
+    ).length;
+
+    progressByType[type] = {
+      total: typeQuestions.length,
+      approved: typeApproved,
+      pending: typePending,
+    };
+  }
+
+  const currentTypeQuestions = currentType ? questionsByType[currentType] || [] : [];
 
   return {
     total: currentSession.questions.length,
@@ -531,6 +714,13 @@ export function getProgress(): {
     pending: statuses.filter((s) => s === "pending" || s === "reviewing").length,
     current: currentSession.currentIndex + 1,
     currentQuestion: getCurrentQuestion()?.questionNumber || null,
+    // Type-based progress
+    currentType,
+    currentTypeIndex: currentTypeIndex + 1, // 1-based for display
+    questionsInCurrentType: currentTypeQuestions.length,
+    remainingInCurrentType: currentTypeQuestions.length - currentTypeIndex - 1,
+    typeOrder,
+    progressByType,
   };
 }
 
