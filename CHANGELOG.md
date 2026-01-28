@@ -6,6 +6,55 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Changed - 2026-01-28
 
+#### M5: Simplified from 10 to 6 Tools + Teacher Dialog
+
+**BREAKING CHANGE:** M5 tool set simplified and redesigned for teacher collaboration.
+
+**Philosophy Change:**
+- **Before:** Parser fails silently → "0 frågor hittades" → Dead end
+- **After:** Parser uncertain → ASK TEACHER FOR HELP → Dialog continues
+
+**Removed Tools (redundant):**
+| Tool | Reason |
+|------|--------|
+| `m5_check` | Redundant - m5_start does this |
+| `m5_generate` | Redundant - use m5_start + approve loop |
+| `m5_fallback` | Replaced by m5_manual |
+| `m5_submit_qfmd` | Merged into m5_manual |
+
+**Kept Tools (6):**
+| Tool | Purpose |
+|------|---------|
+| `m5_start` | Start session, **now asks teacher for help if parser fails** |
+| `m5_approve` | Approve question with optional corrections |
+| `m5_update_field` | Update single field |
+| `m5_skip` | Skip question |
+| `m5_status` | Show progress |
+| `m5_finish` | End session |
+
+**New Tool:**
+| Tool | Purpose |
+|------|---------|
+| `m5_manual` | Submit QFMD directly when parser can't help |
+
+**Parser Improvements (flexible_parser.ts):**
+- Now detects more formats: `## Question 1`, `## Fråga 1`, `# Q1`, etc.
+- When uncertain, returns `needs_teacher_help: true` with:
+  - File preview (first 30 lines)
+  - Detected sections with confidence scores
+  - Three alternatives for teacher to choose from
+- Added fallback detection for non-standard formats
+
+**Files modified:**
+- `packages/qf-scaffolding/src/index.ts` - Tool definitions + handlers
+- `packages/qf-scaffolding/src/tools/m5_interactive_tools.ts` - New result type
+- `packages/qf-scaffolding/src/m5/flexible_parser.ts` - Multi-pattern detection
+- `packages/qf-scaffolding/src/m5/session.ts` - Added detectionConfidence/Pattern
+
+---
+
+### Changed - 2026-01-28 (Earlier)
+
 #### Step 1: Refactored to Minimal Safety Net (Vision A)
 
 **BREAKING CHANGE:** Step 1 completely redesigned.

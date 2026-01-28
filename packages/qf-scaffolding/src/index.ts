@@ -37,12 +37,7 @@ import {
   writeProjectFileSchema,
 } from "./tools/project_files.js";
 import { getStageOutputType } from "./outputs/index.js";
-import {
-  m5Check,
-  m5CheckSchema,
-  m5Generate,
-  m5GenerateSchema,
-} from "./tools/m5_tools.js";
+// REMOVED: m5_tools.js imports (m5_check, m5_generate deprecated)
 import {
   m5Start,
   m5StartSchema,
@@ -54,9 +49,7 @@ import {
   m5SkipSchema,
   m5Status,
   m5Finish,
-  m5Fallback,
-  m5SubmitQfmd,
-  m5SubmitQfmdSchema,
+  // REMOVED: m5Fallback, m5SubmitQfmd (replaced by m5_manual)
 } from "./tools/m5_interactive_tools.js";
 
 // Server version
@@ -383,77 +376,8 @@ const TOOLS: Tool[] = [
       required: ["project_path", "relative_path", "content"],
     },
   },
-  {
-    name: "m5_check",
-    description:
-      `Check M3 output for content completeness before QFMD generation. ` +
-      `Validates that all required fields are present for each question type. ` +
-      `Returns a detailed report with issues by question. ` +
-      `Run this BEFORE m5_generate to identify problems.`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        project_path: {
-          type: "string",
-          description: "Absolute path to the project folder.",
-        },
-        source_file: {
-          type: "string",
-          description:
-            "Relative path to M3 output file. Default: questions/m3_output.md",
-        },
-      },
-      required: ["project_path"],
-    },
-  },
-  {
-    name: "m5_generate",
-    description:
-      `Generate QFMD from M3 human-readable format. ` +
-      `Converts M3 output to the structured QFMD format used by the pipeline. ` +
-      `Run m5_check first to identify any issues. ` +
-      `Output file goes to questions/m5_output.md by default.`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        project_path: {
-          type: "string",
-          description: "Absolute path to the project folder.",
-        },
-        source_file: {
-          type: "string",
-          description:
-            "Relative path to M3 output file. Default: questions/m3_output.md",
-        },
-        output_file: {
-          type: "string",
-          description:
-            "Relative path for QFMD output. Default: questions/m5_output.md",
-        },
-        course_code: {
-          type: "string",
-          description: "Course code for identifiers (e.g., ARTI1000X).",
-        },
-        title: {
-          type: "string",
-          description: "Title for the question set.",
-        },
-        skip_incomplete: {
-          type: "boolean",
-          description:
-            "Skip questions with completeness errors. Default: false.",
-          default: false,
-        },
-        overwrite: {
-          type: "boolean",
-          description: "Overwrite existing output file. Default: false.",
-          default: false,
-        },
-      },
-      required: ["project_path"],
-    },
-  },
-  // ========== M5 INTERACTIVE TOOLS (Question-by-Question) ==========
+  // ========== M5 INTERACTIVE TOOLS (Simplified) ==========
+  // REMOVED: m5_check, m5_generate (redundant with m5_start)
   {
     name: "m5_start",
     description:
@@ -562,34 +486,28 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: "m5_fallback",
+    name: "m5_manual",
     description:
-      `FALLBACK MODE: When parser fails to extract fields. ` +
-      `Returns raw M3 content + expected QFMD format for the question type. ` +
-      `Claude Desktop should generate QFMD and call m5_submit_qfmd.`,
-    inputSchema: {
-      type: "object",
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "m5_submit_qfmd",
-    description:
-      `Submit Claude-generated QFMD for current question. ` +
-      `Used after m5_fallback when manual QFMD generation is needed. ` +
-      `Validates structure, writes to file, advances to next question.`,
+      `Submit manually-created QFMD when parser can't extract automatically. ` +
+      `Use when m5_start returns needs_teacher_help=true. ` +
+      `Teacher provides QFMD content directly, written to output file.`,
     inputSchema: {
       type: "object",
       properties: {
         qfmd_content: {
           type: "string",
-          description: "Complete QFMD content for the current question",
+          description: "Complete QFMD content for the question(s)",
+        },
+        append: {
+          type: "boolean",
+          description: "Append to existing file (true) or overwrite (false). Default: true",
+          default: true,
         },
       },
       required: ["qfmd_content"],
     },
   },
+  // REMOVED: m5_fallback, m5_submit_qfmd (combined into m5_manual)
 ];
 
 // Handle tools/list request
@@ -1120,179 +1038,56 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
-  // Handle m5_check
-  if (name === "m5_check") {
-    try {
-      const validatedInput = m5CheckSchema.parse(args);
-      const result = await m5Check(validatedInput);
+  // REMOVED: m5_check, m5_generate handlers (use m5_start instead)
 
-      if (result.success) {
-        const lines: string[] = [];
-        lines.push(`# M5 Content Completeness Check`);
-        lines.push(``);
-        lines.push(`**Source:** ${result.source_file}`);
-        lines.push(``);
-        lines.push(`## Summary`);
-        lines.push(``);
-        lines.push(`| Metric | Value |`);
-        lines.push(`|--------|-------|`);
-        lines.push(`| Total questions | ${result.total_questions} |`);
-        lines.push(`| Passed | ${result.passed_questions} |`);
-        lines.push(`| With issues | ${result.questions_with_issues} |`);
-        lines.push(`| Errors | ${result.errors} |`);
-        lines.push(`| Warnings | ${result.warnings} |`);
-        lines.push(``);
-
-        if (result.ready_for_generation) {
-          lines.push(`✅ **Ready for QFMD generation** - Run m5_generate to create QFMD output.`);
-        } else {
-          lines.push(`❌ **Not ready for generation** - Fix errors before running m5_generate.`);
-        }
-
-        lines.push(``);
-        lines.push(`## Distributions`);
-        lines.push(``);
-        lines.push(`**By Type:**`);
-        for (const [type, count] of Object.entries(result.by_type || {})) {
-          lines.push(`- ${type}: ${count}`);
-        }
-        lines.push(``);
-        lines.push(`**By Bloom:**`);
-        for (const [bloom, count] of Object.entries(result.by_bloom || {})) {
-          lines.push(`- ${bloom}: ${count}`);
-        }
-        lines.push(``);
-        lines.push(`**By Difficulty:**`);
-        for (const [diff, count] of Object.entries(result.by_difficulty || {})) {
-          lines.push(`- ${diff}: ${count}`);
-        }
-
-        if (result.report) {
-          lines.push(``);
-          lines.push(`---`);
-          lines.push(``);
-          lines.push(result.report);
-        }
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: lines.join("\n"),
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error checking M5: ${result.error}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Validation error: ${errorMessage}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
-
-  // Handle m5_generate
-  if (name === "m5_generate") {
-    try {
-      const validatedInput = m5GenerateSchema.parse(args);
-      const result = await m5Generate(validatedInput);
-
-      if (result.success) {
-        const lines: string[] = [];
-        lines.push(`# M5 QFMD Generation Complete`);
-        lines.push(``);
-        lines.push(`✅ **Output created:** ${result.output_file}`);
-        lines.push(``);
-        lines.push(`## Statistics`);
-        lines.push(``);
-        lines.push(`| Metric | Value |`);
-        lines.push(`|--------|-------|`);
-        lines.push(`| Source questions | ${result.total_questions} |`);
-        lines.push(`| Generated | ${result.generated_questions} |`);
-        if (result.skipped_questions && result.skipped_questions.length > 0) {
-          lines.push(`| Skipped | ${result.skipped_questions.length} |`);
-        }
-        lines.push(``);
-
-        if (result.skipped_questions && result.skipped_questions.length > 0) {
-          lines.push(`**Skipped questions:** ${result.skipped_questions.join(", ")}`);
-          lines.push(``);
-        }
-
-        if (result.generation_warnings && result.generation_warnings.length > 0) {
-          lines.push(`**Warnings:**`);
-          for (const warning of result.generation_warnings) {
-            lines.push(`- ⚠️ ${warning}`);
-          }
-          lines.push(``);
-        }
-
-        lines.push(`## Preview`);
-        lines.push(``);
-        lines.push("```markdown");
-        lines.push(result.preview || "");
-        lines.push("```");
-        lines.push(``);
-        lines.push(`---`);
-        lines.push(``);
-        lines.push(`**Next step:** Run Step 1 (step1_start) to validate and refine the QFMD.`);
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: lines.join("\n"),
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error generating QFMD: ${result.error}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Validation error: ${errorMessage}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
-
-  // ========== M5 INTERACTIVE HANDLERS ==========
+  // ========== M5 INTERACTIVE HANDLERS (Simplified) ==========
 
   // Handle m5_start
   if (name === "m5_start") {
     try {
       const validatedInput = m5StartSchema.parse(args);
       const result = await m5Start(validatedInput);
+
+      // NEW: Handle needs_teacher_help case - ASK TEACHER instead of failing
+      if (result.needs_teacher_help) {
+        const lines: string[] = [];
+        lines.push(`# 🤔 M5 behöver din hjälp!`);
+        lines.push(``);
+        lines.push(`**Källa:** ${result.source_file}`);
+        lines.push(``);
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(result.teacher_question || "");
+        lines.push(``);
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(`## Förhandsgranskning av filen (första 30 rader):`);
+        lines.push(``);
+        lines.push("```markdown");
+        lines.push(result.file_preview || "");
+        lines.push("```");
+        lines.push(``);
+
+        if (result.detected_sections && result.detected_sections.length > 0) {
+          lines.push(`## Detekterade sektioner:`);
+          lines.push(``);
+          for (const s of result.detected_sections) {
+            lines.push(`- **Rad ${s.line}:** ${s.content} (confidence: ${s.confidence}%)`);
+          }
+          lines.push(``);
+        }
+
+        lines.push(`---`);
+        lines.push(``);
+        lines.push(`**Alternativ:**`);
+        lines.push(`1. Beskriv hur dina frågor är strukturerade → jag anpassar parsern`);
+        lines.push(`2. Använd \`m5_manual\` för att skriva QFMD direkt`);
+        lines.push(`3. Justera M3-filen så varje fråga börjar med \`## Question N\` eller \`### QN\``);
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      }
 
       if (result.success && result.first_question) {
         const q = result.first_question;
@@ -1600,109 +1395,84 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
-  // Handle m5_fallback
-  if (name === "m5_fallback") {
+  // Handle m5_manual (replaces m5_fallback + m5_submit_qfmd)
+  if (name === "m5_manual") {
     try {
-      const result = await m5Fallback();
+      const qfmdContent = (args as any).qfmd_content;
+      const append = (args as any).append !== false; // Default true
 
-      if (result.success) {
-        const lines: string[] = [];
-        lines.push(`# M5 FALLBACK MODE - ${result.question_number}`);
-        lines.push(``);
-        lines.push(`## Parser kunde inte extrahera alla fält automatiskt`);
-        lines.push(``);
-        lines.push(`**Detected type:** \`${result.detected_type}\``);
-        lines.push(``);
-        lines.push(`---`);
-        lines.push(``);
-        lines.push(`## RAW M3 CONTENT (vad vi har)`);
-        lines.push(``);
-        lines.push("```markdown");
-        lines.push(result.raw_m3_content || "");
-        lines.push("```");
-        lines.push(``);
-        lines.push(`---`);
-        lines.push(``);
-        lines.push(`## EXPECTED QFMD FORMAT (vad Step 4 behöver)`);
-        lines.push(``);
-        lines.push("```markdown");
-        lines.push(result.expected_qfmd_format || "");
-        lines.push("```");
-        lines.push(``);
-        lines.push(`---`);
-        lines.push(``);
-        lines.push(result.instructions || "");
-        lines.push(``);
-
+      if (!qfmdContent || typeof qfmdContent !== "string") {
         return {
-          content: [{ type: "text", text: lines.join("\n") }],
-        };
-      } else {
-        return {
-          content: [{ type: "text", text: `Error: ${result.error}` }],
+          content: [{ type: "text", text: `Error: qfmd_content krävs` }],
           isError: true,
         };
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+      // Validate QFMD has basic structure
+      if (!qfmdContent.includes("^type") || !qfmdContent.includes("@field:")) {
+        return {
+          content: [{
+            type: "text",
+            text: `⚠️ Varning: QFMD saknar standard-struktur (^type eller @field:).\n\n` +
+                  `Förväntad struktur:\n` +
+                  "```\n" +
+                  `# Q001 Title\n` +
+                  `^type essay\n` +
+                  `^identifier ES_Q001\n` +
+                  `\n@field: question_text\n...\n@end_field\n` +
+                  "```\n\n" +
+                  `Vill du fortsätta ändå? Använd write_project_file för att skriva direkt.`
+          }],
+          isError: true,
+        };
+      }
+
+      // Get session for output path, or use default
+      const session = await (await import("./m5/session.js")).getSession();
+      const outputPath = session
+        ? `${session.projectPath}/${session.outputFile}`
+        : null;
+
+      if (!outputPath) {
+        return {
+          content: [{
+            type: "text",
+            text: `Ingen aktiv M5-session. Använd write_project_file för att skriva direkt:\n\n` +
+                  `write_project_file({ project_path: "...", relative_path: "questions/m5_output.md", content: "..." })`
+          }],
+          isError: true,
+        };
+      }
+
+      // Write QFMD to file
+      const fs = await import("fs");
+      const existingContent = fs.existsSync(outputPath)
+        ? fs.readFileSync(outputPath, "utf-8")
+        : "";
+
+      const separator = append && existingContent.trim() ? "\n---\n\n" : "";
+      const header = !existingContent.trim()
+        ? `<!-- QFMD Format - Generated by M5 -->\n<!-- Generated: ${new Date().toISOString()} -->\n\n`
+        : "";
+
+      const newContent = append
+        ? existingContent + separator + header + qfmdContent
+        : header + qfmdContent;
+
+      fs.writeFileSync(outputPath, newContent, "utf-8");
+
+      const lines: string[] = [];
+      lines.push(`# ✅ QFMD skriven till fil`);
+      lines.push(``);
+      lines.push(`**Fil:** ${outputPath}`);
+      lines.push(`**Mode:** ${append ? "Append" : "Overwrite"}`);
+      lines.push(`**Tecken:** ${qfmdContent.length}`);
+      lines.push(``);
+      lines.push(`**Nästa steg:** Kör step2_validate för att validera QFMD-formatet.`);
+
       return {
-        content: [{ type: "text", text: `Error: ${errorMessage}` }],
-        isError: true,
+        content: [{ type: "text", text: lines.join("\n") }],
       };
-    }
-  }
-
-  // Handle m5_submit_qfmd
-  if (name === "m5_submit_qfmd") {
-    try {
-      const input = m5SubmitQfmdSchema.parse(args);
-      const result = await m5SubmitQfmd(input);
-
-      if (result.success) {
-        const lines: string[] = [];
-        lines.push(`# ✅ QFMD Submitted - ${result.submitted_question}`);
-        lines.push(``);
-        lines.push(`**Skrivet till fil:** ${result.written_to_file ? "Ja" : "Nej"}`);
-        lines.push(``);
-
-        if (result.progress) {
-          lines.push(`**Progress:** ${result.progress.approved}/${result.progress.total} godkända, ${result.progress.remaining} kvar`);
-          lines.push(``);
-        }
-
-        if (result.session_complete) {
-          lines.push(`🎉 **Session klar!** Alla frågor är behandlade.`);
-          lines.push(``);
-          lines.push(`*Kör m5_finish för att se sammanfattning.*`);
-        } else if (result.next_question) {
-          const q = result.next_question;
-          lines.push(`---`);
-          lines.push(``);
-          lines.push(`## Nästa fråga: ${q.question_number}`);
-          lines.push(``);
-          lines.push(`| Fält | Värde | Status |`);
-          lines.push(`|------|-------|--------|`);
-          lines.push(`| Type | ${q.interpretation.type.value || "?"} | ${q.interpretation.type.needs_input ? "❓" : "✅"} |`);
-          lines.push(`| Title | ${q.interpretation.title.value || "?"} | ${q.interpretation.title.needs_input ? "❓" : "✅"} |`);
-          lines.push(`| Answer | ${q.interpretation.answer.value || "?"} | ${q.interpretation.answer.needs_input ? "❓" : "✅"} |`);
-          lines.push(``);
-
-          if (q.needs_user_input) {
-            lines.push(`⚠️ **Behöver input - överväg m5_fallback**`);
-          } else {
-            lines.push(`✅ **Redo för m5_approve**`);
-          }
-        }
-
-        return {
-          content: [{ type: "text", text: lines.join("\n") }],
-        };
-      } else {
-        return {
-          content: [{ type: "text", text: `Error: ${result.error}` }],
-          isError: true,
-        };
-      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       return {
@@ -1717,7 +1487,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     content: [
       {
         type: "text",
-        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file, m5_check, m5_generate, m5_start, m5_approve, m5_update_field, m5_skip, m5_status, m5_finish, m5_fallback, m5_submit_qfmd`,
+        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file, m5_start, m5_approve, m5_update_field, m5_skip, m5_status, m5_finish, m5_manual`,
       },
     ],
     isError: true,

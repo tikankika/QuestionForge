@@ -45,6 +45,12 @@ export interface ParsedInterpretation {
 
   /** Line number in source */
   lineNumber: number;
+
+  /** How confident we are that this IS a question (0-100) */
+  detectionConfidence?: number;
+
+  /** Which pattern was used to detect this question */
+  detectionPattern?: string;
 }
 
 /**

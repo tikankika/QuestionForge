@@ -1,6 +1,6 @@
 # QuestionForge Roadmap
 
-**Senast uppdaterad:** 2026-01-22
+**Senast uppdaterad:** 2026-01-28
 
 ---
 
@@ -46,19 +46,37 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 
 ---
 
-## Fas 2: Guided Build ✅ KLAR
+## Fas 2: Guided Build ✅ REFAKTORERAD
 
-### Step 1: Interactive Guided Build (Rebuild)
+### Step 1: Minimal Safety Net (Vision A) ✅ (2026-01-28)
+
+**Refaktorering:** Step 1 omdesignat från "Interactive Guided Build" (3700 rader) till "Minimal Safety Net" (~289 rader).
+
 | Uppgift | Status | Datum |
 |---------|--------|-------|
-| Specifikation (STEP1_REBUILD_INTERACTIVE.md) | ✅ Klar | 2026-01-08 |
-| `step1_analyze` - kategorisera issues | ✅ Klar | 2026-01-08 |
-| `step1_fix_auto` - auto-fixable syntax | ✅ Klar | 2026-01-08 |
-| `step1_fix_manual` - user input handling | ✅ Klar | 2026-01-08 |
-| `step1_suggest` - generera förslag | ✅ Klar | 2026-01-08 |
-| `step1_batch_preview` - batch preview | ✅ Klar | 2026-01-08 |
-| `step1_batch_apply` - batch apply | ✅ Klar | 2026-01-08 |
-| `step1_skip` - skippa fråga/issue | ✅ Klar | 2026-01-08 |
+| RFC-013 v2.5: Step 1 Vision A spec | ✅ Klar | 2026-01-28 |
+| Arkivera gamla moduler (7 filer → `_archived/`) | ✅ Klar | 2026-01-28 |
+| `step1_review` - visa fråga + issues | ✅ Klar | 2026-01-28 |
+| `step1_manual_fix` - manuell fix | ✅ Klar | 2026-01-28 |
+| `step1_delete` - radera fråga | ✅ Klar | 2026-01-28 |
+| `step1_skip` - skippa fråga | ✅ Klar | 2026-01-28 |
+| Old tools → deprecation stubs | ✅ Klar | 2026-01-28 |
+
+**Vision A Principer:**
+- Step 1 används ENDAST när Step 3 auto-fix misslyckas
+- Normal flow: M5 → Step 2 → Step 3 → Step 4 (Step 1 skippas)
+- Step 1 hanterar: okända fel, Step 3-misslyckanden, strukturella issues
+
+**Arkiverade moduler (3200+ rader):**
+- `analyzer.py` → Ersatt av Step 2 validator
+- `transformer.py` → Ersatt av Step 3 auto-fix
+- `structural_issues.py` → Ersatt av pipeline_router
+- `detector.py`, `patterns.py`, `prompts.py`, `session.py`
+
+**Behållna moduler (~520 rader):**
+- `frontmatter.py` - YAML progress tracking
+- `parser.py` - Fråge-parsning
+- `decision_logger.py` - Beslutsloggning
 
 ### Step 2: Validator ✅ KLAR
 | Uppgift | Status | Datum |
@@ -109,17 +127,59 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 - **Path A:** Direkt export (enkla frågor → QTI)
 - **Path B:** Question Set Builder (filtrering, sektioner, random selection)
 
-### Step 4: Export 🔴 KRITISK BUG
-| Uppgift | Status |
-|---------|--------|
-| `step4_export` - generera QTI-paket | ✅ Klar |
-| Tags → Labels mapping | ✅ Klar |
-| Resource handling (bilder etc) | 🔴 **BUG** - paths inte mappade! |
+### Step 4: Export ✅ KLAR (RFC-012 Löst)
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| `step4_export` - generera QTI-paket | ✅ Klar | 2026-01 |
+| Tags → Labels mapping | ✅ Klar | 2026-01 |
+| Resource handling (bilder etc) | ✅ Fixad | 2026-01-28 |
+| Auto-load session från projektmapp | ✅ Klar | 2026-01-28 |
 
-**KRITISK BUG (RFC-012):**
-- `apply_resource_mapping()` saknas i pipeline
-- Bilder kopieras korrekt men XML får gamla paths
-- Se `docs/rfcs/rfc-012-pipeline-script-alignment.md`
+**RFC-012 LÖST:**
+- Subprocess-approach: Pipeline anropar `scripts/` för validering + export
+- `apply_resource_mapping()` körs nu korrekt via `generate_qti_package.py`
+- Session auto-laddas från projekt om input är i `pipeline/` eller `questions/`
+
+### Pipeline Router ✅ NY (2026-01-28)
+
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| `pipeline_route` tool | ✅ Klar | 2026-01-28 |
+| Felkategorisering (MECHANICAL/STRUCTURAL/PEDAGOGICAL) | ✅ Klar | 2026-01-28 |
+| Routing till rätt handler | ✅ Klar | 2026-01-28 |
+
+**Routing-logik:**
+| Kategori | Handler | Beskrivning |
+|----------|---------|-------------|
+| MECHANICAL | Step 3 | Syntax-fel som kan auto-fixas |
+| STRUCTURAL | Step 1 | Kräver lärar-beslut |
+| PEDAGOGICAL | M5 | Innehållsproblem, tillbaka till M5 |
+| NONE | Step 4 | Allt validerat, redo för export |
+
+**Fil:** `tools/pipeline_router.py`
+
+### RFC-014: Resource Handling 📋 DRAFT
+
+**Beskrivning:** Hantering av resurser för komplexa frågetyper (bilder, audio, koordinater)
+
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| RFC-014 placeholder skapad | ✅ Klar | 2026-01-28 |
+| Implementation | ⬜ Planerad | - |
+
+**Frågetyper som kräver resource handling:**
+- `hotspot` - Bild + koordinater
+- `graphicgapmatch_v2` - Bild + drop zones
+- `audio_record` - Ljudfil
+- `text_entry_graphic` - Bild + textfält
+
+**Funktioner (planerade):**
+- Resource discovery (hitta refererade filer)
+- Koordinat-editor (visualisera zoner)
+- Fil-path management (normalisera, kopiera)
+- Preview i terminal eller GUI
+
+**Prioritet:** Låg - väntar på pipeline-stabilisering
 
 ---
 
@@ -286,13 +346,22 @@ methodology/
 
 ## Pipeline Status
 
-| Step | Namn | Status |
-|------|------|--------|
-| Step 0 | Session + Entry Points | ✅ Klar |
-| Step 1 | Guided Build | ✅ Klar |
-| Step 2 | Validator | ✅ Klar |
-| Step 3 | Decision | ⬜ Nästa |
-| Step 4 | Export | ✅ Klar |
+| Step | Namn | Status | Uppdaterad |
+|------|------|--------|------------|
+| Step 0 | Session + Entry Points | ✅ Klar | 2026-01 |
+| Step 1 | Minimal Safety Net (Vision A) | ✅ Refaktorerad | 2026-01-28 |
+| Step 2 | Validator | ✅ Klar | 2026-01 |
+| Router | Pipeline Router | ✅ NY | 2026-01-28 |
+| Step 3 | Auto-fix | ✅ Klar | 2026-01-22 |
+| Step 4 | Export | ✅ Klar (RFC-012 löst) | 2026-01-28 |
+
+**Ny Pipeline Flow (2026-01-28):**
+```
+M5 output → Step 2 (validate) → Router → Step 3 (auto-fix) → Step 4 (export)
+                                   ↓
+                              [om STRUCTURAL → Step 1 teacher fix]
+                              [om PEDAGOGICAL → M5 redo]
+```
 
 ---
 
@@ -362,16 +431,13 @@ methodology/
 1. ~~**qf-scaffolding logging** - TypeScript logger per RFC-001~~ ✅ Klar
 2. ~~**RFC-004 Phase 2** - M1 progressive saving tools~~ ✅ Klar
 3. ~~**RFC-007** - LLM Workflow Control Patterns + Option A~~ ✅ Klar
-4. 🔴 **RFC-012 Phase 1** - Pipeline-Script Alignment (KRITISK BUG) ⬅️ **NÄSTA**
-   - `apply_resource_mapping()` saknas i step4_export
-   - Bilder fungerar inte i Inspera-import
-   - Lösning: Subprocess till scripts
-5. **MarkItDown MCP** - Installation och konfiguration
-6. **Testa M1 med MarkItDown** - End-to-end test med PDF-extraktion
-7. **Step 3: Decision Tool** - Välj export-path (enkel vs Question Set)
+4. ~~**RFC-012** - Pipeline-Script Alignment~~ ✅ Klar (2026-01-28)
+5. ~~**RFC-013 v2.5** - Step 1 Vision A refactor~~ ✅ Klar (2026-01-28)
+6. **MarkItDown MCP** - Installation och konfiguration ⬅️ **NÄSTA**
+7. **Testa M1 med MarkItDown** - End-to-end test med PDF-extraktion
 8. **M2-M4 Tools** - Implementera tools för övriga moduler
 9. **RFC-001 TIER 3** - user_decision logging (efter M1-M4 körts)
-10. **RFC-012 Phase 2** - Refactor scripts till importerbara funktioner
+10. **RFC-014** - Resource handling (bilder, audio, koordinater) - LÅG PRIORITET
 
 ---
 
@@ -428,7 +494,10 @@ qti-core/
 | `docs/rfcs/RFC-001-unified-logging.md` | Unified Logging RFC |
 | `docs/rfcs/RFC-004-m1-methodology-tools.md` | M1 Tools RFC |
 | `docs/rfcs/RFC-007-llm-workflow-control-patterns.md` | LLM Workflow Control |
-| `docs/rfcs/RFC-009-m3-conversation-capture.md` | **NEW** M3 Conversation Capture |
+| `docs/rfcs/RFC-009-m3-conversation-capture.md` | M3 Conversation Capture |
+| `docs/rfcs/rfc-012-pipeline-script-alignment.md` | Pipeline-Script Alignment (LÖST) |
+| `docs/rfcs/RFC-013-Questionforge pipeline architecture v2.md` | Pipeline arkitektur v2.5 |
+| `docs/rfcs/RFC-014-resource-handling.md` | **NEW** Resource Handling (DRAFT) |
 | `docs/workflows/m1_complete_workflow.md` | M1 Workflow (v3.1) |
 | `methodology/m1/m1_0_stage0_material_analysis.md` | **NEW** Teacher Guide for Stage 0 |
 | `docs/acdm/` | ACDM sessionsloggar och reflektioner |
@@ -441,4 +510,4 @@ qti-core/
 
 ---
 
-*Roadmap uppdaterad 2026-01-21 (MarkItDown MCP prioriterad, course-extractor-mcp arkiverad)*
+*Roadmap uppdaterad 2026-01-28 (RFC-012 löst, Step 1 Vision A refaktorerad, Pipeline Router implementerad, RFC-014 skapad)*

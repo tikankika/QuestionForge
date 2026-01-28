@@ -74,6 +74,13 @@ export interface M5StartResult {
   source_file?: string;
   output_file?: string;
   first_question?: QuestionReview;
+
+  // NEW: When parser needs help from teacher
+  needs_teacher_help?: boolean;
+  teacher_question?: string;
+  file_preview?: string;
+  detected_sections?: { line: number; content: string; confidence: number }[];
+  suggested_action?: string;
 }
 
 export interface QuestionReview {
@@ -194,10 +201,56 @@ export async function m5Start(
   // Parse with flexible parser
   const questions = parseM3Flexible(content);
 
+  // If no questions found, ASK THE TEACHER FOR HELP instead of failing
   if (questions.length === 0) {
+    // Analyze the file to give teacher context
+    const lines = content.split("\n");
+    const potentialSections: { line: number; content: string; confidence: number }[] = [];
+
+    // Find anything that looks like it could be a question boundary
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Headers
+      if (/^#+\s+/.test(line)) {
+        potentialSections.push({ line: i + 1, content: line.substring(0, 80), confidence: 60 });
+      }
+      // Separators followed by content
+      if (line.trim() === "---" && i + 1 < lines.length && lines[i + 1].trim()) {
+        potentialSections.push({ line: i + 1, content: `--- (separator)`, confidence: 40 });
+      }
+      // Bold markers that often indicate structure
+      if (/^\*\*(Title|Type|Stem|Question|Fråga|Titel)/i.test(line)) {
+        potentialSections.push({ line: i + 1, content: line.substring(0, 80), confidence: 50 });
+      }
+    }
+
+    // Create a preview of the file (first 30 lines or so)
+    const preview = lines.slice(0, 30).join("\n") + (lines.length > 30 ? "\n..." : "");
+
     return {
       success: false,
-      error: "Inga frågor hittades i filen",
+      needs_teacher_help: true,
+      teacher_question: `Jag kunde inte automatiskt identifiera frågegränserna i filen.
+
+Kan du hjälpa mig?
+
+**Vad jag letar efter:**
+- Frågor som börjar med \`### Q1\`, \`## Question 1\`, \`## Fråga 1\` eller liknande
+- Sektioner som \`**Question Stem:**\`, \`**Stem:**\`, \`**Answer:**\`
+
+**Vad jag hittade:**
+${potentialSections.length > 0
+  ? potentialSections.slice(0, 5).map(s => `- Rad ${s.line}: ${s.content}`).join("\n")
+  : "- Inga tydliga sektioner"}
+
+**Hur du kan hjälpa:**
+1. Berätta hur frågorna är strukturerade i din fil
+2. Eller: Använd \`m5_manual_parse\` för att ange frågegränserna manuellt
+3. Eller: Justera M3-filen så varje fråga börjar med \`## Question N\` eller \`### QN\``,
+      file_preview: preview,
+      detected_sections: potentialSections.slice(0, 10),
+      suggested_action: "Beskriv hur dina frågor är strukturerade, så anpassar jag parsningen.",
+      source_file: sourceFile,
     };
   }
 
@@ -1026,4 +1079,237 @@ export async function m5SubmitQfmd(
         }
       : undefined,
   };
+}
+
+// ============================================================================
+// Tool: m5_help_parse - Teacher helps identify question structure
+// ============================================================================
+
+export const m5HelpParseSchema = z.object({
+  project_path: z.string().describe("Absolute path to the project folder"),
+  source_file: z.string().optional().describe("Relative path to source file"),
+  question_pattern: z
+    .string()
+    .describe("How questions are marked in your file. Examples: '## Question N', '### QN', '## Fråga N', or describe in your own words"),
+  section_markers: z
+    .record(z.string())
+    .optional()
+    .describe("Custom section markers: { 'stem': '**Stem:**', 'answer': '**Answer:**' }"),
+});
+
+export interface M5HelpParseResult {
+  success: boolean;
+  error?: string;
+  questions_found?: number;
+  preview?: { question_number: string; title: string | null; line: number }[];
+  ready_to_start?: boolean;
+  first_question?: QuestionReview;
+}
+
+export async function m5HelpParse(
+  input: z.infer<typeof m5HelpParseSchema>
+): Promise<M5HelpParseResult> {
+  const projectPath = input.project_path;
+  const sourceFile = input.source_file || "questions/m3_output.md";
+  const sourcePath = path.join(projectPath, sourceFile);
+
+  if (!fs.existsSync(sourcePath)) {
+    return { success: false, error: `Fil finns inte: ${sourceFile}` };
+  }
+
+  const content = fs.readFileSync(sourcePath, "utf-8");
+  const lines = content.split("\n");
+
+  // Build custom regex from teacher's description
+  let questionPattern: RegExp;
+  const patternInput = input.question_pattern.toLowerCase();
+
+  if (patternInput.includes("## question")) {
+    questionPattern = /^##\s+Question\s+(\d+)/i;
+  } else if (patternInput.includes("### q")) {
+    questionPattern = /^###\s+(Q\d+)/i;
+  } else if (patternInput.includes("## fråga")) {
+    questionPattern = /^##\s+Fråga\s+(\d+)/i;
+  } else if (patternInput.includes("# q")) {
+    questionPattern = /^#\s+(Q\d+)/i;
+  } else {
+    // Try to extract pattern from description
+    // e.g., "varje fråga börjar med ## och ett nummer" -> /^##\s+.*\d+/
+    if (patternInput.includes("##") && patternInput.includes("nummer")) {
+      questionPattern = /^##\s+.*\d+/i;
+    } else if (patternInput.includes("#") && patternInput.includes("nummer")) {
+      questionPattern = /^#+\s+.*\d+/i;
+    } else {
+      // Fallback: any header with content
+      questionPattern = /^#+\s+.+/;
+    }
+  }
+
+  // Find questions with custom pattern
+  const foundQuestions: { line: number; questionNumber: string; title: string | null }[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(questionPattern);
+    if (match) {
+      // Extract question number
+      let qNum: string;
+      if (match[1]) {
+        qNum = match[1].toUpperCase().startsWith("Q") ? match[1].toUpperCase() : `Q${match[1]}`;
+      } else {
+        qNum = `Q${foundQuestions.length + 1}`;
+      }
+
+      // Try to extract title
+      const titleMatch = lines[i].match(/^#+\s+(?:Q\d+|Question\s+\d+|Fråga\s+\d+)\s*[-:]?\s*(.*)$/i);
+      const title = titleMatch?.[1]?.trim() || null;
+
+      foundQuestions.push({ line: i + 1, questionNumber: qNum, title });
+    }
+  }
+
+  if (foundQuestions.length === 0) {
+    return {
+      success: false,
+      error: `Hittade inga frågor med mönstret "${input.question_pattern}". Kan du beskriva strukturen mer detaljerat?`,
+    };
+  }
+
+  // Log that teacher helped
+  logEvent(projectPath, "", "m5_help_parse", "teacher_helped_parse", "info", {
+    pattern_description: input.question_pattern,
+    questions_found: foundQuestions.length,
+  });
+
+  return {
+    success: true,
+    questions_found: foundQuestions.length,
+    preview: foundQuestions.slice(0, 5).map((q) => ({
+      question_number: q.questionNumber,
+      title: q.title,
+      line: q.line,
+    })),
+    ready_to_start: true,
+    // Note: To actually start, teacher should call m5_start again
+    // This tool just confirms the pattern works
+  };
+}
+
+// ============================================================================
+// Tool: m5_generate_from_raw - Generate QFMD directly from raw content
+// ============================================================================
+
+export const m5GenerateFromRawSchema = z.object({
+  project_path: z.string().describe("Absolute path to the project folder"),
+  raw_content: z.string().describe("The raw question content to convert to QFMD"),
+  question_number: z.string().optional().describe("Question ID (e.g., 'Q001')"),
+  question_type: z.string().describe("Question type: essay, multiple_choice_single, true_false, etc."),
+  output_file: z.string().optional().describe("Output file path"),
+});
+
+export interface M5GenerateFromRawResult {
+  success: boolean;
+  error?: string;
+  generated_qfmd?: string;
+  written_to_file?: boolean;
+  output_path?: string;
+}
+
+export async function m5GenerateFromRaw(
+  input: z.infer<typeof m5GenerateFromRawSchema>
+): Promise<M5GenerateFromRawResult> {
+  const projectPath = input.project_path;
+  const outputFile = input.output_file || "questions/m5_output.md";
+  const outputPath = path.join(projectPath, outputFile);
+
+  // Generate a basic QFMD structure that Claude can then refine
+  const qNum = input.question_number || "Q001";
+  const qType = input.question_type || "essay";
+
+  // Extract what we can from raw content
+  const lines = input.raw_content.split("\n");
+  let title = "";
+  let stem = "";
+  let answer = "";
+
+  // Simple extraction - look for common markers
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\*\*Title:?\*\*/i.test(line)) {
+      title = line.replace(/^\*\*Title:?\*\*:?\s*/i, "").trim();
+    } else if (/^\*\*Stem:?\*\*/i.test(line) || /^\*\*Question:?\*\*/i.test(line) || /^\*\*Fråga:?\*\*/i.test(line)) {
+      // Collect lines until next marker
+      const stemLines: string[] = [];
+      for (let j = i + 1; j < lines.length && !/^\*\*[A-Z]/i.test(lines[j]); j++) {
+        stemLines.push(lines[j]);
+      }
+      stem = stemLines.join("\n").trim();
+    } else if (/^\*\*Answer:?\*\*/i.test(line) || /^\*\*Svar:?\*\*/i.test(line)) {
+      const answerLines: string[] = [];
+      for (let j = i + 1; j < lines.length && !/^\*\*[A-Z]/i.test(lines[j]); j++) {
+        answerLines.push(lines[j]);
+      }
+      answer = answerLines.join("\n").trim();
+    }
+  }
+
+  // If no structured content found, use the whole thing as stem
+  if (!stem) {
+    stem = input.raw_content;
+  }
+
+  // Generate QFMD
+  const qfmd = `# ${qNum} ${title || "Untitled Question"}
+^question ${qNum}
+^type ${qType}
+^identifier ${qType.toUpperCase().substring(0, 2)}_${qNum}
+^title ${title || "Untitled Question"}
+^points 1
+
+@field: question_text
+${stem}
+@end_field
+
+@field: answer
+${answer || "[Teacher: please provide answer]"}
+@end_field
+
+@field: feedback
+
+@@field: general_feedback
+[Teacher: please provide feedback]
+@@end_field
+
+@end_field
+`;
+
+  // Write to file
+  try {
+    const dir = path.dirname(outputPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const separator = fs.existsSync(outputPath) ? "\n---\n\n" : "";
+    fs.appendFileSync(outputPath, separator + qfmd, "utf-8");
+
+    logEvent(projectPath, "", "m5_generate_from_raw", "qfmd_generated", "info", {
+      question_number: qNum,
+      question_type: qType,
+      has_title: !!title,
+      has_stem: !!stem,
+      has_answer: !!answer,
+    });
+
+    return {
+      success: true,
+      generated_qfmd: qfmd,
+      written_to_file: true,
+      output_path: outputPath,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Kunde inte skriva fil: ${error}`,
+    };
+  }
 }

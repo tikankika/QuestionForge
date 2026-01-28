@@ -11,34 +11,138 @@ import type { ParsedInterpretation } from "./session.js";
 /**
  * Parse M3 content with best-effort extraction.
  * Returns interpretations with confidence scores and missing field lists.
+ *
+ * DESIGN PRINCIPLE: Be maximally flexible. If uncertain, mark for teacher review
+ * rather than silently failing. Teachers are the experts - we assist them.
  */
 export function parseM3Flexible(content: string): ParsedInterpretation[] {
   const questions: ParsedInterpretation[] = [];
   const lines = content.split("\n");
 
-  // Find question boundaries (### Q1, ### Q2, etc.)
-  const questionStarts: number[] = [];
+  // Find question boundaries using multiple patterns (most specific to least)
+  const questionStarts: { line: number; pattern: string; confidence: number }[] = [];
+
   for (let i = 0; i < lines.length; i++) {
-    if (/^###\s+Q\d+/i.test(lines[i])) {
-      questionStarts.push(i);
+    const line = lines[i];
+
+    // Pattern 1: ### Q1, ### Q2 (original, high confidence)
+    if (/^###\s+Q\d+/i.test(line)) {
+      questionStarts.push({ line: i, pattern: "### QN", confidence: 95 });
+      continue;
     }
+
+    // Pattern 2: ## Q1, ## Q2 (two hashes)
+    if (/^##\s+Q\d+/i.test(line)) {
+      questionStarts.push({ line: i, pattern: "## QN", confidence: 90 });
+      continue;
+    }
+
+    // Pattern 3: # Q1, # Q2 (one hash)
+    if (/^#\s+Q\d+/i.test(line)) {
+      questionStarts.push({ line: i, pattern: "# QN", confidence: 85 });
+      continue;
+    }
+
+    // Pattern 4: ## Question 1, ## Question 2 (English word)
+    if (/^##\s+Question\s+\d+/i.test(line)) {
+      questionStarts.push({ line: i, pattern: "## Question N", confidence: 85 });
+      continue;
+    }
+
+    // Pattern 5: ## Fråga 1, ## Fråga 2 (Swedish word)
+    if (/^##\s+Fråga\s+\d+/i.test(line)) {
+      questionStarts.push({ line: i, pattern: "## Fråga N", confidence: 85 });
+      continue;
+    }
+
+    // Pattern 6: ### Question 1, ### Fråga 1
+    if (/^###\s+(Question|Fråga)\s+\d+/i.test(line)) {
+      questionStarts.push({ line: i, pattern: "### Question/Fråga N", confidence: 85 });
+      continue;
+    }
+
+    // Pattern 7: # Question 1, # Fråga 1
+    if (/^#\s+(Question|Fråga)\s+\d+/i.test(line)) {
+      questionStarts.push({ line: i, pattern: "# Question/Fråga N", confidence: 80 });
+      continue;
+    }
+
+    // Pattern 8: ---\n followed by header (question separator)
+    if (line.trim() === "---" && i + 1 < lines.length) {
+      const nextLine = lines[i + 1];
+      if (/^#+\s+/.test(nextLine)) {
+        // Skip the --- and let the header be caught by other patterns
+        continue;
+      }
+    }
+  }
+
+  // If no questions found with structured patterns, try fallback detection
+  if (questionStarts.length === 0) {
+    const fallbackStarts = detectQuestionsFallback(lines);
+    questionStarts.push(...fallbackStarts);
   }
 
   // Parse each question
   for (let i = 0; i < questionStarts.length; i++) {
-    const startLine = questionStarts[i];
+    const startLine = questionStarts[i].line;
     const endLine =
-      i < questionStarts.length - 1 ? questionStarts[i + 1] : lines.length;
+      i < questionStarts.length - 1 ? questionStarts[i + 1].line : lines.length;
 
     const questionContent = lines.slice(startLine, endLine).join("\n");
     const parsed = parseQuestionFlexible(questionContent, startLine + 1);
 
     if (parsed) {
+      // Add detection confidence to the parsed result
+      parsed.detectionConfidence = questionStarts[i].confidence;
+      parsed.detectionPattern = questionStarts[i].pattern;
       questions.push(parsed);
     }
   }
 
   return questions;
+}
+
+/**
+ * Fallback detection when no standard patterns match.
+ * Look for any structure that might indicate questions.
+ */
+function detectQuestionsFallback(lines: string[]): { line: number; pattern: string; confidence: number }[] {
+  const candidates: { line: number; pattern: string; confidence: number }[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Pattern: Any header with a number
+    if (/^#+\s+.*\d+/.test(line)) {
+      candidates.push({ line: i, pattern: "header with number", confidence: 50 });
+      continue;
+    }
+
+    // Pattern: **Title:** or **Titel:** at start of a section
+    if (/^\*\*Title:?\*\*/i.test(line) || /^\*\*Titel:?\*\*/i.test(line)) {
+      // Look backwards for a section start or use this line
+      let sectionStart = i;
+      for (let j = i - 1; j >= 0 && j > i - 5; j--) {
+        if (lines[j].trim() === "" || lines[j].trim() === "---") {
+          sectionStart = j + 1;
+          break;
+        }
+      }
+      if (!candidates.some(c => c.line === sectionStart)) {
+        candidates.push({ line: sectionStart, pattern: "**Title:** marker", confidence: 60 });
+      }
+      continue;
+    }
+
+    // Pattern: --- separator followed by content (common question delimiter)
+    if (line.trim() === "---" && i + 1 < lines.length && lines[i + 1].trim() !== "") {
+      candidates.push({ line: i + 1, pattern: "after --- separator", confidence: 40 });
+      continue;
+    }
+  }
+
+  return candidates;
 }
 
 /**
@@ -183,10 +287,30 @@ function extractSections(content: string): {
   const sectionPatterns: Record<string, RegExp[]> = {
     metadata: [/^\*\*Metadata/i, /^\*\*Meta/i],
     labels: [/^\*\*Labels/i, /^\*\*Etiketter/i, /^\*\*Tags/i],
-    stem: [/^\*\*Question Stem/i, /^\*\*Frågetext/i, /^\*\*Question:/i, /^\*\*Fråga:/i],
-    options: [/^\*\*Answer Options/i, /^\*\*Svarsalternativ/i, /^\*\*Options/i, /^\*\*Alternativ/i],
-    answer: [/^\*\*Correct Answer/i, /^\*\*Rätt svar/i, /^\*\*Answer:/i, /^\*\*Svar:/i],
-    feedback: [/^\*\*Feedback/i, /^\*\*Återkoppling/i],
+    stem: [
+      /^\*\*Question Stem/i,
+      /^\*\*Frågetext/i,
+      /^\*\*Question:/i,
+      /^\*\*Fråga:/i,
+      /^\*\*Stem:?\*\*/i,        // Added: **Stem:** or **Stem**
+    ],
+    options: [
+      /^\*\*Answer Options/i,
+      /^\*\*Svarsalternativ/i,
+      /^\*\*Options/i,
+      /^\*\*Alternativ/i,
+    ],
+    answer: [
+      /^\*\*Correct Answer/i,
+      /^\*\*Rätt svar/i,
+      /^\*\*Answer:?\*\*/i,      // Added: **Answer:** or **Answer**
+      /^\*\*Svar:?\*\*/i,        // Added: **Svar:** or **Svar**
+    ],
+    feedback: [
+      /^\*\*Feedback/i,
+      /^\*\*Återkoppling/i,
+      /^\*\*Feedback\s*-/i,      // Added: **Feedback - Correct:** etc.
+    ],
   };
 
   for (const line of lines) {
