@@ -4,6 +4,20 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed - 2026-01-28
+
+#### Step 3: Rule Selection Bug (Critical)
+- **Bug:** Rules with confidence 0.0 were never selected due to strict `>` comparison
+  - `_pick_best_fix()` used `rule.confidence > best_confidence`
+  - When confidence = 0.0 and best_confidence = 0.0, rule was skipped
+  - Result: "needs_step1" even when valid rule existed
+- **Bug:** `_match_rule()` returned FIRST matching rule, not BEST
+  - STEP3_004 (conf 0.0) matched before STEP3_005 (conf 0.95)
+  - Higher confidence rule was never evaluated
+- **Fix:** Changed `>` to `>=` in `_pick_best_fix()` (line 513)
+- **Fix:** Rewrote `_match_rule()` to return highest confidence match
+- **Impact:** Step 3 now correctly selects best available fix rule
+
 ### Added - 2026-01-27
 
 #### RFC-013 Appendix A: Error Routing & Categorization

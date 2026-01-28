@@ -145,30 +145,43 @@ def load_fix_rules(project_path: Optional[Path]) -> List[FixRule]:
     """
     Load fix rules from project's logs/step3_fix_rules.json.
     Falls back to DEFAULT_FIX_RULES if file doesn't exist.
+
+    IMPORTANT: Always merges with DEFAULT_FIX_RULES to ensure new rules
+    are available even if cached file exists (self-learning preserves
+    learned confidence values for existing rules).
     """
+    # Start with default rules (always include latest)
+    default_rules = {r.rule_id: FixRule(**asdict(r)) for r in DEFAULT_FIX_RULES}
+
     if not project_path:
-        return [FixRule(**asdict(r)) for r in DEFAULT_FIX_RULES]
+        return list(default_rules.values())
 
     rules_file = project_path / "logs" / "step3_fix_rules.json"
 
     if not rules_file.exists():
         # Initialize with default rules
-        save_fix_rules(project_path, DEFAULT_FIX_RULES)
-        return [FixRule(**asdict(r)) for r in DEFAULT_FIX_RULES]
+        save_fix_rules(project_path, list(default_rules.values()))
+        return list(default_rules.values())
 
     try:
         with open(rules_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        rules = []
+        # Load cached rules and merge with defaults
         for rule_data in data.get('rules', []):
-            rules.append(FixRule.from_dict(rule_data))
+            rule = FixRule.from_dict(rule_data)
+            if rule.rule_id in default_rules:
+                # Keep learned confidence/counts from cached rule
+                default_rules[rule.rule_id] = rule
+            else:
+                # Keep custom/graduated rules from cache
+                default_rules[rule.rule_id] = rule
 
-        return rules if rules else [FixRule(**asdict(r)) for r in DEFAULT_FIX_RULES]
+        return list(default_rules.values())
 
     except Exception as e:
         print(f"Warning: Could not load fix rules: {e}")
-        return [FixRule(**asdict(r)) for r in DEFAULT_FIX_RULES]
+        return list(default_rules.values())
 
 
 def save_fix_rules(project_path: Path, rules: List[FixRule]):
@@ -497,7 +510,7 @@ class Step3AutoFix:
 
         for error in mechanical_errors:
             rule = self._match_rule(error)
-            if rule and rule.confidence > best_confidence:
+            if rule and rule.confidence >= best_confidence:
                 best_error = error
                 best_rule = rule
                 best_confidence = rule.confidence
@@ -505,14 +518,18 @@ class Step3AutoFix:
         return best_error, best_rule
 
     def _match_rule(self, error: Dict) -> Optional[FixRule]:
-        """Find a fix rule matching this error."""
+        """Find the best fix rule matching this error (highest confidence)."""
         msg = error.get('message', '')
+        best_rule = None
+        best_confidence = -1.0
 
         for rule in self.fix_rules:
             if re.search(rule.error_pattern, msg, re.IGNORECASE):
-                return rule
+                if rule.confidence > best_confidence:
+                    best_rule = rule
+                    best_confidence = rule.confidence
 
-        return None
+        return best_rule
 
     def _apply_fix(self, error: Dict, rule: FixRule) -> FixResult:
         """Apply a fix rule to the content."""
