@@ -590,16 +590,21 @@ class Step3AutoFix:
         The content stays the same - only the field name changes.
 
         Strategy:
-        1. Find the question that has the error (by question_id)
-        2. Within that question, find @field: answer
-        3. Replace with @field: correct_answers
+        1. Find the question by ^identifier (full ID like ARTI1000X_MR_Q002)
+        2. Or by short ID (Q002) in header
+        3. Within that question, find @field: answer
+        4. Replace with @field: correct_answers
         """
         question_id = error.get('question_id', '')
 
         if not question_id:
             # Try to fix all multiple_response questions with @field: answer
-            # This is less precise but works as fallback
             return self._fix_answer_to_correct_answers_global()
+
+        # Extract short ID (e.g., "Q002" from "ARTI1000X_MR_Q002")
+        import re
+        short_id_match = re.search(r'(Q\d+)', question_id)
+        short_id = short_id_match.group(1) if short_id_match else question_id
 
         # Find the question section in content
         lines = self.content.split('\n')
@@ -610,13 +615,20 @@ class Step3AutoFix:
 
         for i, line in enumerate(lines):
             # Check if this is the start of our target question
-            if line.startswith('# ') and question_id in line:
+            # Match by: # Q002 ... OR ^identifier ARTI1000X_MR_Q002
+            if line.startswith('# ') and short_id in line:
                 in_target_question = True
                 question_start = i
                 continue
 
+            if line.strip().startswith('^identifier') and question_id in line:
+                in_target_question = True
+                if question_start < 0:
+                    question_start = i
+                continue
+
             # Check if we've reached the next question or end
-            if in_target_question and line.startswith('# ') and question_id not in line:
+            if in_target_question and line.startswith('# ') and short_id not in line:
                 question_end = i
                 break
 
@@ -637,6 +649,10 @@ class Step3AutoFix:
 
             if changes > 0:
                 self.content = '\n'.join(lines)
+
+        # If targeted fix didn't work, try global
+        if changes == 0:
+            return self._fix_answer_to_correct_answers_global()
 
         return changes
 
