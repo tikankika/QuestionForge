@@ -4,6 +4,49 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-28
+
+#### RFC-004: QFMD Template Alignment Audit
+
+Created audit document comparing QFMD v6.5 format (RFC-002) against actual XML templates.
+
+**Key Findings:**
+- 87 unique placeholders found in templates
+- 28% fully covered by QFMD
+- 23% partially covered
+- 49% missing from QFMD spec
+
+**Source of Truth Hierarchy Documented:**
+```
+templates/xml/     ← ULTIMATE source of truth (what Inspera needs)
+    ↓
+RFC-002 (QFMD)     ← DOCUMENTS what templates need
+    ↓
+markdown_parser.py ← IMPLEMENTS RFC-002
+    ↓
+Step 4 (Export)    ← USES templates + parsed data
+```
+
+**Priority Gaps Identified:**
+- P1: Scoring (POINTS_EACH_WRONG, POINTS_ALL_CORRECT)
+- P1: Feedback (FEEDBACK_UNANSWERED)
+- P1: Essay settings (INITIAL_LINES, MAX_WORDS)
+- P2: TRUE/FALSE_LABEL, PROMPT_TEXT
+- P3: Graphics/hotspot (10 missing placeholders)
+
+**File:** `packages/qti-core/docs/rfcs/004-qfmd-template-alignment-audit.md`
+
+#### Parser: Improved Colon Error Messages
+
+Updated `markdown_parser.py` with specific error messages for colon format mistakes.
+
+**Before:** Generic "not at start of line" error
+**After:** Specific "QFMD v6.5 uses `^type value` not `^type: value`" message
+
+Parser remains STRICT according to spec - only `^type value` (space, no colon) is valid.
+
+---
+
 ### Changed - 2026-01-28
 
 #### M5: Simplified from 10 to 6 Tools + Teacher Dialog

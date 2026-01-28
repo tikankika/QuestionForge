@@ -188,14 +188,15 @@ class MarkdownQuizParser:
             # Get header section (before @field:)
             header_section = block.split('\n@field:')[0] if '\n@field:' in block else block
 
-            # Validate ^type - MUST be at start of line, NO colon
+            # Validate ^type - MUST be at start of line (v6.5: ^key value format, NO colon)
             type_match = re.search(r'^\^type\s+(\S+)', header_section, re.MULTILINE)
             if not type_match:
                 # Check for common format errors
-                if re.search(r'\^type:', header_section):
+                if re.search(r'^\^type:', header_section, re.MULTILINE):
+                    # Specific error for colon format (common mistake)
                     q_errors.append({
                         'field': 'type',
-                        'message': '^type has colon - use "^type value" not "^type: value"',
+                        'message': '^type has colon - QFMD v6.5 uses "^type value" not "^type: value"',
                         'suggestion': 'Remove the colon: ^type multiple_choice_single'
                     })
                 elif re.search(r'\^type', header_section):
@@ -211,13 +212,13 @@ class MarkdownQuizParser:
                         'suggestion': 'Add: ^type multiple_choice_single (or other valid type)'
                     })
 
-            # Validate ^identifier - MUST be at start of line, NO colon
+            # Validate ^identifier - MUST be at start of line (v6.5: ^key value format, NO colon)
             id_match = re.search(r'^\^identifier\s+(\S+)', header_section, re.MULTILINE)
             if not id_match:
-                if re.search(r'\^identifier:', header_section):
+                if re.search(r'^\^identifier:', header_section, re.MULTILINE):
                     q_errors.append({
                         'field': 'identifier',
-                        'message': '^identifier has colon - use "^identifier value" not "^identifier: value"',
+                        'message': '^identifier has colon - QFMD v6.5 uses "^identifier value" not "^identifier: value"',
                         'suggestion': 'Remove the colon: ^identifier Q001'
                     })
                 elif re.search(r'\^identifier', header_section):
@@ -235,13 +236,13 @@ class MarkdownQuizParser:
             else:
                 q_id = id_match.group(1).strip()
 
-            # Validate ^points - MUST be at start of line, NO colon
+            # Validate ^points - MUST be at start of line (v6.5: ^key value format, NO colon)
             points_match = re.search(r'^\^points\s+(\d+)', header_section, re.MULTILINE)
             if not points_match:
-                if re.search(r'\^points:', header_section):
+                if re.search(r'^\^points:', header_section, re.MULTILINE):
                     q_errors.append({
                         'field': 'points',
-                        'message': '^points has colon - use "^points value" not "^points: value"',
+                        'message': '^points has colon - QFMD v6.5 uses "^points value" not "^points: value"',
                         'suggestion': 'Remove the colon: ^points 1'
                     })
                 elif re.search(r'\^points', header_section):
