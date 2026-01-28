@@ -36,6 +36,55 @@ Step 4 (Export)    ← USES templates + parsed data
 
 **File:** `packages/qti-core/docs/rfcs/004-qfmd-template-alignment-audit.md`
 
+#### RFC-015: Pipeline Stop Points
+
+Defines mandatory teacher verification gates at each pipeline step.
+
+**Problem:** Workflow runs too fast, no chance for teacher verification
+**Solution:** Explicit stop points with teacher approval gates
+
+```
+STOP 1: After M3    → "Här är N frågor. Godkänn?"
+STOP 2: During M5   → Each question one-by-one
+STOP 3: After M5    → "Alla frågor klara. Fortsätt?"
+STOP 4: After Step2 → "Validering klar. N fel."
+STOP 5: After Step3 → "Router rekommenderar..."
+STOP 6: After Step4 → "Export klar!"
+```
+
+**File:** `docs/rfcs/RFC-015-pipeline-stop-points.md`
+
+#### RFC-016: M5 Self-Learning Format Recognition
+
+**BREAKING CHANGE:** M5 will no longer use hardcoded parsers.
+
+**Problem:** M5 flexible_parser has hardcoded patterns (### Q1, ## Question N).
+When teacher uses different format (`**Title:**/**Stem:**`) → "0 frågor hittades" → Dead end.
+
+**Solution:** Self-learning format recognition (like Step 3's fix_rules.json)
+
+```
+1. M5 sees unknown format → ASKS TEACHER FOR HELP
+2. Teacher explains: "Title = titel, Stem = frågetext..."
+3. M5 saves pattern to format_patterns.json
+4. Next time → M5 recognizes format automatically
+```
+
+**New tools (planned):**
+| Tool | Purpose |
+|------|---------|
+| `m5_teach_format` | Teacher defines format mapping |
+| `m5_list_formats` | Show all learned patterns |
+| `m5_edit_format` | Modify existing pattern |
+
+**Key principles:**
+- Teacher-led, AI-assisted (not automated parsing)
+- Self-learning system (not hardcoded patterns)
+- Confidence builds with use
+- All patterns visible/editable in JSON
+
+**File:** `docs/rfcs/RFC-016-m5-self-learning-format-recognition.md`
+
 #### Parser: Improved Colon Error Messages
 
 Updated `markdown_parser.py` with specific error messages for colon format mistakes.
@@ -44,6 +93,11 @@ Updated `markdown_parser.py` with specific error messages for colon format mista
 **After:** Specific "QFMD v6.5 uses `^type value` not `^type: value`" message
 
 Parser remains STRICT according to spec - only `^type value` (space, no colon) is valid.
+
+#### CLAUDE.md: Mandatory Stop Points
+
+Added pipeline workflow instructions with mandatory teacher verification gates.
+AI must STOP after each step and WAIT for teacher approval.
 
 ---
 
