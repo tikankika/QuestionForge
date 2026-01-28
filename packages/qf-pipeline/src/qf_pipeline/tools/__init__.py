@@ -10,7 +10,12 @@ from .session import (
 )
 
 from .step1_tools import (
-    # RFC-013 core tools
+    # NEW: Minimal Step 1 (Vision A)
+    step1_review,
+    step1_manual_fix,
+    step1_delete,
+    step1_skip,
+    # DEPRECATED: Old tools (stubs for backwards compatibility)
     step1_start,
     step1_status,
     step1_navigate,
@@ -19,9 +24,7 @@ from .step1_tools import (
     step1_jump,
     step1_analyze_question,
     step1_apply_fix,
-    step1_skip,
     step1_finish,
-    # Legacy tools (backwards compatibility)
     step1_analyze,
     step1_fix_auto,
     step1_fix_manual,
@@ -54,7 +57,12 @@ __all__ = [
     "load_session_tool",
     "get_current_session",
     "set_current_session",
-    # Step 1 tools - RFC-013 core
+    # Step 1 tools - NEW MINIMAL (Vision A)
+    "step1_review",
+    "step1_manual_fix",
+    "step1_delete",
+    "step1_skip",
+    # Step 1 tools - DEPRECATED (stubs)
     "step1_start",
     "step1_status",
     "step1_navigate",
@@ -63,9 +71,7 @@ __all__ = [
     "step1_jump",
     "step1_analyze_question",
     "step1_apply_fix",
-    "step1_skip",
     "step1_finish",
-    # Step 1 tools - Legacy (backwards compatibility)
     "step1_analyze",
     "step1_fix_auto",
     "step1_fix_manual",

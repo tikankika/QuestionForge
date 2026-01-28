@@ -2045,6 +2045,14 @@ When Step 1 fixes a SEMANTIC error with human confirmation:
 
 ## Document Changelog
 
+**v2.5 - 2026-01-28**
+- **Step 1 Vision A:** Refactored from 3747 lines to 289 lines
+- Step 1 is now "Minimal Safety Net" - only used when Step 3 fails
+- New tools: `step1_review`, `step1_manual_fix`, `step1_delete`, `step1_skip`
+- Old tools deprecated (18 tools → 4 tools)
+- Archived 3200+ lines of code to `step1/_archived/`
+- Resource handling (images, audio) deferred to RFC-014
+
 **v2.4 - 2026-01-28**
 - Implemented `pipeline_route` tool (Appendix A now has working code)
 - Error categorization: MECHANICAL → Step 3, STRUCTURAL → Step 1, PEDAGOGICAL → M5

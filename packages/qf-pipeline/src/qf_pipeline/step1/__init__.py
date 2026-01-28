@@ -1,19 +1,15 @@
-"""Step 1: Guided Build - Convert to QFMD (QuestionForge Markdown) format.
+"""Step 1: Minimal Safety Net
 
-RFC-013 Architecture:
-- Step 1 is a SAFETY NET for structural issues
-- M5 should generate structurally correct output
-- Step 1 catches: M5 bugs, file corruption, older formats, edge cases
+Vision A Implementation (2026-01-28):
+- Step 1 is used ONLY when Step 3 auto-fix fails
+- Most files go: M5 → Step 2 → Step 3 → Step 4 (Step 1 skipped)
+- Step 1 handles: unknown errors, Step 3 failures, structural issues
+
+Archived modules (3200+ lines) → step1/_archived/
+Kept modules (~520 lines): frontmatter, parser, decision_logger
 """
 
-from .session import Session, QuestionStatus, Change
-from .detector import detect_format, FormatLevel, get_format_description
-from .parser import parse_file, ParsedQuestion
-from .analyzer import analyze_question, Issue, Severity
-from .transformer import Transformer, transformer
-from .prompts import get_prompt, format_issue_summary
-
-# RFC-013 new modules
+# Kept: Frontmatter management
 from .frontmatter import (
     add_frontmatter,
     update_frontmatter,
@@ -23,24 +19,14 @@ from .frontmatter import (
     create_progress_dict,
     update_progress,
 )
-from .patterns import (
-    Pattern,
-    load_patterns,
-    save_patterns,
-    find_pattern_for_issue,
-    get_pattern_by_id,
-    DEFAULT_PATTERNS,
+
+# Kept: Question parsing
+from .parser import (
+    parse_file,
+    ParsedQuestion,
 )
-from .structural_issues import (
-    StructuralIssue,
-    IssueSeverity,
-    IssueCategory,
-    detect_structural_issues,
-    detect_separator_issues,
-    categorize_issues,
-    is_structural_issue,
-    is_pedagogical_issue,
-)
+
+# Kept: Decision logging
 from .decision_logger import (
     log_decision,
     log_session_start,
@@ -49,28 +35,7 @@ from .decision_logger import (
 )
 
 __all__ = [
-    # Session management
-    'Session',
-    'QuestionStatus',
-    'Change',
-    # Format detection
-    'detect_format',
-    'FormatLevel',
-    'get_format_description',
-    # Parsing
-    'parse_file',
-    'ParsedQuestion',
-    # Analysis (legacy)
-    'analyze_question',
-    'Issue',
-    'Severity',
-    # Transformation
-    'Transformer',
-    'transformer',
-    # Prompts
-    'get_prompt',
-    'format_issue_summary',
-    # RFC-013: Frontmatter
+    # Frontmatter
     'add_frontmatter',
     'update_frontmatter',
     'remove_frontmatter',
@@ -78,25 +43,25 @@ __all__ = [
     'has_frontmatter',
     'create_progress_dict',
     'update_progress',
-    # RFC-013: Self-learning patterns
-    'Pattern',
-    'load_patterns',
-    'save_patterns',
-    'find_pattern_for_issue',
-    'get_pattern_by_id',
-    'DEFAULT_PATTERNS',
-    # RFC-013: Structural issues
-    'StructuralIssue',
-    'IssueSeverity',
-    'IssueCategory',
-    'detect_structural_issues',
-    'detect_separator_issues',
-    'categorize_issues',
-    'is_structural_issue',
-    'is_pedagogical_issue',
-    # RFC-013: Decision logging
+    # Parsing
+    'parse_file',
+    'ParsedQuestion',
+    # Decision logging
     'log_decision',
     'log_session_start',
     'log_session_complete',
     'log_navigation',
 ]
+
+# =============================================================================
+# ARCHIVED: The following were moved to step1/_archived/ on 2026-01-28
+# =============================================================================
+# - analyzer.py (458 lines) → Replaced by Step 2 validator
+# - detector.py (78 lines) → Not needed
+# - patterns.py (465 lines) → Step 3 has its own patterns
+# - prompts.py (189 lines) → Simplified
+# - session.py (136 lines) → SessionManager used instead
+# - structural_issues.py (367 lines) → Replaced by pipeline_router
+# - transformer.py (487 lines) → Replaced by Step 3 auto-fix
+# - step1_tools.py (947 lines) → Replaced by minimal step1_tools.py
+# =============================================================================

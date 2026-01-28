@@ -4,6 +4,57 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2026-01-28
+
+#### Step 1: Refactored to Minimal Safety Net (Vision A)
+
+**BREAKING CHANGE:** Step 1 completely redesigned.
+
+**Before (3747 lines):**
+- Complex interactive guided build
+- 18+ MCP tools
+- Own validator (different from Step 2)
+- Sessions, navigation, batch operations
+
+**After (289 lines):**
+- Minimal safety net
+- 4 MCP tools only
+- Used ONLY when Step 3 fails
+- Most files skip Step 1 entirely
+
+**New Tools:**
+| Tool | Purpose |
+|------|---------|
+| `step1_review` | Show structural errors from router |
+| `step1_manual_fix` | Teacher provides corrected content |
+| `step1_delete` | Remove unsalvageable question |
+| `step1_skip` | Skip for now, continue |
+
+**Deprecated Tools (stubs return error):**
+- step1_start, step1_status, step1_navigate, step1_next, step1_previous
+- step1_jump, step1_analyze_question, step1_apply_fix, step1_finish
+- step1_analyze, step1_fix_auto, step1_fix_manual, step1_suggest
+- step1_batch_preview, step1_batch_apply, step1_transform, step1_preview
+
+**Archived Files (3200+ lines → step1/_archived/):**
+- analyzer.py, detector.py, patterns.py, prompts.py
+- session.py, structural_issues.py, transformer.py
+- step1_tools.py (old version)
+
+**Kept Files (518 lines):**
+- frontmatter.py (progress tracking)
+- parser.py (question parsing)
+- decision_logger.py (logging)
+
+**New Workflow:**
+```
+M5 → Step 2 → Router → Step 3 → Step 4
+                 ↓ (only if STRUCTURAL errors)
+              Step 1 (manual fix)
+```
+
+**Future:** Resource handling (images, audio, hotspots) → RFC-014
+
 ### Added - 2026-01-28
 
 #### Pipeline Router (New MCP Tool)

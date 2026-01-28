@@ -280,292 +280,102 @@ async def list_tools() -> List[Tool]:
                 },
             },
         ),
-        # Step 1: Guided Build (Convert to QFMD)
+        # Step 1: Minimal Safety Net (Vision A - 2026-01-28)
+        # Most files: M5 → Step 2 → Step 3 → Step 4 (Step 1 skipped)
+        # Step 1 only when: Step 3 fails, unknown errors, structural issues needing human
         Tool(
-            name="step1_start",
-            description="Start Step 1 Guided Build session. Uses Step 0 session if active, otherwise requires project_path.",
+            name="step1_review",
+            description=(
+                "Review structural errors that router sent to Step 1. "
+                "Shows questions with errors and available actions. "
+                "Use when pipeline_route returns 'step1'."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "project_path": {
+                    "file_path": {
                         "type": "string",
-                        "description": "Path to project folder (optional if Step 0 session exists)",
+                        "description": "Path to markdown file",
                     },
-                    "source_file": {
-                        "type": "string",
-                        "description": "Override source file path (optional)",
-                    },
-                },
-                "required": [],
-            },
-        ),
-        Tool(
-            name="step1_status",
-            description="Get Step 1 session status and progress",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-            },
-        ),
-        Tool(
-            name="step1_analyze",
-            description="Analyze a question. Returns auto_fixable and needs_input categories.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question_id": {
-                        "type": "string",
-                        "description": "Question ID to analyze (default: current)",
-                    },
-                },
-            },
-        ),
-        Tool(
-            name="step1_fix_auto",
-            description="Apply ONLY auto-fixable transforms. Returns remaining issues that need user input.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question_id": {
-                        "type": "string",
-                        "description": "Question ID (default: current)",
-                    },
-                },
-            },
-        ),
-        Tool(
-            name="step1_fix_manual",
-            description="Apply a single manual fix based on user input.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question_id": {
-                        "type": "string",
-                        "description": "Question ID",
-                    },
-                    "field": {
-                        "type": "string",
-                        "description": "Field to update (bloom, difficulty, partial_feedback, etc.)",
-                    },
-                    "value": {
-                        "type": "string",
-                        "description": "Value from user",
-                    },
-                },
-                "required": ["question_id", "field", "value"],
-            },
-        ),
-        Tool(
-            name="step1_suggest",
-            description="Generate a suggestion for a field. User can accept/modify.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question_id": {
-                        "type": "string",
-                        "description": "Question ID",
-                    },
-                    "field": {
-                        "type": "string",
-                        "description": "Field to suggest for",
-                    },
-                },
-                "required": ["question_id", "field"],
-            },
-        ),
-        Tool(
-            name="step1_batch_preview",
-            description="Show all questions with the same issue type.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "issue_type": {
-                        "type": "string",
-                        "description": "E.g. missing_partial_feedback, missing_bloom",
-                    },
-                },
-                "required": ["issue_type"],
-            },
-        ),
-        Tool(
-            name="step1_batch_apply",
-            description="Apply the same fix to multiple questions.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "issue_type": {
-                        "type": "string",
-                        "description": "Issue type",
-                    },
-                    "fix_type": {
-                        "type": "string",
-                        "description": "How to fix (copy_from_correct, add_bloom_remember, etc.)",
-                    },
-                    "question_ids": {
+                    "errors": {
                         "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Question IDs (optional, None = all affected)",
+                        "description": "Structural errors from pipeline_route",
+                        "items": {"type": "object"},
                     },
                 },
-                "required": ["issue_type", "fix_type"],
+                "required": ["file_path"],
+            },
+        ),
+        Tool(
+            name="step1_manual_fix",
+            description=(
+                "Apply manual fix when Step 3 auto-fix fails. "
+                "Teacher provides corrected question content."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to markdown file",
+                    },
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question to fix (e.g., 'Q001')",
+                    },
+                    "new_content": {
+                        "type": "string",
+                        "description": "Corrected question content",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional reason for the fix",
+                    },
+                },
+                "required": ["file_path", "question_id", "new_content"],
+            },
+        ),
+        Tool(
+            name="step1_delete",
+            description=(
+                "Delete a question from the file. "
+                "Use when question is unsalvageable or duplicate."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to markdown file",
+                    },
+                    "question_id": {
+                        "type": "string",
+                        "description": "Question to delete",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional reason for deletion",
+                    },
+                },
+                "required": ["file_path", "question_id"],
             },
         ),
         Tool(
             name="step1_skip",
-            description="Skip an issue or entire question.",
+            description="Skip a question for now. Question remains in file.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "question_id": {
                         "type": "string",
-                        "description": "Question ID (default: current)",
-                    },
-                    "issue_field": {
-                        "type": "string",
-                        "description": "Specific field to skip, or None for whole question",
+                        "description": "Question to skip",
                     },
                     "reason": {
                         "type": "string",
-                        "description": "Reason for skipping",
-                    },
-                },
-            },
-        ),
-        Tool(
-            name="step1_transform",
-            description="[LEGACY] Apply ALL transforms at once. Use step1_fix_auto for interactive flow.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question_id": {
-                        "type": "string",
-                        "description": "Question ID (default: all questions)",
-                    },
-                },
-            },
-        ),
-        Tool(
-            name="step1_preview",
-            description="Preview the working file content",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "lines": {
-                        "type": "integer",
-                        "description": "Number of lines to show (default: 50)",
-                    },
-                },
-            },
-        ),
-        Tool(
-            name="step1_finish",
-            description="Finish Step 1 and generate summary report",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-            },
-        ),
-        Tool(
-            name="step1_next",
-            description="Navigate to next/previous question or jump to specific question ID",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "direction": {
-                        "type": "string",
-                        "description": "Navigation: 'forward', 'back', or a question_id (e.g. 'Q005')",
-                        "default": "forward",
-                    },
-                },
-            },
-        ),
-        # RFC-013 Step 1 tools
-        Tool(
-            name="step1_navigate",
-            description="[RFC-013] Navigate between questions. Direction: 'next', 'previous', or question_id.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "direction": {
-                        "type": "string",
-                        "description": "'next', 'previous', or question_id (e.g. 'Q007')",
-                        "default": "next",
-                    },
-                },
-            },
-        ),
-        Tool(
-            name="step1_previous",
-            description="[RFC-013] Move to previous question.",
-            inputSchema={
-                "type": "object",
-                "properties": {},
-            },
-        ),
-        Tool(
-            name="step1_jump",
-            description="[RFC-013] Jump to specific question by ID.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question_id": {
-                        "type": "string",
-                        "description": "Question ID to jump to (e.g. 'Q007')",
+                        "description": "Optional reason for skipping",
                     },
                 },
                 "required": ["question_id"],
-            },
-        ),
-        Tool(
-            name="step1_analyze_question",
-            description=(
-                "[RFC-013] Analyze question for STRUCTURAL issues only. "
-                "Pedagogical issues are reported but should go to M5. "
-                "Returns AI suggestions from learned patterns."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question_id": {
-                        "type": "string",
-                        "description": "Question to analyze (default: current)",
-                    },
-                },
-            },
-        ),
-        Tool(
-            name="step1_apply_fix",
-            description=(
-                "[RFC-013] Apply a teacher-approved fix. "
-                "Actions: 'accept_ai' (use AI suggestion), 'modify' (teacher edits), 'manual' (teacher writes), 'skip'. "
-                "Updates pattern confidence and logs decision."
-            ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question_id": {
-                        "type": "string",
-                        "description": "Question being fixed",
-                    },
-                    "issue_type": {
-                        "type": "string",
-                        "description": "Type of structural issue",
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "'accept_ai', 'modify', 'manual', or 'skip'",
-                        "enum": ["accept_ai", "modify", "manual", "skip"],
-                    },
-                    "fix_content": {
-                        "type": "string",
-                        "description": "Content for 'modify' or 'manual' actions",
-                    },
-                    "teacher_note": {
-                        "type": "string",
-                        "description": "Optional teacher reasoning",
-                    },
-                },
-                "required": ["question_id", "issue_type", "action"],
             },
         ),
         # Cross-step utility
@@ -676,44 +486,15 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_read_project_file(arguments)
         elif name == "write_project_file":
             return await handle_write_project_file(arguments)
-        # Step 1: Guided Build
-        elif name == "step1_start":
-            return await handle_step1_start(arguments)
-        elif name == "step1_status":
-            return await handle_step1_status()
-        elif name == "step1_analyze":
-            return await handle_step1_analyze(arguments)
-        elif name == "step1_fix_auto":
-            return await handle_step1_fix_auto(arguments)
-        elif name == "step1_fix_manual":
-            return await handle_step1_fix_manual(arguments)
-        elif name == "step1_suggest":
-            return await handle_step1_suggest(arguments)
-        elif name == "step1_batch_preview":
-            return await handle_step1_batch_preview(arguments)
-        elif name == "step1_batch_apply":
-            return await handle_step1_batch_apply(arguments)
+        # Step 1: Minimal Safety Net (Vision A)
+        elif name == "step1_review":
+            return await handle_step1_review(arguments)
+        elif name == "step1_manual_fix":
+            return await handle_step1_manual_fix(arguments)
+        elif name == "step1_delete":
+            return await handle_step1_delete(arguments)
         elif name == "step1_skip":
             return await handle_step1_skip(arguments)
-        elif name == "step1_transform":
-            return await handle_step1_transform(arguments)
-        elif name == "step1_preview":
-            return await handle_step1_preview(arguments)
-        elif name == "step1_finish":
-            return await handle_step1_finish()
-        elif name == "step1_next":
-            return await handle_step1_next(arguments)
-        # RFC-013 Step 1 tools
-        elif name == "step1_navigate":
-            return await handle_step1_navigate(arguments)
-        elif name == "step1_previous":
-            return await handle_step1_previous()
-        elif name == "step1_jump":
-            return await handle_step1_jump(arguments)
-        elif name == "step1_analyze_question":
-            return await handle_step1_analyze_question(arguments)
-        elif name == "step1_apply_fix":
-            return await handle_step1_apply_fix(arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
     except WrapperError as e:
@@ -1894,7 +1675,106 @@ async def handle_write_project_file(arguments: dict) -> List[TextContent]:
 
 
 # =============================================================================
-# Step 1: Guided Build (Convert to QFMD)
+# Step 1: Minimal Safety Net (Vision A - 2026-01-28)
+# =============================================================================
+
+async def handle_step1_review(arguments: dict) -> List[TextContent]:
+    """Handle step1_review - review structural errors from router."""
+    from .tools.step1_tools import step1_review
+
+    result = await step1_review(
+        file_path=arguments.get("file_path", ""),
+        errors=arguments.get("errors")
+    )
+
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+
+    lines = [
+        "# Step 1: Review Structural Errors",
+        "",
+        f"**File:** {result['file']}",
+        f"**Questions:** {result['total_questions']}",
+        f"**With errors:** {len(result['questions_with_errors'])}",
+        "",
+    ]
+
+    if result['questions_with_errors']:
+        lines.append("## Questions Needing Attention")
+        for q in result['questions_with_errors']:
+            lines.append(f"\n### {q['question_id']}")
+            for err in q['errors']:
+                lines.append(f"- {err.get('message', 'Unknown error')}")
+            if q.get('content_preview'):
+                lines.append(f"\n```\n{q['content_preview']}\n```")
+
+    lines.extend([
+        "",
+        "## Available Actions",
+        "- `step1_manual_fix(file_path, question_id, new_content)` - Fix manually",
+        "- `step1_delete(file_path, question_id)` - Remove question",
+        "- `step1_skip(question_id)` - Skip for now",
+    ])
+
+    return [TextContent(type="text", text="\n".join(lines))]
+
+
+async def handle_step1_manual_fix(arguments: dict) -> List[TextContent]:
+    """Handle step1_manual_fix - apply manual fix."""
+    from .tools.step1_tools import step1_manual_fix
+
+    result = await step1_manual_fix(
+        file_path=arguments.get("file_path", ""),
+        question_id=arguments.get("question_id", ""),
+        new_content=arguments.get("new_content", ""),
+        reason=arguments.get("reason")
+    )
+
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+
+    return [TextContent(
+        type="text",
+        text=f"Fixed {result['question_id']}\nReason: {result.get('reason', 'N/A')}\n\nNext: Re-run step2_validate to check result."
+    )]
+
+
+async def handle_step1_delete(arguments: dict) -> List[TextContent]:
+    """Handle step1_delete - delete question."""
+    from .tools.step1_tools import step1_delete
+
+    result = await step1_delete(
+        file_path=arguments.get("file_path", ""),
+        question_id=arguments.get("question_id", ""),
+        reason=arguments.get("reason")
+    )
+
+    if not result.get("success"):
+        return [TextContent(type="text", text=f"Error: {result.get('error')}")]
+
+    return [TextContent(
+        type="text",
+        text=f"Deleted {result['question_id']}\nReason: {result.get('reason', 'N/A')}\n\nNext: Re-run step2_validate."
+    )]
+
+
+async def handle_step1_skip(arguments: dict) -> List[TextContent]:
+    """Handle step1_skip - skip question."""
+    from .tools.step1_tools import step1_skip
+
+    result = await step1_skip(
+        question_id=arguments.get("question_id", ""),
+        reason=arguments.get("reason")
+    )
+
+    return [TextContent(
+        type="text",
+        text=f"Skipped {result['question_id']}\nReason: {result.get('reason', 'N/A')}\nNote: {result.get('note', '')}"
+    )]
+
+
+# =============================================================================
+# ARCHIVED: Old Step 1 Handlers (kept for reference, will be removed)
 # =============================================================================
 
 async def handle_step1_start(arguments: dict) -> List[TextContent]:
