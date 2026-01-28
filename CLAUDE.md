@@ -78,6 +78,47 @@ QuestionForge/
 | Tool naming | stepN_ prefix convention | ADR-007 |
 | Standalone | qti-core local package | ADR-008 |
 
+## Pipeline Workflow - MANDATORY STOPS (RFC-015)
+
+**VIKTIGT:** Pipelinen har obligatoriska lärar-verifieringspunkter.
+
+Efter VARJE steg MÅSTE du:
+1. Presentera en tydlig sammanfattning
+2. Visa vilka alternativ som finns
+3. VÄNTA på att läraren väljer
+4. GÅ INTE automatiskt vidare till nästa steg
+
+```
+STOP 1: Efter M3
+  → "Här är N frågor genererade. Godkänn?"
+  → Vänta på: godkänn / visa / ändra / avbryt
+
+STOP 2: Under M5 (varje fråga)
+  → "Fråga 1 av 5: [titel]. QFMD ser ut så här..."
+  → Vänta på: godkänn / ändra / hoppa / radera
+
+STOP 3: Efter M5
+  → "Alla frågor bearbetade. Fortsätt till validering?"
+  → Vänta på: fortsätt / granska fil
+
+STOP 4: Efter Step 2
+  → "Validering klar. N fel hittade."
+  → Vänta på: fortsätt / fixa fel
+
+STOP 5: Efter Step 3
+  → "Router rekommenderar: Question Set"
+  → Vänta på: godkänn / ändra val
+
+STOP 6: Efter Step 4
+  → "Export klar! Fil: output/xxx.zip"
+  → Klart!
+```
+
+**Om läraren säger:**
+- "kör" / "continue" → gå till nästa steg
+- "visa" / "show" → visa detaljer
+- "ändra" / "change" → tillåt redigering
+
 ## Key Commands
 
 See `.claude/commands/README.md` for ACDM workflow commands.
