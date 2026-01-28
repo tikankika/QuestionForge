@@ -4,6 +4,30 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-27
+
+#### RFC-013 Appendix A: Error Routing & Categorization
+- **Three error categories** for pipeline routing:
+  - **MECHANICAL** → Step 3 (auto-fix): Syntax/format errors with deterministic fixes
+  - **SEMANTIC** → Step 1 (human): Logic errors requiring judgment
+  - **PEDAGOGICAL** → M5: Content quality issues
+- **Key insight:** "requires correct_answers" is MECHANICAL (field rename, not content change)
+- **Routing tool design:** `pipeline_route` parses Step 2 output → returns destination
+- **Self-learning graduation:** Patterns fixed 5+ times in Step 1 → promoted to Step 3
+
+#### Step 3: Auto-Fix for Field Name Corrections
+- **New fix rules:**
+  - `STEP3_004`: "multiple_response.*requires correct_answers" → rename field
+  - `STEP3_005`: Alternate pattern matching
+- **New fix function:** `_fix_answer_to_correct_answers()`
+  - Renames `@field: answer` → `@field: correct_answers` for multiple_response
+  - Content unchanged - only field name fixed
+  - Two strategies: targeted (by question_id) or global (all multiple_response)
+- **Updated categorization:** `_categorize_errors()` now treats field renames as MECHANICAL
+- **Files modified:**
+  - `packages/qf-pipeline/src/qf_pipeline/tools/step3_autofix.py`
+  - `docs/rfcs/RFC-013-Questionforge pipeline architecture v2.md`
+
 ### Added - 2026-01-26
 
 #### Step 1: Dynamic Self-Learning Pattern System (RFC-013)

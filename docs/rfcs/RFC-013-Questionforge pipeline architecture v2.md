@@ -1821,7 +1821,229 @@ step1_apply_fix({
 
 ---
 
+## Appendix A: Error Routing & Categorization
+
+**Added:** 2026-01-27
+**Purpose:** Define how Step 2 validation errors are categorized and routed
+
+### Error Categories
+
+Step 2 (`markdown_parser.py`) returns validation errors. Each error is categorized:
+
+| Category | Destination | Description | Human Required? |
+|----------|-------------|-------------|-----------------|
+| **MECHANICAL** | Step 3 | Syntax/format errors with deterministic fixes | No |
+| **SEMANTIC** | Step 1 | Logic errors requiring judgment | Yes |
+| **PEDAGOGICAL** | M5 | Content quality issues | Yes |
+
+### Category Definitions
+
+#### MECHANICAL (→ Step 3 Auto-fix)
+
+Errors with **deterministic, rule-based fixes**. No human judgment needed.
+
+```python
+MECHANICAL_PATTERNS = [
+    # Metadata format
+    r"^\^type has colon",           # ^type: → ^type
+    r"metadata.*colon",             # Any metadata with colon
+
+    # Separator issues
+    r"missing separator",           # Add --- before/after
+    r"no separator",
+
+    # Field syntax
+    r"@field:.*syntax",             # Malformed @field:
+    r"unclosed.*field",             # Missing @end_field
+    r"@end_field.*mismatch",
+
+    # Type aliases
+    r"unknown.*type.*did you mean", # single_choice → multiple_choice_single
+
+    # Field name corrections (content exists, just wrong name)
+    r"multiple_response.*requires correct.?answers",  # @field: answer → @field: correct_answers
+    r"true_false.*requires answer",                   # Add @field: answer with existing value
+    r"requires.*field.*found.*instead",               # Wrong field name used
+]
+```
+
+**Example fixes:**
+- `^type: multiple_choice` → `^type multiple_choice`
+- Missing `---` → Insert separator
+- `@field answer` → `@field: answer`
+- `@field: answer` (for multiple_response) → `@field: correct_answers`
+
+#### SEMANTIC (→ Step 1 Human)
+
+Errors requiring **human judgment** to fix correctly. AI can suggest, but teacher decides.
+
+```python
+SEMANTIC_PATTERNS = [
+    # Missing required content (human must provide)
+    r"missing.*options",
+    r"missing.*answer.*content",
+    r"no correct.*option.*marked",
+    r"empty.*field",
+
+    # Ambiguous situations
+    r"multiple.*correct.*which",
+    r"cannot determine.*type",
+
+    # Content validation (not format)
+    r"answer.*not in options",
+    r"correct.*option.*not found",
+]
+```
+
+**Why human needed:**
+- Content is MISSING - human must provide it
+- Ambiguous situation - human must decide
+
+#### PEDAGOGICAL (→ M5)
+
+Content quality issues. Not format errors - **the question content itself is problematic**.
+
+```python
+PEDAGOGICAL_PATTERNS = [
+    # Distractor quality
+    r"distractor.*implausible",
+    r"option.*too obvious",
+
+    # Question clarity
+    r"ambiguous.*stem",
+    r"unclear.*question",
+
+    # Content completeness (should have been caught by M5)
+    r"empty.*field",
+    r"placeholder.*content",
+]
+```
+
+**Note:** Most pedagogical issues should be caught by M5 BEFORE reaching pipeline. If they appear in Step 2, route back to M5.
+
+### Routing Logic Implementation
+
+```python
+def categorize_error(error_message: str) -> str:
+    """
+    Categorize validation error for routing.
+
+    Returns: "mechanical" | "semantic" | "pedagogical"
+    """
+    msg_lower = error_message.lower()
+
+    # Check mechanical first (most specific)
+    for pattern in MECHANICAL_PATTERNS:
+        if re.search(pattern, msg_lower):
+            return "mechanical"
+
+    # Check semantic
+    for pattern in SEMANTIC_PATTERNS:
+        if re.search(pattern, msg_lower):
+            return "semantic"
+
+    # Check pedagogical
+    for pattern in PEDAGOGICAL_PATTERNS:
+        if re.search(pattern, msg_lower):
+            return "pedagogical"
+
+    # Default: semantic (safer - human reviews)
+    return "semantic"
+```
+
+### Routing Tool: `pipeline_route`
+
+Step 2 returnerar text som nu. En **separat router** kategoriserar och dirigerar:
+
+```python
+# MCP Tool: pipeline_route
+async def pipeline_route(validation_report: str) -> dict:
+    """
+    Parse Step 2 validation output and route errors.
+
+    Args:
+        validation_report: Text output from step2_validate
+
+    Returns:
+        {
+            "valid": bool,
+            "errors": {
+                "mechanical": [{"question_id": "...", "message": "..."}],
+                "semantic": [...],
+                "pedagogical": [...]
+            },
+            "destination": "step1" | "step3" | "step4" | "m5",
+            "reason": "2 semantic error(s) → Step 1 human review"
+        }
+    """
+```
+
+**Användning:**
+```
+1. step2_validate → returnerar text rapport
+2. pipeline_route → kategoriserar, returnerar destination
+3. Användaren/Claude följer destination
+```
+
+### Pipeline Flow with Routing
+
+```
+Step 2 validates → Categorizes errors
+                        ↓
+        ┌───────────────┼───────────────┐
+        ↓               ↓               ↓
+   pedagogical      semantic       mechanical
+        ↓               ↓               ↓
+      → M5          → Step 1        → Step 3
+   (exit pipeline)  (human fix)    (auto-fix)
+                        ↓               ↓
+                        └───────┬───────┘
+                                ↓
+                        Step 2 (validate again)
+                                ↓
+                        0 errors? → Step 4 Export
+```
+
+### Self-Learning Integration
+
+When Step 1 fixes a SEMANTIC error with human confirmation:
+1. Log the fix pattern
+2. If pattern seen 5+ times with same fix → Promote to MECHANICAL
+3. Add to Step 3 auto-fix rules
+
+```python
+# Example: After 5 teachers all accept "answer → correct_answers" for multiple_response
+{
+    "rule_id": "GRADUATED_001",
+    "origin": "step1_pattern_STEP1_007",
+    "error_pattern": "multiple_response.*requires correct.?answers",
+    "fix_function": "rename_field_answer_to_correct_answers",
+    "confidence": 0.95,
+    "graduated_at": "2026-01-27T12:00:00Z",
+    "learned_from": 5
+}
+```
+
+### Current Implementation Status
+
+| Component | Status | File |
+|-----------|--------|------|
+| `step2_validate` | ✅ EXISTS | `server.py` |
+| `pipeline_route` tool | ❌ TODO | `server.py` |
+| `categorize_error()` | ❌ TODO | `routing.py` (new) |
+| Step 1 + markdown_parser | ❌ TODO | `step1_tools.py` |
+| Step 3 mechanical fixes | ✅ EXISTS | `step3_autofix.py` |
+| Pattern graduation | ❌ TODO | `patterns.py` |
+
+---
+
 ## Document Changelog
+
+**v2.2 - 2026-01-27**
+- Added Appendix A: Error Routing & Categorization
+- Detailed MECHANICAL vs SEMANTIC vs PEDAGOGICAL definitions
+- Added pattern-based categorization rules
+- Added self-learning graduation from Step 1 → Step 3
 
 **v2.1 - 2026-01-25 (This RFC-013)**
 - Complete rewrite of Step 1

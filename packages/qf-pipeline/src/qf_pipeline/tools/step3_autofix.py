@@ -118,6 +118,22 @@ DEFAULT_FIX_RULES = [
         description="Remove colon from ^points field",
         created_at="2026-01-26T00:00:00Z"
     ),
+    FixRule(
+        rule_id="STEP3_004",
+        error_pattern="multiple_response.*requires correct.?answers",
+        fix_function="fix_answer_to_correct_answers",
+        confidence=0.95,
+        description="Rename @field: answer to @field: correct_answers for multiple_response",
+        created_at="2026-01-27T00:00:00Z"
+    ),
+    FixRule(
+        rule_id="STEP3_005",
+        error_pattern="multiple_response.*requires.*correct_answers.*found.*answer",
+        fix_function="fix_answer_to_correct_answers",
+        confidence=0.95,
+        description="Rename @field: answer to @field: correct_answers for multiple_response",
+        created_at="2026-01-27T00:00:00Z"
+    ),
 ]
 
 
@@ -425,10 +441,13 @@ class Step3AutoFix:
         Mechanical (auto-fixable):
         - Colon in metadata fields
         - Field not at start of line
+        - Field name corrections (answer → correct_answers)
 
         Pedagogical (needs human):
-        - Missing required fields
-        - Missing content (options, blanks, etc.)
+        - Missing required CONTENT (not just field rename)
+        - Missing options, blanks, etc.
+
+        RFC-013 Appendix A: Error Routing & Categorization
         """
         mechanical = []
         pedagogical = []
@@ -441,10 +460,22 @@ class Step3AutoFix:
                 mechanical.append(error)
             elif 'not at start of line' in msg:
                 mechanical.append(error)
-            # Pedagogical errors (need human)
-            elif 'missing' in msg:
+            # Field rename: multiple_response requires correct_answers (not answer)
+            elif 'multiple_response' in msg and 'requires correct' in msg:
+                mechanical.append(error)
+            elif 'requires correct_answers' in msg:
+                mechanical.append(error)
+            # Pedagogical errors (need human to provide content)
+            elif 'missing' in msg and 'content' in msg:
                 pedagogical.append(error)
+            elif 'empty' in msg:
+                pedagogical.append(error)
+            elif 'no correct' in msg and 'marked' in msg:
+                pedagogical.append(error)
+            # Other "requires" that aren't field renames
             elif 'requires' in msg:
+                pedagogical.append(error)
+            elif 'missing' in msg:
                 pedagogical.append(error)
             else:
                 # Unknown - treat as pedagogical (safer)
@@ -541,6 +572,107 @@ class Step3AutoFix:
             return count
 
         return 0
+
+    def _fix_answer_to_correct_answers(self, error: Dict) -> int:
+        """
+        Fix: Rename @field: answer to @field: correct_answers for multiple_response.
+
+        This fixes the case where M5 generated:
+            @field: answer
+            A, C, E
+            @end_field
+
+        But multiple_response requires:
+            @field: correct_answers
+            A, C, E
+            @end_field
+
+        The content stays the same - only the field name changes.
+
+        Strategy:
+        1. Find the question that has the error (by question_id)
+        2. Within that question, find @field: answer
+        3. Replace with @field: correct_answers
+        """
+        question_id = error.get('question_id', '')
+
+        if not question_id:
+            # Try to fix all multiple_response questions with @field: answer
+            # This is less precise but works as fallback
+            return self._fix_answer_to_correct_answers_global()
+
+        # Find the question section in content
+        lines = self.content.split('\n')
+        in_target_question = False
+        question_start = -1
+        question_end = -1
+        changes = 0
+
+        for i, line in enumerate(lines):
+            # Check if this is the start of our target question
+            if line.startswith('# ') and question_id in line:
+                in_target_question = True
+                question_start = i
+                continue
+
+            # Check if we've reached the next question or end
+            if in_target_question and line.startswith('# ') and question_id not in line:
+                question_end = i
+                break
+
+            if in_target_question and line.strip() == '---':
+                # Could be end of question
+                if question_start >= 0:
+                    question_end = i
+                    break
+
+        # If we found the question section, do targeted replacement
+        if question_start >= 0:
+            end_idx = question_end if question_end > 0 else len(lines)
+
+            for i in range(question_start, end_idx):
+                if lines[i].strip() == '@field: answer':
+                    lines[i] = '@field: correct_answers'
+                    changes += 1
+
+            if changes > 0:
+                self.content = '\n'.join(lines)
+
+        return changes
+
+    def _fix_answer_to_correct_answers_global(self) -> int:
+        """
+        Fallback: Fix @field: answer → @field: correct_answers globally
+        for all multiple_response questions.
+
+        Uses a more careful approach:
+        1. Find each question with ^type multiple_response
+        2. Within that question, replace @field: answer
+        """
+        lines = self.content.split('\n')
+        changes = 0
+        in_multiple_response = False
+
+        for i, line in enumerate(lines):
+            # Detect multiple_response question
+            if line.strip().startswith('^type') and 'multiple_response' in line:
+                in_multiple_response = True
+                continue
+
+            # Detect new question (reset)
+            if line.startswith('# ') or line.strip() == '---':
+                in_multiple_response = False
+                continue
+
+            # Fix within multiple_response question
+            if in_multiple_response and lines[i].strip() == '@field: answer':
+                lines[i] = lines[i].replace('@field: answer', '@field: correct_answers')
+                changes += 1
+
+        if changes > 0:
+            self.content = '\n'.join(lines)
+
+        return changes
 
     def _log_iteration_internal(
         self,
