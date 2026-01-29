@@ -28,11 +28,13 @@ import {
   findPotentialMarkers,
   detectFormat,
   parseWithPattern,
+  parseWithPatternValidated,
   updatePatternStats,
   toQFMD,
   type FieldMapping,
   type FormatPattern,
   type ParsedQuestion,
+  type ParseValidation,
 } from "../m5/format_learner.js";
 
 // ============================================================================
@@ -42,6 +44,8 @@ import {
 /**
  * Convert format_learner's ParsedQuestion to session's ParsedInterpretation.
  * This bridges the RFC-016 self-learning parser with the existing session system.
+ *
+ * BUG 4 FIX (2026-01-29): Handle more field variants from pattern mappings
  */
 function convertToInterpretation(
   pq: ParsedQuestion,
@@ -55,12 +59,27 @@ function convertToInterpretation(
     ? pq.labels.split(/\s+/).filter(l => l.startsWith("#")).map(l => l.substring(1))
     : [];
 
-  // Extract bloom and difficulty from labels if present
-  const bloomLevels = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"];
-  const difficultyLevels = ["Easy", "Medium", "Hard"];
+  // BUG 4 FIX: Use bloom/difficulty directly from parsed fields, not just from labels
+  const bloomLevels = ["remember", "understand", "apply", "analyze", "evaluate", "create"];
+  const difficultyLevels = ["easy", "medium", "hard"];
 
-  const bloom = labelsArray.find(l => bloomLevels.some(b => l.toLowerCase() === b.toLowerCase())) || null;
-  const difficulty = labelsArray.find(l => difficultyLevels.some(d => l.toLowerCase() === d.toLowerCase())) || null;
+  // First check direct fields, then labels
+  let bloom = pq.bloom || null;
+  let difficulty = pq.difficulty || null;
+
+  // If not found directly, try extracting from labels
+  if (!bloom) {
+    bloom = labelsArray.find(l => bloomLevels.includes(l.toLowerCase())) || null;
+  }
+  if (!difficulty) {
+    difficulty = labelsArray.find(l => difficultyLevels.includes(l.toLowerCase())) || null;
+  }
+
+  // BUG 4 FIX: Handle feedback fields properly
+  // Prefer specific feedback fields over generic
+  const feedbackCorrect = pq.feedback_correct || pq.feedback || null;
+  const feedbackIncorrect = pq.feedback_incorrect || null;
+  const feedbackGeneral = pq.feedback || pq.feedback_correct || null;
 
   // Build interpretation
   const interpretation: ParsedInterpretation = {
@@ -93,9 +112,9 @@ function convertToInterpretation(
         source: pq.answer ? "parsed" : "missing",
       },
       feedback: {
-        correct: { value: pq.feedback || null, confidence: pq.feedback ? 70 : 0 },
-        incorrect: { value: {}, confidence: 0 },
-        general: { value: pq.feedback || null, confidence: pq.feedback ? 70 : 0 },
+        correct: { value: feedbackCorrect, confidence: feedbackCorrect ? 70 : 0 },
+        incorrect: { value: feedbackIncorrect ? { default: feedbackIncorrect } : {}, confidence: feedbackIncorrect ? 70 : 0 },
+        general: { value: feedbackGeneral, confidence: feedbackGeneral ? 70 : 0 },
       },
       labels: {
         value: labelsArray,
@@ -110,12 +129,12 @@ function convertToInterpretation(
       bloom: {
         value: bloom,
         confidence: bloom ? 90 : 0,
-        source: bloom ? "labels" : "missing",
+        source: bloom ? (pq.bloom ? "parsed" : "labels") : "missing",
       },
       difficulty: {
         value: difficulty,
         confidence: difficulty ? 90 : 0,
-        source: difficulty ? "labels" : "missing",
+        source: difficulty ? (pq.difficulty ? "parsed" : "labels") : "missing",
       },
     },
     missingFields: [],
@@ -132,6 +151,8 @@ function convertToInterpretation(
   if (!interpretation.fields.stem.value) interpretation.missingFields.push("stem");
   if (!interpretation.fields.answer.value) interpretation.uncertainFields.push("answer"); // Not always required
   if (!interpretation.fields.feedback.correct.value) interpretation.uncertainFields.push("feedback");
+  if (!interpretation.fields.bloom.value) interpretation.uncertainFields.push("bloom");
+  if (!interpretation.fields.difficulty.value) interpretation.uncertainFields.push("difficulty");
 
   return interpretation;
 }
@@ -162,6 +183,15 @@ export const m5ApproveSchema = z.object({
     .record(z.any())
     .optional()
     .describe("Field corrections: { fieldName: newValue }"),
+  // BUG 6 FIX: Explicit acknowledgment of missing fields
+  acknowledge_missing: z
+    .boolean()
+    .optional()
+    .describe("Set to true to acknowledge and proceed despite missing optional fields"),
+  force_approve: z
+    .boolean()
+    .optional()
+    .describe("Set to true to force approval despite critical issues (use with caution!)"),
 });
 
 export const m5UpdateFieldSchema = z.object({
@@ -196,6 +226,20 @@ export interface M5StartResult {
   file_preview?: string;
   detected_sections?: { line: number; content: string; confidence: number }[];
   suggested_action?: string;
+
+  // BUG 3 & 7 FIX: Validation results
+  validation_warnings?: string[];
+  validation_errors?: string[];
+  fields_summary?: {
+    total_expected: number;
+    total_found: number;
+    missing_required: string[];
+    missing_optional: string[];
+  };
+
+  // BUG 6 FIX: Mandatory STOP point
+  requires_teacher_confirmation?: boolean;
+  stop_reason?: string;
 }
 
 export interface QuestionReview {
@@ -216,25 +260,61 @@ export interface QuestionReview {
   uncertain_fields: string[];
   needs_user_input: boolean;
   questions_for_user: string[];
+
+  // BUG 6 & 7 FIX: Warnings and STOP requirement
+  warnings?: string[];
+  requires_confirmation?: boolean;
+  confirmation_reason?: string;
 }
 
 /**
  * Format a question for review.
+ *
+ * BUG 6 & 7 FIX: Add warnings and confirmation requirements
  */
 function formatQuestionReview(q: ParsedInterpretation): QuestionReview {
   const f = q.fields;
   const questions: string[] = [];
+  const warnings: string[] = [];
 
   // Determine what needs user input
   const titleNeeds = !f.title.value;
   const typeNeeds = !f.type.value || f.type.confidence < 70;
   const answerNeeds = !f.answer.value;
   const feedbackNeeds = !f.feedback.correct.value && !f.feedback.general.value;
+  const stemNeeds = !f.stem.value;
 
+  // BUG 6 FIX: Critical fields that MUST be present
+  if (stemNeeds) {
+    questions.push("❌ KRITISKT: Frågetexten (Stem) saknas! Vad är frågan?");
+  }
   if (titleNeeds) questions.push("Vad ska frågan heta?");
   if (typeNeeds) questions.push(`Vilken frågetyp? (rådata: "${f.type.raw}")`);
   if (answerNeeds) questions.push("Vad är rätt svar?");
   if (feedbackNeeds) questions.push("Vad är feedback för rätt svar?");
+
+  // BUG 7 FIX: Add warnings for missing optional fields
+  if (!f.bloom.value) {
+    warnings.push("⚠️ Bloom-nivå saknas (rekommenderas för pedagogisk kvalitet)");
+  }
+  if (!f.difficulty.value) {
+    warnings.push("⚠️ Svårighetsgrad saknas (rekommenderas för pedagogisk kvalitet)");
+  }
+  if (f.labels.value.length === 0) {
+    warnings.push("⚠️ Inga etiketter/tags (hjälper med filtrering i Inspera)");
+  }
+
+  // BUG 6 FIX: Determine if confirmation is REQUIRED (STOP point)
+  const hasCriticalIssues = stemNeeds || titleNeeds || typeNeeds;
+  const hasWarnings = warnings.length > 0 || answerNeeds || feedbackNeeds;
+  const requiresConfirmation = hasCriticalIssues || hasWarnings;
+
+  let confirmationReason = "";
+  if (hasCriticalIssues) {
+    confirmationReason = "🛑 STOP: Kritiska fält saknas - kan INTE godkännas utan lärarens input!";
+  } else if (hasWarnings) {
+    confirmationReason = "⚠️ VARNING: Fält saknas - granska innan godkännande.";
+  }
 
   return {
     question_number: q.questionNumber,
@@ -282,6 +362,10 @@ function formatQuestionReview(q: ParsedInterpretation): QuestionReview {
     uncertain_fields: q.uncertainFields,
     needs_user_input: questions.length > 0,
     questions_for_user: questions,
+    // BUG 6 & 7 FIX: New fields
+    warnings: warnings,
+    requires_confirmation: requiresConfirmation,
+    confirmation_reason: confirmationReason,
   };
 }
 
@@ -327,9 +411,14 @@ export async function m5Start(
 
   let questions: ParsedInterpretation[];
 
+  // BUG 3 & 7 FIX: Use validated parsing
+  let validationResult: ParseValidation | null = null;
+
   if (detection.detected && detection.pattern) {
-    // Format recognized! Parse with the learned pattern
-    const parsedQuestions = parseWithPattern(content, detection.pattern);
+    // Format recognized! Parse with the learned pattern + validation
+    const parseResult = parseWithPatternValidated(content, detection.pattern);
+    const parsedQuestions = parseResult.questions;
+    validationResult = parseResult.validation;
 
     if (parsedQuestions.length === 0) {
       // Pattern matched but no questions found - unusual case
@@ -341,6 +430,7 @@ export async function m5Start(
         detected_sections: [],
         suggested_action: "Kontrollera att frågorna följer det förväntade formatet.",
         source_file: sourceFile,
+        validation_errors: validationResult.errors,
       };
     }
 
@@ -357,6 +447,11 @@ export async function m5Start(
       pattern_name: detection.pattern.name,
       confidence: detection.confidence,
       questions_parsed: questions.length,
+      validation: {
+        is_valid: validationResult.is_valid,
+        errors: validationResult.errors.length,
+        warnings: validationResult.warnings.length,
+      },
     });
   } else {
     // No format detected - need teacher help
@@ -471,13 +566,39 @@ ${potentialSections.length > 0
     };
   }
 
+  // BUG 6 FIX: Check if STOP is required before proceeding
+  const firstQuestionReview = formatQuestionReview(firstQ);
+  const hasValidationIssues = validationResult && (!validationResult.is_valid || validationResult.warnings.length > 0);
+
+  // Calculate fields summary
+  const expectedFieldsPerQuestion = 7; // title, type, stem, answer, feedback, bloom, difficulty
+  const totalExpected = questions.length * expectedFieldsPerQuestion;
+  const missingRequired = validationResult?.errors || [];
+  const missingOptional = validationResult?.warnings || [];
+
   return {
     success: true,
     session_id: session.sessionId,
     total_questions: questions.length,
     source_file: sourceFile,
     output_file: outputFile,
-    first_question: formatQuestionReview(firstQ),
+    first_question: firstQuestionReview,
+
+    // BUG 3 & 7 FIX: Include validation results
+    validation_warnings: validationResult?.warnings,
+    validation_errors: validationResult?.errors,
+    fields_summary: {
+      total_expected: totalExpected,
+      total_found: validationResult?.fields_found.length || 0,
+      missing_required: missingRequired,
+      missing_optional: missingOptional.map(w => w.replace(/^Q\d+: /, "")),
+    },
+
+    // BUG 6 FIX: STOP requirement
+    requires_teacher_confirmation: hasValidationIssues || firstQuestionReview.requires_confirmation,
+    stop_reason: hasValidationIssues
+      ? `🛑 VALIDERING: ${validationResult?.errors.length || 0} fel, ${validationResult?.warnings.length || 0} varningar. Granska innan du fortsätter!`
+      : firstQuestionReview.confirmation_reason,
   };
 }
 
@@ -497,6 +618,13 @@ export interface M5ApproveResult {
     remaining: number;
   };
   session_complete?: boolean;
+
+  // BUG 6 FIX: STOP point info
+  blocked?: boolean;
+  stop_reason?: string;
+  missing_critical?: string[];
+  missing_optional?: string[];
+  action_required?: string;
 }
 
 export async function m5Approve(
@@ -519,21 +647,74 @@ export async function m5Approve(
     }
   }
 
-  // Check if required fields are still missing
+  // Re-fetch after corrections
   const currentQ = getCurrentQuestion();
-  if (currentQ && currentQ.missingFields.length > 0) {
-    // Check which ones are truly required and still missing
-    const stillMissing = currentQ.missingFields.filter((f) => {
-      const field = (currentQ.fields as any)[f];
-      return !field?.value;
+  if (!currentQ) {
+    return { success: false, error: "Kunde inte hämta aktuell fråga" };
+  }
+
+  // BUG 6 FIX: Identify critical vs optional missing fields
+  const criticalFields = ["title", "type", "stem"];
+  const optionalFields = ["answer", "feedback", "bloom", "difficulty"];
+
+  const missingCritical: string[] = [];
+  const missingOptional: string[] = [];
+
+  for (const f of criticalFields) {
+    const field = (currentQ.fields as any)[f];
+    if (!field?.value) {
+      missingCritical.push(f);
+    }
+  }
+
+  for (const f of optionalFields) {
+    const field = (currentQ.fields as any)[f];
+    const feedbackField = f === "feedback" ? currentQ.fields.feedback : null;
+    const hasFeedback = feedbackField && (feedbackField.correct.value || feedbackField.general.value);
+
+    if (f === "feedback" && !hasFeedback) {
+      missingOptional.push(f);
+    } else if (f !== "feedback" && !field?.value) {
+      missingOptional.push(f);
+    }
+  }
+
+  // BUG 6 FIX: STOP if critical fields missing (unless force_approve)
+  if (missingCritical.length > 0 && !input.force_approve) {
+    logEvent(session.projectPath, "", "m5_approve", "blocked_critical_missing", "warn", {
+      question_id: current.questionNumber,
+      missing_critical: missingCritical,
     });
 
-    if (stillMissing.length > 0) {
-      return {
-        success: false,
-        error: `Saknar fortfarande: ${stillMissing.join(", ")}. Använd m5_update_field för att fylla i.`,
-      };
-    }
+    return {
+      success: false,
+      blocked: true,
+      stop_reason: `🛑 STOP: Kritiska fält saknas!`,
+      missing_critical: missingCritical,
+      missing_optional: missingOptional,
+      action_required: `Använd m5_update_field för att fylla i: ${missingCritical.join(", ")}
+Eller sätt force_approve: true för att tvinga godkännande (ej rekommenderat).`,
+      error: `Kan inte godkänna: saknar ${missingCritical.join(", ")}`,
+    };
+  }
+
+  // BUG 6 FIX: Warn if optional fields missing (unless acknowledge_missing)
+  if (missingOptional.length > 0 && !input.acknowledge_missing && !input.force_approve) {
+    logEvent(session.projectPath, "", "m5_approve", "warning_optional_missing", "info", {
+      question_id: current.questionNumber,
+      missing_optional: missingOptional,
+    });
+
+    return {
+      success: false,
+      blocked: true,
+      stop_reason: `⚠️ VARNING: Rekommenderade fält saknas`,
+      missing_critical: [],
+      missing_optional: missingOptional,
+      action_required: `Fyll i med m5_update_field: ${missingOptional.join(", ")}
+Eller sätt acknowledge_missing: true för att fortsätta ändå.`,
+      error: `Saknar rekommenderade fält: ${missingOptional.join(", ")}. Sätt acknowledge_missing: true för att fortsätta.`,
+    };
   }
 
   // Approve and write to file

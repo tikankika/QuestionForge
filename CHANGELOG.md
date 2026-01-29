@@ -29,6 +29,40 @@ All notable changes to QuestionForge will be documented in this file.
 
 **File:** `packages/qf-scaffolding/src/m5/format_learner.ts`
 
+### Fixed - 2026-01-29
+
+#### M5 Critical Bug Fixes (BUG 3, 4, 6, 7)
+
+**Problem:** M5 found all 5 questions but lost critical data (Bloom, Difficulty, Tags, proper Feedback).
+Windsurf approved questions without teacher verification.
+
+**BUG 3 Fix - Parse Result Validation:**
+- Added `ParseValidation` interface with warnings, errors, fields_found, fields_missing
+- New `parseWithPatternValidated()` function returns detailed validation info
+- Checks for required fields (title, type, stem) and optional fields (answer, bloom, difficulty)
+
+**BUG 4 Fix - Field Name Normalization:**
+- Added `normalizeFieldName()` function to handle various field name conventions
+- Maps `stem` → `question_text`, `feedback.correct` → `feedback_correct`
+- Maps `tags` → `labels`, `general_feedback` → `feedback`
+- Updated `convertToInterpretation()` to use bloom/difficulty directly from parsed fields
+
+**BUG 6 Fix - Mandatory STOP Points (RFC-015):**
+- `m5_approve` now BLOCKS if critical fields (title, type, stem) are missing
+- New parameters: `acknowledge_missing` (for optional fields), `force_approve` (override)
+- `QuestionReview` now includes `requires_confirmation` and `confirmation_reason`
+- STOP reasons displayed: "🛑 STOP: Kritiska fält saknas" / "⚠️ VARNING: Fält saknas"
+
+**BUG 7 Fix - Missing Field Warnings:**
+- `formatQuestionReview()` now generates warnings for missing optional fields
+- Warnings include: Bloom-nivå, Svårighetsgrad, Etiketter/tags
+- `M5StartResult` includes `validation_warnings`, `validation_errors`, `fields_summary`
+- Clear action messages: what's missing, how to fix it
+
+**Files:**
+- `packages/qf-scaffolding/src/m5/format_learner.ts`
+- `packages/qf-scaffolding/src/tools/m5_interactive_tools.ts`
+
 ### Changed - 2026-01-28
 
 #### RFC-016 Implementation Complete: M5 Self-Learning Format Recognition

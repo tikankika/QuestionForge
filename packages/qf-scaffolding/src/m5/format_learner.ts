@@ -68,10 +68,36 @@ export interface ParsedQuestion {
   identifier?: string;
   points?: number;
   labels?: string;
-  question_text?: string;
+  question_text?: string;  // Also accepts "stem"
   answer?: string;
   feedback?: string;
+  bloom?: string;
+  difficulty?: string;
+  learning_objective?: string;
+  // Nested feedback fields
+  feedback_correct?: string;
+  feedback_incorrect?: string;
+  feedback_partial?: string;
   raw_content: string;
+}
+
+// ============================================================================
+// Validation Result (BUG 3 & 7 FIX)
+// ============================================================================
+
+export interface ParseValidation {
+  is_valid: boolean;
+  warnings: string[];
+  errors: string[];
+  fields_found: string[];
+  fields_missing: string[];
+  confidence_issues: Array<{ field: string; confidence: number; reason: string }>;
+}
+
+export interface ParseResult {
+  questions: ParsedQuestion[];
+  validation: ParseValidation;
+  pattern_used: string;
 }
 
 // ============================================================================
@@ -460,11 +486,48 @@ export function updatePatternStats(
 }
 
 /**
+ * Normalize field names to standard ParsedQuestion fields (BUG 4 FIX)
+ * Handles various field name conventions from different patterns
+ */
+function normalizeFieldName(field: string): string {
+  const fieldMap: Record<string, string> = {
+    // Stem variants
+    "stem": "question_text",
+    "question": "question_text",
+    "fråga": "question_text",
+    // Feedback variants (dotted notation)
+    "feedback.correct": "feedback_correct",
+    "feedback.incorrect": "feedback_incorrect",
+    "feedback.partial": "feedback_partial",
+    "general_feedback": "feedback",
+    // Keep these as-is
+    "title": "title",
+    "type": "type",
+    "points": "points",
+    "answer": "answer",
+    "bloom": "bloom",
+    "difficulty": "difficulty",
+    "labels": "labels",
+    "tags": "labels",  // Normalize tags to labels
+    "learning_objective": "learning_objective",
+    "question_text": "question_text",
+    "feedback": "feedback",
+  };
+
+  return fieldMap[field.toLowerCase()] || field;
+}
+
+/**
  * Parse content using a learned pattern
  *
  * BUG FIX (2026-01-28):
  * - Uses smart splitByQuestionSeparator() instead of broken regex
  * - Logs warning if split produces unexpected results
+ *
+ * BUG FIX (2026-01-29) - BUG 3, 4, 7:
+ * - Normalizes field names to standard ParsedQuestion fields
+ * - Validates parsed results
+ * - Returns warnings for missing/low-confidence fields
  */
 export function parseWithPattern(
   content: string,
@@ -493,7 +556,8 @@ export function parseWithPattern(
       const value = extractFieldValue(block, marker, mapping);
 
       if (value !== null) {
-        const field = mapping.qfmd_field;
+        // BUG 4 FIX: Normalize field name
+        const field = normalizeFieldName(mapping.qfmd_field);
 
         if (mapping.transform === "prepend_hash" && !value.startsWith("#")) {
           (question as any)[field] =
@@ -520,6 +584,75 @@ export function parseWithPattern(
   return questions.filter(
     (q) => q.title || q.question_text || Object.keys(q).length > 1
   );
+}
+
+/**
+ * Parse with validation - returns detailed validation info (BUG 3 & 7 FIX)
+ */
+export function parseWithPatternValidated(
+  content: string,
+  pattern: FormatPattern
+): ParseResult {
+  const questions = parseWithPattern(content, pattern);
+
+  // Validate results
+  const validation: ParseValidation = {
+    is_valid: true,
+    warnings: [],
+    errors: [],
+    fields_found: [],
+    fields_missing: [],
+    confidence_issues: [],
+  };
+
+  // Required fields for a valid question
+  const requiredFields = ["title", "type", "question_text"];
+  const importantFields = ["answer", "bloom", "difficulty"];
+
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    const qNum = i + 1;
+
+    // Check required fields
+    for (const field of requiredFields) {
+      const value = (q as any)[field];
+      if (!value || (typeof value === "string" && !value.trim())) {
+        validation.errors.push(`Q${qNum}: Saknar obligatoriskt fält '${field}'`);
+        validation.fields_missing.push(`Q${qNum}.${field}`);
+        validation.is_valid = false;
+      } else {
+        validation.fields_found.push(`Q${qNum}.${field}`);
+      }
+    }
+
+    // Check important fields (warnings, not errors)
+    for (const field of importantFields) {
+      const value = (q as any)[field];
+      if (!value || (typeof value === "string" && !value.trim())) {
+        validation.warnings.push(`Q${qNum}: Saknar fält '${field}' (rekommenderas)`);
+        validation.fields_missing.push(`Q${qNum}.${field}`);
+      } else {
+        validation.fields_found.push(`Q${qNum}.${field}`);
+      }
+    }
+
+    // Check feedback fields
+    if (!q.feedback && !q.feedback_correct) {
+      validation.warnings.push(`Q${qNum}: Saknar feedback`);
+    }
+  }
+
+  // Global validation
+  if (questions.length === 0) {
+    validation.errors.push("Inga frågor hittades!");
+    validation.is_valid = false;
+  }
+
+  return {
+    questions,
+    validation,
+    pattern_used: pattern.name,
+  };
 }
 
 /**
