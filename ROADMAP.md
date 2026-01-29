@@ -1,6 +1,6 @@
 # QuestionForge Roadmap
 
-**Senast uppdaterad:** 2026-01-28
+**Senast uppdaterad:** 2026-01-29
 
 ---
 
@@ -323,6 +323,45 @@ QuestionForge är ett MCP-baserat verktyg för att skapa, validera och exportera
 - M3: Iterative conversation → accumulate questions incrementally
 - M3 needs different tooling than `write_m1_stage`
 
+### RFC-016: M5 Self-Learning Format Recognition ✅ KLAR (2026-01-29)
+
+**Beskrivning:** M5 (Content Completeness & QFMD Generation) med självlärande formatigenkänning.
+
+| Uppgift | Status | Datum |
+|---------|--------|-------|
+| RFC-016 specifikation | ✅ Klar | 2026-01-26 |
+| Format learner implementation | ✅ Klar | 2026-01-27 |
+| BUG 1-2: Separator regex + format detection | ✅ Fixad | 2026-01-28 |
+| BUG 3: Parse validation | ✅ Fixad | 2026-01-29 |
+| BUG 4: Field normalization | ✅ Fixad | 2026-01-29 |
+| BUG 6: STOP points (teacher gates) | ✅ Fixad | 2026-01-29 |
+| BUG 7: Missing field warnings | ✅ Fixad | 2026-01-29 |
+| Option B: Data-driven field aliases | ✅ Klar | 2026-01-29 |
+
+**M5 Tools (komplett):**
+| Tool | Beskrivning |
+|------|-------------|
+| `m5_start` | Starta M5-session, ladda format patterns |
+| `m5_detect_format` | Detektera/bekräfta frågeformat |
+| `m5_analyze` | Parsea frågor, visa validering |
+| `m5_approve` | Godkänn fråga (med STOP points) |
+| `m5_manual_fix` | Manuell korrigering |
+| `m5_finish` | Avsluta session, spara patterns |
+| `m5_add_field_alias` | **NY** Lägg till fältalias |
+| `m5_remove_field_alias` | **NY** Ta bort fältalias |
+| `m5_list_field_aliases` | **NY** Lista alla fältaliaser |
+
+**Option B - Data-Driven Field Aliases:**
+- Default-aliaser för svenska/engelska varianter (30+)
+- Anpassningsbara per projekt via `logs/m5_format_patterns.json`
+- Self-learning: nya alias sparas automatiskt
+- Exempel: `stem → question_text`, `svårighetsgrad → difficulty`
+
+**Filer:**
+- `packages/qf-scaffolding/src/m5/format_learner.ts`
+- `packages/qf-scaffolding/src/tools/m5_interactive_tools.ts`
+- `docs/rfcs/RFC-016-m5-self-learning-format-recognition.md`
+
 ### Återstående arbete
 | Uppgift | Status |
 |---------|--------|
@@ -497,7 +536,8 @@ qti-core/
 | `docs/rfcs/RFC-009-m3-conversation-capture.md` | M3 Conversation Capture |
 | `docs/rfcs/rfc-012-pipeline-script-alignment.md` | Pipeline-Script Alignment (LÖST) |
 | `docs/rfcs/RFC-013-Questionforge pipeline architecture v2.md` | Pipeline arkitektur v2.5 |
-| `docs/rfcs/RFC-014-resource-handling.md` | **NEW** Resource Handling (DRAFT) |
+| `docs/rfcs/RFC-014-resource-handling.md` | Resource Handling (DRAFT) |
+| `docs/rfcs/RFC-016-m5-self-learning-format-recognition.md` | **NEW** M5 Self-Learning Format (KLAR) |
 | `docs/workflows/m1_complete_workflow.md` | M1 Workflow (v3.1) |
 | `methodology/m1/m1_0_stage0_material_analysis.md` | **NEW** Teacher Guide for Stage 0 |
 | `docs/acdm/` | ACDM sessionsloggar och reflektioner |
@@ -510,4 +550,4 @@ qti-core/
 
 ---
 
-*Roadmap uppdaterad 2026-01-28 (RFC-012 löst, Step 1 Vision A refaktorerad, Pipeline Router implementerad, RFC-014 skapad)*
+*Roadmap uppdaterad 2026-01-29 (RFC-016 M5 implementerad med Option B field aliases, BUG 3/4/6/7 fixade)*

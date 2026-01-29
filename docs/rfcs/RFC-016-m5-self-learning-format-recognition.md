@@ -1,7 +1,8 @@
 # RFC-016: M5 Self-Learning Format Recognition
 
-**Status:** Draft
+**Status:** Implemented
 **Date:** 2026-01-28
+**Updated:** 2026-01-29 (Option B: Data-Driven Field Aliases)
 **Author:** Claude Code
 **Related:** RFC-015 (Pipeline Stop Points), RFC-011 (Self-Learning Transformations)
 
@@ -543,8 +544,88 @@ This way:
 
 ---
 
+---
+
+## Appendix A: Option B - Data-Driven Field Aliases (2026-01-29)
+
+### Problem
+
+Pattern mappings use field names like `"stem"`, but internal code expects `"question_text"`.
+Originally solved with hardcoded mapping - not flexible.
+
+### Solution: field_aliases in patterns file
+
+```json
+{
+  "version": "1.0",
+  "field_aliases": {
+    "stem": "question_text",
+    "frågans_text": "question_text",
+    "svar": "answer",
+    "pregunta": "question_text"
+  },
+  "patterns": [...]
+}
+```
+
+### Default Aliases (built-in)
+
+```typescript
+const DEFAULT_FIELD_ALIASES = {
+  // Stem variants → question_text
+  "stem": "question_text",
+  "question": "question_text",
+  "fråga": "question_text",
+  "frågetext": "question_text",
+  // Answer variants
+  "svar": "answer",
+  // Tags/Labels
+  "tags": "labels",
+  "etiketter": "labels",
+  // Swedish variants
+  "poäng": "points",
+  "svårighetsgrad": "difficulty",
+  "lärandemål": "learning_objective",
+  "titel": "title",
+  "typ": "type",
+  // ...
+};
+```
+
+### New MCP Tools
+
+```typescript
+// Add alias
+m5_add_field_alias({
+  project_path: "/path/to/project",
+  alias: "frågans_text",
+  maps_to: "question_text"
+})
+
+// Remove alias
+m5_remove_field_alias({
+  project_path: "/path/to/project",
+  alias: "frågans_text"
+})
+
+// List all aliases
+m5_list_field_aliases({
+  project_path: "/path/to/project"
+})
+// Returns: { defaults: {...}, custom: {...}, merged: {...} }
+```
+
+### Implementation
+
+- `format_learner.ts`: `getMergedAliases()`, `addFieldAlias()`, `removeFieldAlias()`, `listFieldAliases()`
+- `m5_interactive_tools.ts`: MCP tool wrappers
+- `parseWithPattern()` accepts optional `customAliases` parameter
+
+---
+
 ## Document Metadata
 
 **Created:** 2026-01-28
-**Status:** Draft
+**Updated:** 2026-01-29
+**Status:** Implemented
 **Priority:** HIGH - Core M5 functionality
