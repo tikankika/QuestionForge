@@ -31,6 +31,9 @@ import {
   parseWithPatternValidated,
   updatePatternStats,
   toQFMD,
+  addFieldAlias,
+  removeFieldAlias,
+  listFieldAliases,
   type FieldMapping,
   type FormatPattern,
   type ParsedQuestion,
@@ -412,11 +415,17 @@ export async function m5Start(
   let questions: ParsedInterpretation[];
 
   // BUG 3 & 7 FIX: Use validated parsing
+  // Option B: Pass field_aliases from patterns file
   let validationResult: ParseValidation | null = null;
 
   if (detection.detected && detection.pattern) {
     // Format recognized! Parse with the learned pattern + validation
-    const parseResult = parseWithPatternValidated(content, detection.pattern);
+    // Option B: Include custom field aliases
+    const parseResult = parseWithPatternValidated(
+      content,
+      detection.pattern,
+      patternsData.field_aliases  // Option B: Custom aliases
+    );
     const parsedQuestions = parseResult.questions;
     validationResult = parseResult.validation;
 
@@ -1843,5 +1852,94 @@ m5_teach_format({
     "**Stem:**": { qfmd_field: "question_text", extraction: "multiline_until_next" }
   }
 })`,
+  };
+}
+
+// ============================================================================
+// Tool: m5_add_field_alias (Option B)
+// ============================================================================
+
+export const m5AddFieldAliasSchema = z.object({
+  project_path: z.string().describe("Absolute path to the project folder"),
+  alias: z.string().describe("The alias name (e.g., 'frågans_text', 'svar', 'pregunta')"),
+  maps_to: z.string().describe("The internal field name: title, type, points, labels, question_text, answer, feedback, feedback_correct, feedback_incorrect, feedback_partial, bloom, difficulty, learning_objective"),
+});
+
+export interface M5AddFieldAliasResult {
+  success: boolean;
+  message: string;
+  alias?: string;
+  maps_to?: string;
+}
+
+export async function m5AddFieldAlias(
+  input: z.infer<typeof m5AddFieldAliasSchema>
+): Promise<M5AddFieldAliasResult> {
+  const result = addFieldAlias(input.project_path, input.alias, input.maps_to);
+
+  if (result.success) {
+    return {
+      success: true,
+      message: result.message,
+      alias: input.alias,
+      maps_to: input.maps_to,
+    };
+  }
+
+  return {
+    success: false,
+    message: result.message,
+  };
+}
+
+// ============================================================================
+// Tool: m5_remove_field_alias (Option B)
+// ============================================================================
+
+export const m5RemoveFieldAliasSchema = z.object({
+  project_path: z.string().describe("Absolute path to the project folder"),
+  alias: z.string().describe("The alias to remove"),
+});
+
+export interface M5RemoveFieldAliasResult {
+  success: boolean;
+  message: string;
+}
+
+export async function m5RemoveFieldAlias(
+  input: z.infer<typeof m5RemoveFieldAliasSchema>
+): Promise<M5RemoveFieldAliasResult> {
+  return removeFieldAlias(input.project_path, input.alias);
+}
+
+// ============================================================================
+// Tool: m5_list_field_aliases (Option B)
+// ============================================================================
+
+export const m5ListFieldAliasesSchema = z.object({
+  project_path: z.string().describe("Absolute path to the project folder"),
+});
+
+export interface M5ListFieldAliasesResult {
+  success: boolean;
+  defaults: Record<string, string>;
+  custom: Record<string, string>;
+  merged: Record<string, string>;
+  custom_count: number;
+  total_count: number;
+}
+
+export async function m5ListFieldAliases(
+  input: z.infer<typeof m5ListFieldAliasesSchema>
+): Promise<M5ListFieldAliasesResult> {
+  const result = listFieldAliases(input.project_path);
+
+  return {
+    success: true,
+    defaults: result.defaults,
+    custom: result.custom,
+    merged: result.merged,
+    custom_count: Object.keys(result.custom).length,
+    total_count: Object.keys(result.merged).length,
   };
 }

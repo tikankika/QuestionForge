@@ -29,6 +29,41 @@ All notable changes to QuestionForge will be documented in this file.
 
 **File:** `packages/qf-scaffolding/src/m5/format_learner.ts`
 
+### Added - 2026-01-29
+
+#### Option B: Data-Driven Field Aliases
+
+**Problem:** Field name mapping was hardcoded - teachers couldn't add custom aliases.
+
+**Solution:** Field aliases now stored in `logs/m5_format_patterns.json`:
+```json
+{
+  "field_aliases": {
+    "stem": "question_text",
+    "frågans_text": "question_text",
+    "svar": "answer"
+  },
+  "patterns": [...]
+}
+```
+
+**New MCP Tools:**
+- `m5_add_field_alias({ alias: "frågans_text", maps_to: "question_text" })`
+- `m5_remove_field_alias({ alias: "frågans_text" })`
+- `m5_list_field_aliases()` - Shows defaults, custom, and merged aliases
+
+**Default Aliases (built-in):**
+- `stem`, `question`, `fråga` → `question_text`
+- `svar` → `answer`
+- `tags`, `etiketter` → `labels`
+- `poäng` → `points`
+- `svårighetsgrad` → `difficulty`
+- `lärandemål` → `learning_objective`
+
+**Files:**
+- `packages/qf-scaffolding/src/m5/format_learner.ts`
+- `packages/qf-scaffolding/src/tools/m5_interactive_tools.ts`
+
 ### Fixed - 2026-01-29
 
 #### M5 Critical Bug Fixes (BUG 3, 4, 6, 7)

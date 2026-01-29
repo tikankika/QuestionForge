@@ -52,7 +52,44 @@ export interface FormatPattern {
 export interface FormatPatternsFile {
   version: string;
   patterns: FormatPattern[];
+  // Option B: Data-driven field aliases (teacher can add via m5_add_field_alias)
+  field_aliases?: Record<string, string>;
 }
+
+// Default aliases (fallback if not in patterns file)
+export const DEFAULT_FIELD_ALIASES: Record<string, string> = {
+  // Stem variants → question_text
+  "stem": "question_text",
+  "question": "question_text",
+  "fråga": "question_text",
+  "frågetext": "question_text",
+  "pregunta": "question_text",
+  // Feedback variants (dotted notation)
+  "feedback.correct": "feedback_correct",
+  "feedback.incorrect": "feedback_incorrect",
+  "feedback.partial": "feedback_partial",
+  "general_feedback": "feedback",
+  // Tags/Labels
+  "tags": "labels",
+  "etiketter": "labels",
+  // Keep these as-is (explicit for clarity)
+  "title": "title",
+  "titel": "title",
+  "type": "type",
+  "typ": "type",
+  "points": "points",
+  "poäng": "points",
+  "answer": "answer",
+  "svar": "answer",
+  "bloom": "bloom",
+  "difficulty": "difficulty",
+  "svårighetsgrad": "difficulty",
+  "labels": "labels",
+  "learning_objective": "learning_objective",
+  "lärandemål": "learning_objective",
+  "question_text": "question_text",
+  "feedback": "feedback",
+};
 
 export interface DetectionResult {
   detected: boolean;
@@ -463,6 +500,103 @@ export function addPattern(projectPath: string, pattern: FormatPattern): void {
 }
 
 /**
+ * Add a field alias to the patterns file (Option B)
+ * Allows teachers to define custom field name mappings
+ *
+ * @param projectPath - Path to project
+ * @param alias - The alias name (e.g., "frågans_text", "svar")
+ * @param mapsTo - The internal field name (e.g., "question_text", "answer")
+ */
+export function addFieldAlias(
+  projectPath: string,
+  alias: string,
+  mapsTo: string
+): { success: boolean; message: string } {
+  // Validate that mapsTo is a valid internal field
+  const validInternalFields = [
+    "title", "type", "points", "labels", "question_text", "answer",
+    "feedback", "feedback_correct", "feedback_incorrect", "feedback_partial",
+    "bloom", "difficulty", "learning_objective", "identifier"
+  ];
+
+  if (!validInternalFields.includes(mapsTo)) {
+    return {
+      success: false,
+      message: `Ogiltigt internt fält: "${mapsTo}". Giltiga fält: ${validInternalFields.join(", ")}`
+    };
+  }
+
+  const data = loadPatterns(projectPath);
+
+  // Initialize field_aliases if not present
+  if (!data.field_aliases) {
+    data.field_aliases = {};
+  }
+
+  // Check if alias already exists
+  const existingMapping = data.field_aliases[alias.toLowerCase()];
+  if (existingMapping) {
+    return {
+      success: false,
+      message: `Alias "${alias}" finns redan och mappar till "${existingMapping}". Ta bort den först om du vill ändra.`
+    };
+  }
+
+  // Add the alias
+  data.field_aliases[alias.toLowerCase()] = mapsTo;
+  savePatterns(projectPath, data);
+
+  return {
+    success: true,
+    message: `Alias tillagd: "${alias}" → "${mapsTo}"`
+  };
+}
+
+/**
+ * Remove a field alias from the patterns file
+ */
+export function removeFieldAlias(
+  projectPath: string,
+  alias: string
+): { success: boolean; message: string } {
+  const data = loadPatterns(projectPath);
+
+  if (!data.field_aliases || !data.field_aliases[alias.toLowerCase()]) {
+    return {
+      success: false,
+      message: `Alias "${alias}" finns inte.`
+    };
+  }
+
+  const mapsTo = data.field_aliases[alias.toLowerCase()];
+  delete data.field_aliases[alias.toLowerCase()];
+  savePatterns(projectPath, data);
+
+  return {
+    success: true,
+    message: `Alias borttagen: "${alias}" → "${mapsTo}"`
+  };
+}
+
+/**
+ * List all field aliases (defaults + custom)
+ */
+export function listFieldAliases(projectPath: string): {
+  defaults: Record<string, string>;
+  custom: Record<string, string>;
+  merged: Record<string, string>;
+} {
+  const data = loadPatterns(projectPath);
+  const custom = data.field_aliases || {};
+
+  return {
+    defaults: { ...DEFAULT_FIELD_ALIASES },
+    custom: { ...custom },
+    merged: getMergedAliases(custom)
+  };
+}
+
+/**
  * Update pattern statistics after use
  */
 export function updatePatternStats(
@@ -486,35 +620,27 @@ export function updatePatternStats(
 }
 
 /**
- * Normalize field names to standard ParsedQuestion fields (BUG 4 FIX)
- * Handles various field name conventions from different patterns
+ * Get merged field aliases (defaults + custom from patterns file)
+ * Option B: Data-driven aliases
  */
-function normalizeFieldName(field: string): string {
-  const fieldMap: Record<string, string> = {
-    // Stem variants
-    "stem": "question_text",
-    "question": "question_text",
-    "fråga": "question_text",
-    // Feedback variants (dotted notation)
-    "feedback.correct": "feedback_correct",
-    "feedback.incorrect": "feedback_incorrect",
-    "feedback.partial": "feedback_partial",
-    "general_feedback": "feedback",
-    // Keep these as-is
-    "title": "title",
-    "type": "type",
-    "points": "points",
-    "answer": "answer",
-    "bloom": "bloom",
-    "difficulty": "difficulty",
-    "labels": "labels",
-    "tags": "labels",  // Normalize tags to labels
-    "learning_objective": "learning_objective",
-    "question_text": "question_text",
-    "feedback": "feedback",
-  };
+export function getMergedAliases(customAliases?: Record<string, string>): Record<string, string> {
+  if (!customAliases) {
+    return { ...DEFAULT_FIELD_ALIASES };
+  }
+  // Custom aliases override defaults
+  return { ...DEFAULT_FIELD_ALIASES, ...customAliases };
+}
 
-  return fieldMap[field.toLowerCase()] || field;
+/**
+ * Normalize field names to standard ParsedQuestion fields (BUG 4 FIX)
+ * Option B: Uses data-driven aliases from patterns file
+ *
+ * @param field - The field name from pattern mapping
+ * @param customAliases - Optional custom aliases from patterns file
+ */
+function normalizeFieldName(field: string, customAliases?: Record<string, string>): string {
+  const aliases = getMergedAliases(customAliases);
+  return aliases[field.toLowerCase()] || field;
 }
 
 /**
@@ -528,10 +654,14 @@ function normalizeFieldName(field: string): string {
  * - Normalizes field names to standard ParsedQuestion fields
  * - Validates parsed results
  * - Returns warnings for missing/low-confidence fields
+ *
+ * Option B (2026-01-29):
+ * - Accepts custom field aliases from patterns file
  */
 export function parseWithPattern(
   content: string,
-  pattern: FormatPattern
+  pattern: FormatPattern,
+  customAliases?: Record<string, string>
 ): ParsedQuestion[] {
   if (pattern.mappings === "passthrough") {
     // Content is already QFMD - return as single question
@@ -556,8 +686,8 @@ export function parseWithPattern(
       const value = extractFieldValue(block, marker, mapping);
 
       if (value !== null) {
-        // BUG 4 FIX: Normalize field name
-        const field = normalizeFieldName(mapping.qfmd_field);
+        // BUG 4 FIX + Option B: Normalize field name using aliases
+        const field = normalizeFieldName(mapping.qfmd_field, customAliases);
 
         if (mapping.transform === "prepend_hash" && !value.startsWith("#")) {
           (question as any)[field] =
@@ -588,12 +718,14 @@ export function parseWithPattern(
 
 /**
  * Parse with validation - returns detailed validation info (BUG 3 & 7 FIX)
+ * Option B: Accepts custom field aliases
  */
 export function parseWithPatternValidated(
   content: string,
-  pattern: FormatPattern
+  pattern: FormatPattern,
+  customAliases?: Record<string, string>
 ): ParseResult {
-  const questions = parseWithPattern(content, pattern);
+  const questions = parseWithPattern(content, pattern, customAliases);
 
   // Validate results
   const validation: ParseValidation = {
