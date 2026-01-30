@@ -9,6 +9,11 @@ from .session import (
     set_current_session,
 )
 
+from .step0_tools import (
+    step0_add_file,
+    step0_analyze,
+)
+
 from .step1_tools import (
     # NEW: Minimal Step 1 (Vision A)
     step1_review,
@@ -57,6 +62,9 @@ __all__ = [
     "load_session_tool",
     "get_current_session",
     "set_current_session",
+    # Step 0 tools - ADR-015 Flexible Project Initialization
+    "step0_add_file",
+    "step0_analyze",
     # Step 1 tools - NEW MINIMAL (Vision A)
     "step1_review",
     "step1_manual_fix",

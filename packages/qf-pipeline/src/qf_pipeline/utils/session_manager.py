@@ -21,9 +21,19 @@ logger = logging.getLogger(__name__)
 
 # Entry point configuration for shared session
 # Named after the module they start with (M1-M4) or "pipeline" for direct export
+# ADR-015: Added "setup" for flexible project initialization
 ENTRY_POINT_REQUIREMENTS = {
+    "setup": {
+        "requires_source_file": False,
+        "requires_materials_folder": False,
+        "next_module": None,  # Determined by step0_analyze
+        "description": "Skapa tomt projekt, lägg till filer senare",
+        "next_steps": ["step0_add_file", "step0_analyze"],
+        "skips": []
+    },
     "m1": {
         "requires_source_file": False,
+        "requires_materials_folder": True,
         "next_module": "m1",
         "description": "Börja från undervisningsmaterial → Content Analysis",
         "next_steps": ["M1", "M2", "M3", "M4", "Pipeline"],
@@ -31,6 +41,7 @@ ENTRY_POINT_REQUIREMENTS = {
     },
     "m2": {
         "requires_source_file": True,
+        "requires_materials_folder": False,
         "next_module": "m2",
         "description": "Börja från lärandemål → Assessment Planning",
         "next_steps": ["M2", "M3", "M4", "Pipeline"],
@@ -38,6 +49,7 @@ ENTRY_POINT_REQUIREMENTS = {
     },
     "m3": {
         "requires_source_file": True,
+        "requires_materials_folder": False,
         "next_module": "m3",
         "description": "Börja från blueprint → Question Generation",
         "next_steps": ["M3", "M4", "Pipeline"],
@@ -45,6 +57,7 @@ ENTRY_POINT_REQUIREMENTS = {
     },
     "m4": {
         "requires_source_file": True,
+        "requires_materials_folder": False,
         "next_module": "m4",
         "description": "Börja från frågor för QA → Quality Assurance",
         "next_steps": ["M4", "Pipeline"],
@@ -52,6 +65,7 @@ ENTRY_POINT_REQUIREMENTS = {
     },
     "pipeline": {
         "requires_source_file": True,
+        "requires_materials_folder": False,
         "next_module": None,  # → Pipeline direkt
         "description": "Validera och exportera färdiga frågor direkt",
         "next_steps": ["Step1", "Step2", "Step3", "Step4"],
@@ -68,7 +82,7 @@ def validate_entry_point(
     """Validate entry point and source_file/materials_folder combination.
 
     Args:
-        entry_point: One of "m1", "m2", "m3", "m4", "pipeline"
+        entry_point: One of "setup", "m1", "m2", "m3", "m4", "pipeline"
         source_file: Path to source file (required for m2/m3/m4/pipeline)
         materials_folder: Path to materials folder (required for m1)
 
@@ -84,13 +98,28 @@ def validate_entry_point(
 
     config = ENTRY_POINT_REQUIREMENTS[entry_point]
 
+    # ADR-015: "setup" entry point requires nothing
+    if entry_point == "setup":
+        if source_file:
+            logger.info(
+                f"source_file provided for 'setup' entry point - "
+                f"use step0_add_file after project creation instead."
+            )
+        if materials_folder:
+            logger.info(
+                f"materials_folder provided for 'setup' entry point - "
+                f"use step0_add_file after project creation instead."
+            )
+        return  # No requirements for setup
+
     # m1 requires materials_folder
     if entry_point == "m1":
         if not materials_folder:
             raise ValueError(
                 f"Entry point 'm1' requires materials_folder.\n"
                 f"Description: {config['description']}\n"
-                f"Expected workflow: {' → '.join(config['next_steps'])}"
+                f"Expected workflow: {' → '.join(config['next_steps'])}\n"
+                f"Tip: Use entry_point='setup' to create project first, then add files."
             )
         if source_file:
             # source_file for m1 is treated as a reference document (e.g., syllabus)
@@ -104,7 +133,8 @@ def validate_entry_point(
         raise ValueError(
             f"Entry point '{entry_point}' requires source_file.\n"
             f"Description: {config['description']}\n"
-            f"Expected workflow: {' → '.join(config['next_steps'])}"
+            f"Expected workflow: {' → '.join(config['next_steps'])}\n"
+            f"Tip: Use entry_point='setup' to create project first, then add files."
         )
 
     # Warn if materials_folder provided for non-m1

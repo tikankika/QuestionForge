@@ -45,6 +45,9 @@ from .tools import (
     get_session_status_tool,
     load_session_tool,
     get_current_session,
+    # Step 0 tools - ADR-015 Flexible Project Initialization
+    step0_add_file,
+    step0_analyze,
     # Step 1 tools - RFC-013 core
     step1_start,
     step1_status,
@@ -98,7 +101,8 @@ async def list_tools() -> List[Tool]:
             name="step0_start",
             description=(
                 "Start a new session OR load existing. "
-                "For new: provide output_folder + entry_point (+ source_file for m2/m3/m4/pipeline OR materials_folder for m1). "
+                "For new: provide output_folder + entry_point. "
+                "ADR-015: Use entry_point='setup' to create empty project, then add files with step0_add_file. "
                 "source_file can be a local path OR a URL (auto-fetched as .md). "
                 "For existing: provide project_path."
             ),
@@ -111,7 +115,7 @@ async def list_tools() -> List[Tool]:
                     },
                     "source_file": {
                         "type": "string",
-                        "description": "NEW SESSION: Path OR URL to source (required for m2/m3/m4/pipeline). URLs auto-fetched to .md",
+                        "description": "NEW SESSION: Path OR URL to source (required for m2/m3/m4/pipeline, optional for setup). URLs auto-fetched to .md",
                     },
                     "project_name": {
                         "type": "string",
@@ -121,10 +125,11 @@ async def list_tools() -> List[Tool]:
                         "type": "string",
                         "description": (
                             "NEW SESSION: Entry point - "
+                            "'setup' (tomt projekt, ADR-015), "
                             "'m1' (material), 'm2' (lärandemål), 'm3' (blueprint), 'm4' (QA), 'pipeline' (direkt). "
                             "Default: 'pipeline'"
                         ),
-                        "enum": ["m1", "m2", "m3", "m4", "pipeline"],
+                        "enum": ["setup", "m1", "m2", "m3", "m4", "pipeline"],
                     },
                     "materials_folder": {
                         "type": "string",
@@ -135,6 +140,56 @@ async def list_tools() -> List[Tool]:
                         "description": "LOAD SESSION: Path to existing project directory",
                     },
                 },
+            },
+        ),
+        Tool(
+            name="step0_add_file",
+            description=(
+                "ADR-015: Add a file to an existing project. "
+                "Can be called multiple times. "
+                "Auto-detects file type and places in correct folder. "
+                "Returns conversion hints if file needs MarkItDown."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Path to project directory",
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to file to add (local path)",
+                    },
+                    "file_type": {
+                        "type": "string",
+                        "description": "File type hint: 'auto', 'questions', 'materials', 'resources', 'blueprint'. Default: 'auto'",
+                        "enum": ["auto", "questions", "materials", "resources", "blueprint"],
+                    },
+                    "target_folder": {
+                        "type": "string",
+                        "description": "Target folder: 'auto', 'questions', 'materials', 'questions/resources'. Default: 'auto'",
+                    },
+                },
+                "required": ["project_path", "file_path"],
+            },
+        ),
+        Tool(
+            name="step0_analyze",
+            description=(
+                "ADR-015: Analyze project contents and recommend workflow. "
+                "Call after adding files with step0_add_file. "
+                "Returns recommended entry point based on what files exist."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Path to project directory",
+                    },
+                },
+                "required": ["project_path"],
             },
         ),
         Tool(
@@ -463,6 +518,10 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await handle_init()
         elif name == "step0_start":
             return await handle_step0_start(arguments)
+        elif name == "step0_add_file":
+            return await handle_step0_add_file(arguments)
+        elif name == "step0_analyze":
+            return await handle_step0_analyze(arguments)
         elif name == "step0_status":
             return await handle_step0_status(arguments)
         elif name == "step2_validate":
@@ -795,6 +854,133 @@ async def handle_step0_status(arguments: dict) -> List[TextContent]:
         return [TextContent(
             type="text",
             text="Ingen aktiv session. Anvand step0_start for att borja."
+        )]
+
+
+async def handle_step0_add_file(arguments: dict) -> List[TextContent]:
+    """Handle step0_add_file - add file to existing project (ADR-015)."""
+    project_path = arguments.get("project_path")
+    file_path = arguments.get("file_path")
+
+    if not project_path:
+        return [TextContent(
+            type="text",
+            text="Fel: project_path krävs. Ange sökväg till projektmappen."
+        )]
+
+    if not file_path:
+        return [TextContent(
+            type="text",
+            text="Fel: file_path krävs. Ange sökväg till filen som ska läggas till."
+        )]
+
+    result = await step0_add_file(
+        project_path=project_path,
+        file_path=file_path,
+        file_type=arguments.get("file_type", "auto"),
+        target_folder=arguments.get("target_folder", "auto"),
+    )
+
+    if result.get("success"):
+        file_info = result.get("file_added", {})
+        lines = [
+            "✅ FIL TILLAGD",
+            "",
+            f"Original: {file_info.get('original')}",
+            f"Kopierad till: {file_info.get('copied_to')}",
+            f"Filtyp: {file_info.get('file_type')}",
+            "",
+        ]
+
+        if result.get("needs_conversion"):
+            lines.append("⚠️ KONVERTERING KRÄVS")
+            lines.append(result.get("conversion_hint", ""))
+            lines.append("")
+
+        lines.append(f"Nästa steg: {result.get('next_step', 'step0_analyze()')}")
+
+        return [TextContent(type="text", text="\n".join(lines))]
+    else:
+        error = result.get("error", {})
+        return [TextContent(
+            type="text",
+            text=f"❌ Fel: {error.get('message', 'Okänt fel')}"
+        )]
+
+
+async def handle_step0_analyze(arguments: dict) -> List[TextContent]:
+    """Handle step0_analyze - analyze project and recommend workflow (ADR-015)."""
+    project_path = arguments.get("project_path")
+
+    if not project_path:
+        return [TextContent(
+            type="text",
+            text="Fel: project_path krävs. Ange sökväg till projektmappen."
+        )]
+
+    result = await step0_analyze(project_path=project_path)
+
+    if result.get("success"):
+        analysis = result.get("analysis", {})
+        recommendation = result.get("recommendation", {})
+
+        lines = [
+            "=" * 50,
+            "PROJEKTANALYS (ADR-015)",
+            "=" * 50,
+            "",
+            f"📁 Projekt: {result.get('project_path')}",
+            "",
+            "INNEHÅLL:",
+            f"  📚 Material: {analysis.get('materials_count', 0)} filer",
+            f"  📝 Frågor: {analysis.get('questions_count', 0)} filer",
+            f"  🖼️  Resurser: {analysis.get('resources_count', 0)} filer",
+            "",
+        ]
+
+        # Show questions details if any
+        if analysis.get("questions"):
+            lines.append("FRÅGE-FILER:")
+            for q in analysis.get("questions", []):
+                estimated = q.get("estimated_questions")
+                est_str = f" (~{estimated} frågor)" if estimated else ""
+                conv_str = " ⚠️ behöver konverteras" if q.get("needs_conversion") else ""
+                lines.append(f"  - {q.get('name')}{est_str}{conv_str}")
+            lines.append("")
+
+        # Show recommendation
+        lines.append("-" * 50)
+        lines.append("REKOMMENDATION")
+        lines.append("-" * 50)
+        lines.append("")
+        lines.append(f"Status: {recommendation.get('status', 'unknown')}")
+        lines.append(f"Meddelande: {recommendation.get('message', '')}")
+        lines.append("")
+
+        if recommendation.get("recommended_flow"):
+            lines.append(f"🎯 Rekommenderat flöde: {recommendation.get('recommended_flow')}")
+
+        if recommendation.get("next_command"):
+            lines.append(f"▶️  Nästa kommando: {recommendation.get('next_command')}")
+
+        if recommendation.get("alternatives"):
+            lines.append("")
+            lines.append("Alternativ:")
+            for alt in recommendation.get("alternatives", []):
+                lines.append(f"  • {alt}")
+
+        if recommendation.get("files_to_convert"):
+            lines.append("")
+            lines.append("⚠️ Filer som behöver konverteras:")
+            for f in recommendation.get("files_to_convert", []):
+                lines.append(f"  - {f}")
+
+        return [TextContent(type="text", text="\n".join(lines))]
+    else:
+        error = result.get("error", {})
+        return [TextContent(
+            type="text",
+            text=f"❌ Fel: {error.get('message', 'Okänt fel')}"
         )]
 
 
