@@ -38,13 +38,14 @@ Current entry points assume a specific workflow:
 ```python
 step0_start(
     entry_point="questions",
-    source_file="prov.docx",              # Questions in any format
+    source_file="source_converted.md",    # Markdown (efter MarkItDown-konvertering)
     resources_folder="/path/to/images/",  # Optional: accompanying resources
     output_folder="/path/to/projects",
-    project_name="Matematik_Prov1",       # Optional
-    auto_convert=True                     # NEW: Auto-convert to markdown (default: True)
+    project_name="Matematik_Prov1"        # Optional
 )
 ```
+
+**OBS:** `source_file` ska vara markdown. Claude konverterar via MarkItDown MCP FÖRE step0_start.
 
 ### Supported Formats
 
@@ -81,24 +82,56 @@ Matematik_Prov1_abc123/
 
 ## Key Decisions (Resolved)
 
-### Decision 1: Auto-Conversion
+### Decision 1: Conversion via Separate MarkItDown MCP
 
-**DECIDED:** Auto-convert with opt-out (`auto_convert=True` default)
+**DECIDED:** Claude orkestrerar konvertering via separat MarkItDown MCP (inte integrerat i qf-pipeline)
 
+**Arkitektur:**
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CLAUDE DESKTOP                                                             │
+│       │                                                                     │
+│       ├── MarkItDown MCP ──── convert_to_markdown(uri)                     │
+│       │         │                                                           │
+│       │         ↓                                                           │
+│       │    docx/xlsx/pdf → markdown                                        │
+│       │         │                                                           │
+│       │         ↓                                                           │
+│       │    Sparar till: questions/source_converted.md                      │
+│       │                                                                     │
+│       └── qf-pipeline MCP ── step0_start(source_file="source_converted.md")│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Workflow (Claude orkestrerar):**
 ```python
+# Steg 1: Lärare ger Claude en Word-fil
+# "Konvertera prov.docx och skapa QF-projekt"
+
+# Steg 2: Claude anropar MarkItDown MCP
+markdown_content = convert_to_markdown("file:///Users/.../prov.docx")
+
+# Steg 3: Claude sparar till projektmappen
+# Sparar till: /Nextcloud/Courses/.../questions/source_converted.md
+
+# Steg 4: Claude anropar qf-pipeline
 step0_start(
     entry_point="questions",
-    source_file="prov.docx",
-    auto_convert=True  # Default: True, set False for manual conversion
+    source_file="/Nextcloud/Courses/.../questions/source_converted.md",
+    resources_folder="/path/to/bilder/"  # Optional
 )
 ```
 
-**Behavior:**
-- `auto_convert=True` (default): step0_start calls MarkItDown MCP automatically
-- `auto_convert=False`: Teacher converts manually, then continues
-- Logged: conversion step tracked in `logs/session.jsonl`
+**Fördelar med separat MCP:**
+- Inga extra dependencies i qf-pipeline
+- MarkItDown underhålls av Microsoft
+- Claude har full kontroll över processen
+- Filen sparas permanent (inte temp)
 
-**Requirement:** MarkItDown MCP must be installed for auto-conversion.
+**Krav:**
+- MarkItDown MCP måste vara installerad och konfigurerad i Claude Desktop
+- Filesystem MCP behövs för att spara den konverterade filen
 
 ### Decision 2: Resource Linking in QFMD
 
@@ -175,14 +208,15 @@ Se på diagrammet nedan och identifiera delen märkt X:
 
 | Scenario | Behavior | User Message |
 |----------|----------|--------------|
-| Source file not found | ABORT | `"Källfil 'prov.docx' hittades inte: {path}"` |
-| Source file unreadable | ABORT | `"Kan inte läsa 'prov.docx': åtkomst nekad"` |
+| Source file not found | ABORT | `"Källfil hittades inte: {path}"` |
+| Source file unreadable | ABORT | `"Kan inte läsa källfil: åtkomst nekad"` |
+| Source file not markdown | WARNING | `"⚠️ Källfil är inte markdown. Claude bör konvertera via MarkItDown MCP först."` |
 | Resources folder not found | CONTINUE (warning) | `"⚠️ Resursmapp hittades inte, fortsätter utan resurser"` |
 | Resource file too large (>50MB) | SKIP file (warning) | `"⚠️ Hoppade över 'video.mp4' (85MB > 50MB gräns)"` |
 | Total resources too large (>500MB) | ABORT | `"Totala resurser 650MB överskrider 500MB gräns"` |
-| Format conversion fails | ABORT | `"MarkItDown-konvertering misslyckades för 'prov.docx'. Försök konvertera manuellt."` |
 | Duplicate resource names | ABORT | `"Dublett: 'fig1.png' finns redan i resursmappen"` |
-| MarkItDown MCP not installed | ABORT (if auto_convert=True) | `"MarkItDown MCP krävs för auto-konvertering. Installera eller använd auto_convert=False"` |
+
+**OBS:** Konverteringsfel hanteras av Claude + MarkItDown MCP, inte av qf-pipeline.
 
 ### Resource Limits
 
@@ -227,23 +261,44 @@ except Exception as e:
 
 ## Workflow
 
-### Step 0: Project Setup with Auto-Conversion
+### Komplett Workflow (Claude Orkestrerar)
 
 ```
-step0_start(entry_point="questions", source_file="prov.docx", resources_folder="./bilder/")
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEG 1: Lärare ber om hjälp                                                │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  Lärare: "Jag har ett prov i Word-format som jag vill göra om till Inspera"│
+│          📎 Fil: /Nextcloud/Courses/Matematik/prov.docx                     │
+│          📎 Bilder: /Nextcloud/Courses/Matematik/bilder/                    │
+└─────────────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ ✅ PROJEKT SKAPAT                                                           │
-│ ────────────────────────────────────────────────────────────────────────── │
-│ 📁 Projekt: Matematik_Prov1_abc123/                                         │
-│ 📄 Frågor:  questions/source_original.docx (574 KB)                         │
-│ 🖼️  Resurser: questions/resources/ (8 filer, 2.3 MB)                        │
-│     └── figur1.png, figur2.png, graf.svg, ...                               │
+│  STEG 2: Claude konverterar med MarkItDown MCP                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  Claude: "Jag konverterar Word-filen till markdown..."                      │
 │                                                                             │
-│ ✅ AUTO-KONVERTERING                                                        │
-│ ────────────────────────────────────────────────────────────────────────── │
-│ 📝 Konverterad: questions/source_converted.md                               │
-│ 📊 Detekterat: 20 frågor, format okänt (kräver M5-analys)                   │
+│  → Anropar MarkItDown: convert_to_markdown("file:///Nextcloud/.../prov.docx")│
+│  → Får tillbaka markdown-text                                               │
+│  → Sparar till: /Nextcloud/Courses/Matematik/questions/source_converted.md │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEG 3: Claude skapar QF-projekt med qf-pipeline MCP                       │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  → Anropar qf-pipeline: step0_start(                                        │
+│        entry_point="questions",                                             │
+│        source_file="/Nextcloud/.../questions/source_converted.md",          │
+│        resources_folder="/Nextcloud/.../bilder/"                            │
+│     )                                                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEG 4: qf-pipeline returnerar projektinfo                                 │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│ ✅ PROJEKT SKAPAT                                                           │
+│ 📁 Projekt: Matematik_Prov1_abc123/                                         │
+│ 📄 Frågor:  questions/source_converted.md                                   │
+│ 🖼️  Resurser: questions/resources/ (8 filer, 2.3 MB)                        │
 │                                                                             │
 │ ════════════════════════════════════════════════════════════════════════   │
 │ 📋 VAD VILL DU GÖRA MED FRÅGORNA?                                           │
@@ -252,15 +307,12 @@ step0_start(entry_point="questions", source_file="prov.docx", resources_folder="
 │ ┌─────────────────────────────────────────────────────────────────────┐    │
 │ │ 1️⃣  DEFINIERA TAXONOMI (→ M2)                                       │    │
 │ │     Välj detta om frågorna saknar taggar/kategorier                 │    │
-│ │     "Jag behöver skapa ett kategoriseringssystem först"             │    │
 │ ├─────────────────────────────────────────────────────────────────────┤    │
 │ │ 2️⃣  GRANSKA & METADATA (→ M4)                                       │    │
 │ │     Välj detta om frågorna behöver Bloom-nivåer, svårighetsgrad     │    │
-│ │     "Frågorna finns men behöver pedagogisk granskning"              │    │
 │ ├─────────────────────────────────────────────────────────────────────┤    │
 │ │ 3️⃣  KONVERTERA DIREKT (→ M5 → Pipeline)                             │    │
 │ │     Välj detta om frågorna redan har all metadata                   │    │
-│ │     "Frågorna är kompletta, vill bara exportera till Inspera"       │    │
 │ └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                             │
 │ 💡 Tips: Berätta vad som finns i dina frågor så hjälper jag dig välja!     │
@@ -333,11 +385,7 @@ step0_start(entry_point="questions", source_file="prov.docx", resources_folder="
     "type": "string",
     "description": "Path to folder with resources (images, audio) for questions",
 },
-"auto_convert": {
-    "type": "boolean",
-    "default": True,
-    "description": "Auto-convert non-markdown files via MarkItDown (default: True)",
-},
+# OBS: Ingen auto_convert parameter - Claude konverterar via MarkItDown MCP först
 ```
 
 **File:** `packages/qf-pipeline/src/qf_pipeline/utils/session_manager.py`
@@ -348,9 +396,11 @@ def create_session_for_questions(
     source_file: Path,
     resources_folder: Optional[Path] = None,
     project_name: Optional[str] = None,
-    auto_convert: bool = True,
 ) -> Session:
-    """Create session for 'questions' entry point."""
+    """Create session for 'questions' entry point.
+
+    OBS: source_file ska vara markdown (Claude konverterar via MarkItDown MCP först).
+    """
 
     # Validate source file exists
     if not source_file.exists():
@@ -358,6 +408,12 @@ def create_session_for_questions(
 
     if not source_file.is_file():
         raise ValueError(f"Källfil är inte en fil: {source_file}")
+
+    # Warn if not markdown (Claude should have converted first)
+    if source_file.suffix.lower() not in [".md", ".markdown"]:
+        log_warning("non_markdown_source",
+            f"source_file '{source_file.name}' är inte markdown. "
+            "Claude bör konvertera via MarkItDown MCP först.")
 
     project_path = None
     try:
@@ -368,8 +424,8 @@ def create_session_for_questions(
         questions_dir = project_path / "questions"
         questions_dir.mkdir(exist_ok=True)
 
-        # 3. Copy source file
-        dest_source = questions_dir / f"source_original{source_file.suffix}"
+        # 3. Copy source file (already markdown from MarkItDown)
+        dest_source = questions_dir / f"source_converted{source_file.suffix}"
         shutil.copy2(source_file, dest_source)
 
         # 4. Copy resources if provided
@@ -381,26 +437,19 @@ def create_session_for_questions(
             else:
                 log_warning("resources_folder_not_found", str(resources_folder))
 
-        # 5. Auto-convert if enabled and not markdown
-        converted_file = None
-        if auto_convert and source_file.suffix.lower() not in [".md", ".markdown"]:
-            converted_file = convert_with_markitdown(dest_source, questions_dir)
-
-        # 6. Create session
+        # 5. Create session
         session = Session(
             project_path=project_path,
             entry_point="questions",
             source_file=dest_source,
-            converted_file=converted_file,
             resources=resources_result,
         )
         session.save()
 
-        # 7. Log success
+        # 6. Log success
         log_event("project_created", {
             "entry_point": "questions",
             "source_file": str(dest_source),
-            "auto_converted": converted_file is not None,
             "resources_copied": resources_result["copied"] if resources_result else [],
         })
 
@@ -512,56 +561,42 @@ def copy_resources(src_folder: Path, dest_folder: Path) -> dict:
     }
 ```
 
-### Phase 3: MarkItDown Integration
+### Phase 3: MarkItDown MCP (Separat Installation)
 
-**File:** `packages/qf-pipeline/src/qf_pipeline/utils/conversion.py` (NEW)
+**OBS:** MarkItDown är en SEPARAT MCP-server, inte integrerad i qf-pipeline.
 
+**Installation:** Se `docs/guides/markitdown-mcp-installation.md`
+
+**Claude Desktop konfiguration:**
+```json
+{
+  "mcpServers": {
+    "markitdown": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-v", "/Users/niklaskarlsson/Nextcloud/Courses:/workdir:ro",
+        "markitdown-mcp:latest"
+      ]
+    }
+  }
+}
+```
+
+**Hur Claude använder det:**
 ```python
-from pathlib import Path
-from typing import Optional
-import subprocess
-import json
+# Claude anropar MarkItDown MCP
+markdown_content = convert_to_markdown("file:///workdir/Matematik/prov.docx")
 
+# Claude sparar resultatet till projektmappen
+# (via Filesystem MCP eller direkt i chatten)
+# Sparar till: /Nextcloud/Courses/Matematik/questions/source_converted.md
 
-def convert_with_markitdown(source_file: Path, output_dir: Path) -> Path:
-    """
-    Convert document to markdown using MarkItDown MCP.
-
-    Args:
-        source_file: Path to source document (docx, xlsx, pdf, etc.)
-        output_dir: Directory to save converted markdown
-
-    Returns:
-        Path to converted markdown file
-
-    Raises:
-        RuntimeError: If conversion fails
-    """
-    output_file = output_dir / "source_converted.md"
-
-    try:
-        # Call MarkItDown MCP via subprocess or direct integration
-        # Implementation depends on how MarkItDown MCP is integrated
-
-        # Option A: Direct Python call (if markitdown installed)
-        from markitdown import MarkItDown
-        md = MarkItDown()
-        result = md.convert(str(source_file))
-        output_file.write_text(result.text_content, encoding="utf-8")
-
-    except ImportError:
-        # Option B: MCP call (if running as MCP server)
-        raise RuntimeError(
-            "MarkItDown ej tillgänglig. "
-            "Installera med: pip install markitdown "
-            "eller använd auto_convert=False"
-        )
-    except Exception as e:
-        raise RuntimeError(
-            f"MarkItDown-konvertering misslyckades för '{source_file.name}': {e}"
-        )
-
-    return output_file
+# Sen anropar Claude qf-pipeline
+step0_start(
+    entry_point="questions",
+    source_file="/Nextcloud/Courses/Matematik/questions/source_converted.md"
+)
 ```
 
 ---
@@ -576,11 +611,10 @@ session:
   created_at: "2026-01-29T15:30:00Z"
 
   source:
-    original_file: "questions/source_original.docx"
-    original_format: "docx"
-    converted_file: "questions/source_converted.md"
-    auto_converted: true
-    conversion_tool: "markitdown"
+    # OBS: Filen är redan markdown (Claude konverterade via MarkItDown MCP)
+    file: "questions/source_converted.md"
+    original_format: "md"
+    # Original-filen (docx/pdf) ligger kvar i Nextcloud, inte kopierad hit
 
   resources:
     folder: "questions/resources/"
@@ -802,29 +836,37 @@ echo "✅ Test 3 workflow documented"
 
 | Phase | Description | Estimate |
 |-------|-------------|----------|
-| 1 | Core entry point + `auto_convert` param | 2h |
+| 1 | Core entry point `questions` | 1.5h |
 | 2 | Resource copying with validation | 1.5h |
-| 3 | MarkItDown integration | 1.5h |
-| 4 | Session.yaml updates | 1h |
-| 5 | Error handling + rollback | 1h |
-| 6 | Integration testing | 2h |
-| **Total** | | **9h** |
+| 3 | Session.yaml updates | 0.5h |
+| 4 | Error handling + rollback | 0.5h |
+| 5 | Integration testing | 1h |
+| **Subtotal qf-pipeline** | | **5h** |
+| 6 | MarkItDown MCP installation (separat) | 1h |
+| **Total** | | **6h** |
+
+**OBS:** Konverteringslogik är nu i MarkItDown MCP (separat), inte i qf-pipeline.
 
 ---
 
 ## Summary
 
 RFC-017 introduces:
-1. **New entry point `questions`** for existing questions in any format
+1. **New entry point `questions`** for existing questions (markdown format)
 2. **`resources_folder` parameter** for accompanying images/audio
-3. **`auto_convert` parameter** with automatic MarkItDown conversion (default: True)
+3. **Claude-orkestrerad konvertering** via separat MarkItDown MCP
 4. **Flexible routing** to M2, M4, or M5 based on teacher needs
 5. **`questions/resources/` folder** in project structure
 6. **Resource linking syntax** in QFMD: `![](resources/filename)`
 7. **Comprehensive error handling** with rollback on failure
 
+**Arkitektur:**
+- MarkItDown MCP (separat): docx/xlsx/pdf → markdown
+- qf-pipeline: tar emot markdown, hanterar resurser, kör M5 → Pipeline
+- Claude: orkestrerar hela flödet
+
 This fills the gap for teachers who have existing questions but don't fit the current M1→M2→M3→M4→Pipeline workflow.
 
 ---
 
-*RFC-017 created 2026-01-29, updated 2026-01-30 after scrutiny review*
+*RFC-017 created 2026-01-29, updated 2026-01-30 (MarkItDown som separat MCP, Claude orkestrerar)*
