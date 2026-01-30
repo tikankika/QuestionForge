@@ -806,9 +806,21 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
             else:
                 # entry_point="setup" - ADR-015 flexible initialization
                 next_steps = (
-                    f"Nästa steg (ADR-015):\n"
-                    f"  1. step0_add_file: Lägg till filer i projektet\n"
-                    f"  2. step0_analyze: Få rekommenderat arbetsflöde"
+                    "═══════════════════════════════════════════════════════\n"
+                    "FRÅGA LÄRAREN: Vilka filer ska läggas till?\n"
+                    "═══════════════════════════════════════════════════════\n\n"
+                    "📝 PROV/FRÅGOR att konvertera?\n"
+                    "   (Word, Excel, PDF med befintliga frågor)\n\n"
+                    "📚 UNDERVISNINGSMATERIAL?\n"
+                    "   (Föreläsningar, slides, transkriberingar)\n\n"
+                    "🖼️  RESURSER (bilder, ljud, video)?\n"
+                    "   (Figurer, diagram, ljudklipp till frågorna)\n\n"
+                    "───────────────────────────────────────────────────────\n"
+                    "För varje fil, använd:\n"
+                    "  step0_add_file(project_path=\"...\", file_path=\"...\")\n\n"
+                    "När alla filer är tillagda:\n"
+                    "  step0_analyze(project_path=\"...\")\n"
+                    "  → Systemet rekommenderar rätt arbetsflöde"
                 )
 
         # Build response text
@@ -899,7 +911,17 @@ async def handle_step0_add_file(arguments: dict) -> List[TextContent]:
             lines.append(result.get("conversion_hint", ""))
             lines.append("")
 
-        lines.append(f"Nästa steg: {result.get('next_step', 'step0_analyze()')}")
+        # Ask about more files
+        lines.append("───────────────────────────────────────────────────────")
+        lines.append("FLER FILER ATT LÄGGA TILL?")
+        lines.append("───────────────────────────────────────────────────────")
+        lines.append("")
+        lines.append("📚 Undervisningsmaterial? (slides, föreläsningar)")
+        lines.append("🖼️  Resurser? (bilder, ljud, video till frågorna)")
+        lines.append("📝 Fler prov/frågor?")
+        lines.append("")
+        lines.append("Om JA: Använd step0_add_file igen")
+        lines.append("Om NEJ: Kör step0_analyze för att fortsätta")
 
         return [TextContent(type="text", text="\n".join(lines))]
     else:
