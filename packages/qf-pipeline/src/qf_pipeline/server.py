@@ -571,100 +571,94 @@ async def call_tool(name: str, arguments: dict) -> List[TextContent]:
 # =============================================================================
 
 async def handle_init() -> List[TextContent]:
-    """Handle init tool call - return critical instructions with M1/M2/M3/M4/Pipeline routing."""
-    instructions = """# QuestionForge - Kritiska Instruktioner
+    """Handle init tool call - return critical instructions with simplified ADR-015 flow."""
+    instructions = """# QuestionForge - Kom igång
 
-## FLEXIBEL WORKFLOW
+## REKOMMENDERAT FLÖDE (ADR-015)
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         QUESTIONFORGE                                │
-│                                                                      │
-│   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌──────┐ │
-│   │   M1    │   │   M2    │   │   M3    │   │   M4    │   │Export│ │
-│   │ Analys  │──▶│Blueprint│──▶│ Frågor  │──▶│   QA    │──▶│ QTI  │ │
-│   └────▲────┘   └────▲────┘   └────▲────┘   └────▲────┘   └──▲───┘ │
-│        │             │             │              │           │      │
-│   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐   ┌────┴────┐  ┌───┴───┐ │
-│   │   m1    │   │   m2    │   │   m3    │   │   m4    │  │pipeline│
-│   │Material │   │  Mål    │   │  Plan   │   │Frågor QA│  │ Direkt │
-│   └─────────┘   └─────────┘   └─────────┘   └─────────┘  └───────┘ │
-│                                                                      │
-│         ◀── ── KAN HOPPA MELLAN MODULER ── ──▶                     │
-└─────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│  1. SKAPA PROJEKT                                              │
+│     step0_start(output_folder="...", entry_point="setup")      │
+│                              ↓                                 │
+│  2. LÄGG TILL FILER                                            │
+│     step0_add_file(project_path="...", file_path="...")        │
+│     (kan anropas flera gånger)                                 │
+│                              ↓                                 │
+│  3. FÅ REKOMMENDATION                                          │
+│     step0_analyze(project_path="...")                          │
+│     → Systemet föreslår rätt väg baserat på dina filer         │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-**Entry point = var du STARTAR, men du kan hoppa fritt mellan moduler!**
+## SNABBSTART
 
-## STEG 1: FRÅGA VAD ANVÄNDAREN HAR
+**Fråga läraren:**
+1. "Var ska projektet sparas?" → output_folder
+2. "Vad ska projektet heta?" → project_name (valfritt)
 
-"Vad har du att börja med?"
+**Skapa:**
+```
+step0_start(
+    output_folder="/path/to/projects",
+    project_name="MittProv",
+    entry_point="setup"
+)
+```
 
-**M1) MATERIAL** (föreläsningar, slides, transkriberingar)
-   - Startar: M1 (Content Analysis)
-   - Väg: M1 → M2 → M3 → M4 → Pipeline
-   - source_file: Nej (valfri)
+**Lägg till filer:**
+```
+step0_add_file(
+    project_path="/path/to/MittProv",
+    file_path="/path/to/prov.docx"
+)
+```
+→ Om filen är Word/Excel/PDF: systemet säger att MarkItDown behövs
 
-**M2) LÄRANDEMÅL** (kursplan, Skolverket, etc.)
-   - Startar: M2 (Assessment Design)
-   - Väg: M2 → M3 → M4 → Pipeline
-   - source_file: Ja (fil/URL)
+**Analysera:**
+```
+step0_analyze(project_path="/path/to/MittProv")
+```
+→ Returnerar: "Rekommenderar: M5 → Pipeline" (eller annat baserat på innehåll)
 
-**M3) BLUEPRINT** (bedömningsplan, question matrix)
-   - Startar: M3 (Question Generation)
-   - Väg: M3 → M4 → Pipeline
-   - source_file: Ja (fil/URL)
+## FILTYPER
 
-**M4) FRÅGOR FÖR QA** (frågor som behöver granskas)
-   - Startar: M4 (Quality Assurance)
-   - Väg: M4 → Pipeline
-   - source_file: Ja (fil/URL)
+| Filtyp | Vad händer |
+|--------|------------|
+| .md | Kopieras direkt, analyseras för QFMD-format |
+| .docx/.xlsx/.pdf | Kopieras, flaggas för MarkItDown-konvertering |
+| .png/.jpg/.mp3 | Kopieras till questions/resources/ |
 
-**PIPELINE) FÄRDIGA FRÅGOR** (validera och exportera direkt)
-   - Startar: Step 1-4 (Pipeline)
-   - Hoppar: Alla moduler (M1-M4)
-   - source_file: Ja (fil/URL)
+## MÖJLIGA REKOMMENDATIONER
 
-## MODULER
+| Status | Betydelse | Nästa steg |
+|--------|-----------|------------|
+| `empty` | Inga filer | step0_add_file() |
+| `needs_conversion` | docx/pdf behöver konverteras | MarkItDown MCP |
+| `needs_m5` | Markdown men ej QFMD | m5_start() |
+| `ready_for_pipeline` | QFMD-format, redo | step2_validate() |
+| `needs_m1` | Endast material | load_stage(m1, 0) |
 
-| Modul | Namn | Vad den gör |
-|-------|------|-------------|
-| M1 | Content Analysis | Analyserar material, hittar lärandemål |
-| M2 | Assessment Design | Skapar blueprint, planerar bedömning |
-| M3 | Question Generation | Genererar frågor |
-| M4 | Quality Assurance | Pedagogisk granskning |
+## ALTERNATIVT FLÖDE (om du vet exakt vad du har)
 
-## STEG 2: BEKRÄFTA VAL
-
-INNAN step0_start, bekräfta:
-"Du valde [entry_point] och startar på [modul]. Du kan hoppa mellan moduler. OK?"
-
-## STEG 3: SKAPA SESSION
-
-| Val      | entry_point | source_file |
-|----------|-------------|-------------|
-| Material | "m1"        | Nej (valfri)|
-| Mål      | "m2"        | Ja (fil/URL)|
-| Blueprint| "m3"        | Ja (fil/URL)|
-| QA       | "m4"        | Ja (fil/URL)|
-| Direkt   | "pipeline"  | Ja (fil/URL)|
-
-Fråga:
-- "Var ska projektet sparas?" (output_folder)
-- "Vad ska projektet heta?" (project_name, valfritt)
-- För m2/m3/m4/pipeline: "Var ligger filen?" (source_file) - kan vara URL!
-
-## REGLER
-
-1. **VÄNTA** på svar - GISSA INTE sökvägar!
-2. **BEKRÄFTA** entry point innan step0_start
-3. **VALIDERA** alltid innan export
+| Vad du har | entry_point | Kräver |
+|------------|-------------|--------|
+| Material | "m1" | materials_folder |
+| Lärandemål | "m2" | source_file |
+| Blueprint | "m3" | source_file |
+| Frågor för QA | "m4" | source_file |
+| Färdig QFMD | "pipeline" | source_file |
 
 ## VERKTYG
 
-Session: init, step0_start, step0_status
-Metodologi: list_modules, load_stage, module_status (qf-scaffolding)
-Pipeline: step1_*, step2_validate, step4_export
+**Step 0 (Session):**
+- init, step0_start, step0_add_file, step0_analyze, step0_status
+
+**Metodologi (qf-scaffolding):**
+- load_stage, module_status
+
+**Pipeline:**
+- step2_validate, step3_autofix, step4_export
 """
     return [TextContent(type="text", text=instructions)]
 
