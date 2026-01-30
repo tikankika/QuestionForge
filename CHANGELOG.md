@@ -12,6 +12,22 @@ All notable changes to QuestionForge will be documented in this file.
 - **Fix:** Check if `next_module` is truthy before calling `.upper()`, show ADR-015 instructions instead
 - **File:** `packages/qf-pipeline/src/qf_pipeline/server.py`
 
+### Changed - 2026-01-30
+
+#### ADR-015: Improved UX - Ask about additional files
+- **step0_start with setup:** Now asks about prov/frågor, material, resurser
+- **step0_add_file:** Now asks if there are more files to add
+- **Purpose:** Guide teacher through file collection process before analyze
+- **Response includes:**
+  - 📝 PROV/FRÅGOR att konvertera?
+  - 📚 UNDERVISNINGSMATERIAL?
+  - 🖼️ RESURSER (bilder, ljud, video)?
+
+#### init tool: Simplified documentation
+- Recommend `entry_point="setup"` as default approach
+- Show step0_add_file and step0_analyze workflow
+- Clearer table of file types and recommendations
+
 ### Added - 2026-01-30
 
 #### RFC-017: Entry Point for Existing Questions

@@ -1,6 +1,6 @@
 # ADR-015: Flexible Project Initialization
 
-**Status:** Accepted
+**Status:** Implemented ✅
 **Date:** 2026-01-30
 **Deciders:** Niklas Karlsson, Claude
 **Related:** RFC-017 (Existing Questions Entry Point)
@@ -117,12 +117,46 @@ next_step: "Kör m5_start() för att börja formatkonvertering"
 
 ## Implementation
 
-1. Update `step0_start` to make `entry_point` and `source_file` optional
-2. Add `step0_add_file` tool with MarkItDown integration
-3. Add `step0_analyze` tool with content detection
-4. Update session.yaml to track added files
-5. Update CLAUDE.md workflow documentation
+1. ✅ Update `step0_start` to make `entry_point` and `source_file` optional
+2. ✅ Add `step0_add_file` tool with MarkItDown integration
+3. ✅ Add `step0_analyze` tool with content detection
+4. ✅ Update session.yaml to track added files
+5. ✅ Update `init` tool documentation
 
 ---
 
-*ADR-015 created 2026-01-30*
+## UX: Guided File Collection
+
+After `step0_start(entry_point="setup")`, the system prompts:
+
+```
+═══════════════════════════════════════════════════════
+FRÅGA LÄRAREN: Vilka filer ska läggas till?
+═══════════════════════════════════════════════════════
+
+📝 PROV/FRÅGOR att konvertera?
+   (Word, Excel, PDF med befintliga frågor)
+
+📚 UNDERVISNINGSMATERIAL?
+   (Föreläsningar, slides, transkriberingar)
+
+🖼️  RESURSER (bilder, ljud, video)?
+   (Figurer, diagram, ljudklipp till frågorna)
+```
+
+After each `step0_add_file()`, the system asks:
+
+```
+FLER FILER ATT LÄGGA TILL?
+
+📚 Undervisningsmaterial? (slides, föreläsningar)
+🖼️  Resurser? (bilder, ljud, video till frågorna)
+📝 Fler prov/frågor?
+
+Om JA: Använd step0_add_file igen
+Om NEJ: Kör step0_analyze för att fortsätta
+```
+
+---
+
+*ADR-015 created 2026-01-30, implemented 2026-01-30*
