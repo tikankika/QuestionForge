@@ -4,6 +4,42 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-01-30
+
+#### RFC-017: Entry Point for Existing Questions
+- **New entry point:** `questions` for teachers with existing questions in various formats
+- **Architecture:** Claude orchestrates conversion via separate MarkItDown MCP
+- **Workflow:**
+  1. Teacher provides file (docx/xlsx/pdf)
+  2. Claude converts via MarkItDown MCP → markdown
+  3. Claude creates QF project via `step0_start(entry_point="questions")`
+  4. M5 → Pipeline → QTI export
+- **Key decisions:**
+  - MarkItDown is SEPARATE MCP (not integrated in qf-pipeline)
+  - `source_file` must be markdown (Claude converts first)
+  - Resources copied to `questions/resources/`
+  - Flexible routing to M2, M4, or M5 based on teacher needs
+- **RFC:** `docs/rfcs/RFC-017-existing-questions-entry-point.md`
+
+#### MarkItDown MCP Installed
+- **Feature:** Microsoft's MarkItDown MCP now installed and configured
+- **Purpose:** Convert documents (docx, xlsx, pdf, pptx) to markdown
+- **Configuration:** Added to Claude Desktop config
+- **Usage:** `convert_to_markdown("file:///path/to/file.docx")`
+- **Formats supported:** 29+ formats including Office documents, PDFs, images
+- **Guide:** `docs/guides/markitdown-mcp-installation.md`
+
+### Discovered - 2026-01-30
+
+#### Architecture Gap: Project Setup Without Source File
+- **Problem:** All entry points (m1, m2, m3, m4, pipeline) require source files at creation
+- **Scenario:** Teacher wants to create project first, then add materials later
+- **Current limitation:**
+  - `m1` requires `materials_folder`
+  - `m3` requires `source_file` (blueprint)
+  - No way to create empty project shell
+- **Status:** Identified, needs RFC for flexible project initialization
+
 ### Fixed - 2026-01-28
 
 #### M5 Format Learner Bug Fixes (BUG 1 & BUG 2)
