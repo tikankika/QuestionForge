@@ -4,6 +4,14 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed - 2026-01-30
+
+#### Bug: step0_start crashed when entry_point="setup"
+- **Problem:** `AttributeError: 'NoneType' object has no attribute 'upper'`
+- **Cause:** When `entry_point="setup"`, `next_module` is `None`, but code tried to call `.upper()` on it
+- **Fix:** Check if `next_module` is truthy before calling `.upper()`, show ADR-015 instructions instead
+- **File:** `packages/qf-pipeline/src/qf_pipeline/server.py`
+
 ### Added - 2026-01-30
 
 #### RFC-017: Entry Point for Existing Questions

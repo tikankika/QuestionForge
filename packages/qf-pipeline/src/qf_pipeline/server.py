@@ -796,12 +796,20 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
                 "  2. step4_export: Exportera till QTI"
             )
         else:
-            next_module = result.get('next_module', 'm1')
-            next_steps = (
-                f"Nästa steg (qf-scaffolding):\n"
-                f"  1. list_modules: Visa tillgängliga moduler\n"
-                f"  2. load_stage({next_module}, 0): Börja med {next_module.upper()}"
-            )
+            next_module = result.get('next_module')
+            if next_module:
+                next_steps = (
+                    f"Nästa steg (qf-scaffolding):\n"
+                    f"  1. list_modules: Visa tillgängliga moduler\n"
+                    f"  2. load_stage({next_module}, 0): Börja med {next_module.upper()}"
+                )
+            else:
+                # entry_point="setup" - ADR-015 flexible initialization
+                next_steps = (
+                    f"Nästa steg (ADR-015):\n"
+                    f"  1. step0_add_file: Lägg till filer i projektet\n"
+                    f"  2. step0_analyze: Få rekommenderat arbetsflöde"
+                )
 
         # Build response text
         response_text = (
