@@ -12,6 +12,17 @@ All notable changes to QuestionForge will be documented in this file.
 - **Fix:** Check if `next_module` is truthy before calling `.upper()`, show ADR-015 instructions instead
 - **File:** `packages/qf-pipeline/src/qf_pipeline/server.py`
 
+### Changed - 2026-01-31
+
+#### ADR-015: Better UX when source_file provided with setup entry point
+- **Problem:** When calling `step0_start(entry_point="setup", source_file="...")`, the file was copied but the response showed the generic "FRÅGA LÄRAREN: Vilka filer ska läggas till?" message
+- **Solution:**
+  - If source_file provided with setup: Show "✅ FIL TILLAGD! Finns det fler filer?"
+  - Still asks about additional files (material, resurser)
+  - Shows correct project_path in the instructions
+- **Files:** `server.py`, `session_manager.py`
+- **Why:** Claude Desktop may provide both entry_point="setup" AND source_file in same call
+
 ### Changed - 2026-01-30
 
 #### ADR-015: Improved UX - Ask about additional files

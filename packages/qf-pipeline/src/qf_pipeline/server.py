@@ -805,23 +805,45 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
                 )
             else:
                 # entry_point="setup" - ADR-015 flexible initialization
-                next_steps = (
-                    "═══════════════════════════════════════════════════════\n"
-                    "FRÅGA LÄRAREN: Vilka filer ska läggas till?\n"
-                    "═══════════════════════════════════════════════════════\n\n"
-                    "📝 PROV/FRÅGOR att konvertera?\n"
-                    "   (Word, Excel, PDF med befintliga frågor)\n\n"
-                    "📚 UNDERVISNINGSMATERIAL?\n"
-                    "   (Föreläsningar, slides, transkriberingar)\n\n"
-                    "🖼️  RESURSER (bilder, ljud, video)?\n"
-                    "   (Figurer, diagram, ljudklipp till frågorna)\n\n"
-                    "───────────────────────────────────────────────────────\n"
-                    "För varje fil, använd:\n"
-                    "  step0_add_file(project_path=\"...\", file_path=\"...\")\n\n"
-                    "När alla filer är tillagda:\n"
-                    "  step0_analyze(project_path=\"...\")\n"
-                    "  → Systemet rekommenderar rätt arbetsflöde"
-                )
+                # Check if source_file was already provided
+                if result.get('questions_file') or arguments.get('source_file'):
+                    # File was provided with setup - confirm it was added
+                    next_steps = (
+                        "═══════════════════════════════════════════════════════\n"
+                        "✅ FIL TILLAGD! Finns det fler filer?\n"
+                        "═══════════════════════════════════════════════════════\n\n"
+                        "📚 UNDERVISNINGSMATERIAL?\n"
+                        "   (Föreläsningar, slides, transkriptioner)\n\n"
+                        "🖼️  RESURSER (bilder, ljud, video)?\n"
+                        "   (Figurer, diagram, ljudklipp till frågorna)\n\n"
+                        "📝 FLER PROV/FRÅGOR?\n"
+                        "   (Fler Word/Excel/PDF-filer)\n\n"
+                        "───────────────────────────────────────────────────────\n"
+                        "Om JA - lägg till fler filer:\n"
+                        f"  step0_add_file(project_path=\"{result['project_path']}\", file_path=\"...\")\n\n"
+                        "Om NEJ - analysera och fortsätt:\n"
+                        f"  step0_analyze(project_path=\"{result['project_path']}\")\n"
+                        "  → Systemet rekommenderar rätt arbetsflöde"
+                    )
+                else:
+                    # Empty project created
+                    next_steps = (
+                        "═══════════════════════════════════════════════════════\n"
+                        "FRÅGA LÄRAREN: Vilka filer ska läggas till?\n"
+                        "═══════════════════════════════════════════════════════\n\n"
+                        "📝 PROV/FRÅGOR att konvertera?\n"
+                        "   (Word, Excel, PDF med befintliga frågor)\n\n"
+                        "📚 UNDERVISNINGSMATERIAL?\n"
+                        "   (Föreläsningar, slides, transkriberingar)\n\n"
+                        "🖼️  RESURSER (bilder, ljud, video)?\n"
+                        "   (Figurer, diagram, ljudklipp till frågorna)\n\n"
+                        "───────────────────────────────────────────────────────\n"
+                        "För varje fil, använd:\n"
+                        f"  step0_add_file(project_path=\"{result['project_path']}\", file_path=\"...\")\n\n"
+                        "När alla filer är tillagda:\n"
+                        f"  step0_analyze(project_path=\"{result['project_path']}\")\n"
+                        "  → Systemet rekommenderar rätt arbetsflöde"
+                    )
 
         # Build response text
         response_text = (

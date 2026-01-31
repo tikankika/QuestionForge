@@ -98,19 +98,13 @@ def validate_entry_point(
 
     config = ENTRY_POINT_REQUIREMENTS[entry_point]
 
-    # ADR-015: "setup" entry point requires nothing
+    # ADR-015: "setup" entry point requires nothing, but accepts files
     if entry_point == "setup":
         if source_file:
-            logger.info(
-                f"source_file provided for 'setup' entry point - "
-                f"use step0_add_file after project creation instead."
-            )
+            logger.info(f"ADR-015: source_file provided with setup - will copy to questions/")
         if materials_folder:
-            logger.info(
-                f"materials_folder provided for 'setup' entry point - "
-                f"use step0_add_file after project creation instead."
-            )
-        return  # No requirements for setup
+            logger.info(f"ADR-015: materials_folder provided with setup - will copy to materials/")
+        return  # No requirements for setup, but files are welcomed
 
     # m1 requires materials_folder
     if entry_point == "m1":
