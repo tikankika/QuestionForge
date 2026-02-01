@@ -14,11 +14,14 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Changed - 2026-02-01
 
-#### LaTeX Formatting for Inspera (FORMAT_REFERENCE.md)
-- **Problem:** Inspera doesn't render standard LaTeX `$...$` syntax
-- **Solution:** Updated FORMAT_REFERENCE.md with Inspera-specific syntax
-- **Format:** Use `\(...\)` for inline math, `\[...\]` for display math
-- **Examples:** Updated all math examples in the format guide
+#### Math in Inspera: Unicode instead of LaTeX (FORMAT_REFERENCE.md)
+- **Discovery:** LaTeX (`\(...\)` or `$...$`) in question text does NOT render in Inspera after QTI import
+- **Reason:** Inspera requires using the Math Editor (Σ button) for formulas, not raw LaTeX
+- **Solution:** Use Unicode characters for simple math in question text
+- **Examples:** `4x²` instead of `\(4x^2\)`, `·` for multiplication
+- **Added:** Unicode character reference (exponents, operators, Greek letters)
+- **Workaround:** For complex formulas, edit in Inspera's Math Editor after import
+- **Reference:** [LaTeX/Mathematics - Wikibooks](https://en.wikibooks.org/wiki/LaTeX/Mathematics)
 - **File:** `methodology/m5/FORMAT_REFERENCE.md`
 
 #### step4_export: Custom Output Name Parameter
