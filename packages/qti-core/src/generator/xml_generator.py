@@ -1044,11 +1044,21 @@ class XMLGenerator:
 
         for blank in blanks:
             blank_id = blank['identifier']
-            correct_answer = self._escape_xml(str(blank['correct_answer']))
+            correct_answer = blank['correct_answer']
+            alternatives = blank.get('alternatives', [])
+
+            # Combine correct answer with alternatives
+            all_answers = [correct_answer] + alternatives
+
+            # Generate <value> tags for all correct answers
+            value_tags = '\n            '.join([
+                f'<value>{self._escape_xml(str(answer))}</value>'
+                for answer in all_answers
+            ])
 
             declaration = f'''<responseDeclaration baseType="string" cardinality="single" identifier="{blank_id}">
         <correctResponse>
-            <value>{correct_answer}</value>
+            {value_tags}
         </correctResponse>
     </responseDeclaration>'''
             declarations.append(declaration)
@@ -1074,21 +1084,37 @@ class XMLGenerator:
         return result
 
     def _generate_text_entry_math_scoring_logic(self, blanks: List[Dict[str, Any]]) -> str:
-        """Generate string matching logic for math entry fields."""
+        """Generate string matching logic for math entry fields with alternatives."""
         logic_blocks = []
 
         for blank in blanks:
             blank_id = blank['identifier']
-            correct_answer = self._escape_xml(str(blank['correct_answer']))
+            correct_answer = blank['correct_answer']
+            alternatives = blank.get('alternatives', [])
             case_sensitive = blank.get('case_sensitive', False)
             case_attr = 'true' if case_sensitive else 'false'
 
+            # Combine correct answer with alternatives
+            all_answers = [correct_answer] + alternatives
+            match_conditions = []
+
+            for answer in all_answers:
+                answer_escaped = self._escape_xml(str(answer))
+                match_condition = f'''<stringMatch caseSensitive="{case_attr}" inspera:ignoredCharacters="">
+                    <baseValue baseType="string">{answer_escaped}</baseValue>
+                    <variable identifier="{blank_id}"/>
+                </stringMatch>'''
+                match_conditions.append(match_condition)
+
+            # If multiple answers, wrap in <or>
+            if len(match_conditions) > 1:
+                condition_logic = '<or>\n                    ' + '\n                    '.join(match_conditions) + '\n                </or>'
+            else:
+                condition_logic = match_conditions[0]
+
             logic_block = f'''<responseCondition>
             <responseIf>
-                <stringMatch caseSensitive="{case_attr}" inspera:ignoredCharacters="">
-                    <baseValue baseType="string">{correct_answer}</baseValue>
-                    <variable identifier="{blank_id}"/>
-                </stringMatch>
+                {condition_logic}
                 <setOutcomeValue identifier="SCORE">
                     <sum>
                         <variable identifier="SCORE"/>

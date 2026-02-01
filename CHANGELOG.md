@@ -6,6 +6,15 @@ All notable changes to QuestionForge will be documented in this file.
 
 ### Fixed - 2026-02-01
 
+#### qti-core: text_entry_math Missing Multiple Correct Answers
+- **Problem:** Only first correct answer exported to QTI XML, alternatives ignored
+- **Symptom:** Inspera showed only "14x + 2y" instead of all variants (14x+2y, 2y+14x, etc.)
+- **Root cause:** `_generate_text_entry_math_*` functions only used `blank['correct_answer']`, ignored `blank['alternatives']`
+- **Fix:** Updated both functions to combine `correct_answer` + `alternatives`:
+  - `_generate_text_entry_math_response_declarations`: Multiple `<value>` tags
+  - `_generate_text_entry_math_scoring_logic`: `<or>` wrapper for multiple stringMatch
+- **File:** `packages/qti-core/src/generator/xml_generator.py`
+
 #### qf-scaffolding: ES Module __dirname Error
 - **Problem:** Server crashed with "ReferenceError: __dirname is not defined in ES module scope"
 - **Cause:** `m5_simple_tools.ts` used `__dirname` which doesn't exist in ES modules
