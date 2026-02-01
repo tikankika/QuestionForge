@@ -13,10 +13,14 @@
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
 
 // ============================================================================
 // M5 Methodology Path
 // ============================================================================
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const M5_METHODOLOGY_PATH = path.resolve(
   __dirname,

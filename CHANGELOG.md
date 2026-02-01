@@ -4,7 +4,33 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed - 2026-02-01
+
+#### qf-scaffolding: ES Module __dirname Error
+- **Problem:** Server crashed with "ReferenceError: __dirname is not defined in ES module scope"
+- **Cause:** `m5_simple_tools.ts` used `__dirname` which doesn't exist in ES modules
+- **Fix:** Added `fileURLToPath(import.meta.url)` to create `__dirname` equivalent
+- **File:** `packages/qf-scaffolding/src/tools/m5_simple_tools.ts`
+
 ### Changed - 2026-02-01
+
+#### LaTeX Formatting for Inspera (FORMAT_REFERENCE.md)
+- **Problem:** Inspera doesn't render standard LaTeX `$...$` syntax
+- **Solution:** Updated FORMAT_REFERENCE.md with Inspera-specific syntax
+- **Format:** Use `\(...\)` for inline math, `\[...\]` for display math
+- **Examples:** Updated all math examples in the format guide
+- **File:** `methodology/m5/FORMAT_REFERENCE.md`
+
+#### step4_export: Custom Output Name Parameter
+- **Added:** `output_name` parameter to step4_export tool
+- **Fallback chain:**
+  1. Explicit `output_name` parameter (e.g., "Ma2b_Prov_VT2025")
+  2. Project folder name (if session active)
+  3. Input file stem (original behavior)
+- **Purpose:** Control ZIP filename and name shown in Inspera
+- **Files:** `packages/qf-pipeline/src/qf_pipeline/server.py`
+
+### Changed - 2026-02-01 (Earlier)
 
 #### M5 Simplified & Methodology Documentation
 - **Removed:** Complex M5 tools (m5_start, m5_approve, m5_teach_format, etc.)

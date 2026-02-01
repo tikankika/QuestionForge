@@ -43,6 +43,39 @@
 
 ---
 
+## ⚠️ LaTeX-formatering för Inspera
+
+**VIKTIGT:** Inspera använder INTE standard LaTeX `$...$` syntax!
+
+| Typ | ✅ Använd | ❌ INTE |
+|-----|----------|---------|
+| Inline math | `\(4x^{2}-10x\)` | `$4x^{2}-10x$` |
+| Display math | `\[4x^{2}-10x\]` | `$$4x^{2}-10x$$` |
+
+### Exempel
+
+```markdown
+# Rätt för Inspera:
+Beräkna \(10 + 2 \cdot 5\) = {{blank_1}}
+Lös ekvationen: \(2x + 6 = 16\)
+
+# FEL - renderas inte:
+Beräkna $10 + 2 \cdot 5$ = {{blank_1}}
+```
+
+### Vanliga LaTeX-kommandon
+
+| Kommando | Resultat |
+|----------|----------|
+| `\cdot` | · (multiplikation) |
+| `\frac{a}{b}` | bråk |
+| `x^{2}` | x² |
+| `x_{i}` | xᵢ |
+| `\sqrt{x}` | √x |
+| `\pm` | ± |
+
+---
+
 ## text_entry_numeric
 
 För frågor med **numeriska svar** (heltal, decimaltal).
@@ -57,7 +90,7 @@ För frågor med **numeriska svar** (heltal, decimaltal).
 ^labels #ämne #bloom_apply #difficulty_easy
 
 @field: question_text
-Beräkna $10 + 2 \cdot 5$ = {{blank_1}}
+Beräkna \(10 + 2 \cdot 5\) = {{blank_1}}
 @end_field
 
 @field: blanks
@@ -112,7 +145,7 @@ För frågor med **matematiska uttryck** som svar (algebra, ekvationer).
 ^labels #ämne #bloom_apply #difficulty_medium
 
 @field: question_text
-Lös ekvationen: $2x + 6 = 16$
+Lös ekvationen: \(2x + 6 = 16\)
 
 x = {{blank_1}}
 @end_field

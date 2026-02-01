@@ -327,6 +327,10 @@ async def list_tools() -> List[Tool]:
                         "type": "string",
                         "description": "Path for output ZIP file (optional if session active)",
                     },
+                    "output_name": {
+                        "type": "string",
+                        "description": "Name for output ZIP and Inspera (e.g., 'Ma2b_Prov_VT2025'). Default: project folder name.",
+                    },
                     "language": {
                         "type": "string",
                         "description": "Language code (sv/en)",
@@ -1598,6 +1602,7 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
                     session = get_current_session()
 
     language = arguments.get("language", "sv")
+    output_name = arguments.get("output_name")
 
     # Path to qti-core
     qti_core_path = Path(__file__).parent.parent.parent.parent / "qti-core"
@@ -1607,8 +1612,18 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
             text=f"qti-core not found at: {qti_core_path}"
         )]
 
-    # Quiz name from file
-    quiz_name = Path(file_path).stem
+    # Determine output name with fallback chain:
+    # 1. Explicit output_name parameter
+    # 2. Project folder name (if session active)
+    # 3. Input file stem (original behavior)
+    if output_name:
+        quiz_name = output_name
+    elif session and session.project_path:
+        # Use project folder name (e.g., "Ma2b_Prov_VT2025")
+        quiz_name = Path(session.project_path).name
+    else:
+        # Fallback to file stem
+        quiz_name = Path(file_path).stem
 
     # Output directory - use session's output folder or fallback to qti-core/output
     output_dir = Path(session.output_folder) if session and session.output_folder else qti_core_path / "output"
@@ -1627,6 +1642,7 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
             data={
                 "file": file_path,
                 "output_dir": str(output_dir),
+                "output_name": quiz_name,
                 "language": language,
                 "method": "subprocess"
             }
@@ -1662,7 +1678,7 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
         },
         {
             'name': 'step5_create_zip.py',
-            'args': ['--quiz-dir', str(quiz_dir), '--verbose'],
+            'args': ['--quiz-dir', str(quiz_dir), '--output-name', f"{quiz_name}.zip", '--verbose'],
             'description': 'Skapar QTI-paket (ZIP)',
             'timeout': 60
         }
@@ -1675,6 +1691,7 @@ async def handle_step4_export(arguments: dict) -> List[TextContent]:
     all_output.append("=" * 70)
     all_output.append(f"Source: {file_path}")
     all_output.append(f"Output: {output_dir}")
+    all_output.append(f"Output name: {quiz_name}")
     all_output.append(f"Language: {language}")
     all_output.append("")
 
