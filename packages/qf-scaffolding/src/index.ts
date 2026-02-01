@@ -10,8 +10,7 @@
  * - complete_stage: Complete a stage with optional output creation
  * - read_materials: Read instructional materials from materials/ (RFC-004)
  * - read_reference: Read reference documents from project root (RFC-004)
- * - m5_check: Check M3 output for content completeness
- * - m5_generate: Generate QFMD from M3 output
+ * - m5_simple_*: Simple M5 tools for manual QFMD creation (Claude does transformation)
  *
  * This server provides methodology guidance for creating assessment questions
  * through a structured, pedagogical process.
@@ -37,30 +36,21 @@ import {
   writeProjectFileSchema,
 } from "./tools/project_files.js";
 import { getStageOutputType } from "./outputs/index.js";
-// REMOVED: m5_tools.js imports (m5_check, m5_generate deprecated)
+// M5 Simple Tools (manual mode - Claude does transformation)
 import {
-  m5Start,
-  m5StartSchema,
-  m5Approve,
-  m5ApproveSchema,
-  m5UpdateField,
-  m5UpdateFieldSchema,
-  m5Skip,
-  m5SkipSchema,
-  m5Status,
-  m5Finish,
-  // REMOVED: m5Fallback, m5SubmitQfmd (replaced by m5_manual)
-  // RFC-016: Self-learning format recognition
-  m5TeachFormat,
-  m5TeachFormatSchema,
-  m5ListFormats,
-  m5ListFormatsSchema,
-  m5DetectFormat,
-  m5DetectFormatSchema,
-} from "./tools/m5_interactive_tools.js";
+  m5SimpleStart,
+  m5SimpleStartSchema,
+  m5SimpleCurrent,
+  m5SimpleCreate,
+  m5SimpleCreateSchema,
+  m5SimpleSkip,
+  m5SimpleSkipSchema,
+  m5SimpleFinish,
+  m5SimpleStatus,
+} from "./tools/m5_simple_tools.js";
 
 // Server version
-const VERSION = "0.4.1";
+const VERSION = "0.6.0"; // Removed complex M5 tools, keeping only m5_simple_* (manual mode)
 
 // Create MCP server
 const server = new Server(
@@ -383,14 +373,14 @@ const TOOLS: Tool[] = [
       required: ["project_path", "relative_path", "content"],
     },
   },
-  // ========== M5 INTERACTIVE TOOLS (Simplified) ==========
-  // REMOVED: m5_check, m5_generate (redundant with m5_start)
+  // ========== M5 SIMPLE TOOLS (Manual Mode - RECOMMENDED) ==========
+  // Old complex M5 tools archived to _archive/m5_complex_2026-02-01/
   {
-    name: "m5_start",
+    name: "m5_simple_start",
     description:
-      `Start M5 interactive session for question-by-question QFMD generation. ` +
-      `Parses M3 file with best-effort extraction and shows first question for review. ` +
-      `If fields are missing, will ask user to provide them.`,
+      `🆕 REKOMMENDERAD: Starta enkel M5-session (manuellt läge). ` +
+      `Splittar fil vid "---", visar varje block för läraren. ` +
+      `Ingen auto-parsing - läraren skapar QFMD själv.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -400,81 +390,62 @@ const TOOLS: Tool[] = [
         },
         source_file: {
           type: "string",
-          description: "Relative path to M3 file. Default: questions/m3_output.md",
+          description: "Relative path to source file. Default: questions/m3_output.md",
         },
         output_file: {
           type: "string",
-          description: "Relative path for QFMD output. Default: questions/m5_output.md",
+          description: "Relative path for output. Default: questions/m5_output.md",
         },
-        course_code: {
+        separator: {
           type: "string",
-          description: "Course code for identifiers (e.g., ARTI1000X).",
-        },
-        title: {
-          type: "string",
-          description: "Title for the question set.",
+          description: "Block separator. Default: ---",
         },
       },
       required: ["project_path"],
     },
   },
   {
-    name: "m5_approve",
-    description:
-      `Approve current question and write to QFMD file. ` +
-      `Optionally provide corrections for any fields. ` +
-      `After approval, shows next question for review.`,
+    name: "m5_simple_current",
+    description: "Visa aktuellt block i enkel M5-session.",
     inputSchema: {
       type: "object",
-      properties: {
-        corrections: {
-          type: "object",
-          description: "Field corrections: { fieldName: newValue }",
-        },
-      },
+      properties: {},
       required: [],
     },
   },
   {
-    name: "m5_update_field",
+    name: "m5_simple_create",
     description:
-      `Update a field in the current question. ` +
-      `Use this when a field is missing or needs correction before approval.`,
+      `Skapa QFMD för aktuellt block. ` +
+      `Läraren skriver QFMD-innehållet direkt.`,
     inputSchema: {
       type: "object",
       properties: {
-        field: {
+        qfmd: {
           type: "string",
-          description: "Field to update (title, type, stem, answer, feedback.correct, etc.)",
-        },
-        value: {
-          description: "New value for the field",
+          description: "QFMD-innehåll för denna fråga",
         },
       },
-      required: ["field", "value"],
+      required: ["qfmd"],
     },
   },
   {
-    name: "m5_skip",
-    description:
-      `Skip current question and move to next. ` +
-      `Skipped questions are not written to output file.`,
+    name: "m5_simple_skip",
+    description: "Hoppa över aktuellt block.",
     inputSchema: {
       type: "object",
       properties: {
         reason: {
           type: "string",
-          description: "Reason for skipping (optional)",
+          description: "Anledning till att hoppa över (valfritt)",
         },
       },
       required: [],
     },
   },
   {
-    name: "m5_status",
-    description:
-      `Get current M5 session status. ` +
-      `Shows progress: approved, skipped, pending questions.`,
+    name: "m5_simple_finish",
+    description: "Avsluta enkel M5-session och visa sammanfattning.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -482,122 +453,14 @@ const TOOLS: Tool[] = [
     },
   },
   {
-    name: "m5_finish",
-    description:
-      `Finish M5 session and get summary. ` +
-      `Clears session state.`,
+    name: "m5_simple_status",
+    description: "Visa status för enkel M5-session.",
     inputSchema: {
       type: "object",
       properties: {},
       required: [],
     },
   },
-  {
-    name: "m5_manual",
-    description:
-      `Submit manually-created QFMD when parser can't extract automatically. ` +
-      `Use when m5_start returns needs_teacher_help=true. ` +
-      `Teacher provides QFMD content directly, written to output file.`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        qfmd_content: {
-          type: "string",
-          description: "Complete QFMD content for the question(s)",
-        },
-        append: {
-          type: "boolean",
-          description: "Append to existing file (true) or overwrite (false). Default: true",
-          default: true,
-        },
-      },
-      required: ["qfmd_content"],
-    },
-  },
-  // RFC-016: Self-learning format recognition
-  {
-    name: "m5_teach_format",
-    description:
-      `Teach M5 to recognize a new question format. ` +
-      `Use when m5_start doesn't recognize the format. ` +
-      `Teacher defines how source markers map to QFMD fields.`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        project_path: {
-          type: "string",
-          description: "Absolute path to the project folder",
-        },
-        pattern_name: {
-          type: "string",
-          description: "Name for this format pattern (e.g., 'M3 Bold Headers')",
-        },
-        mappings: {
-          type: "object",
-          description: "Mappings from source markers to QFMD fields",
-          additionalProperties: {
-            type: "object",
-            properties: {
-              qfmd_field: {
-                type: "string",
-                nullable: true,
-                description: "QFMD field name or null to skip",
-              },
-              extraction: {
-                type: "string",
-                enum: ["single_line", "multiline_until_next", "number", "tags", "skip"],
-              },
-              transform: {
-                type: "string",
-                enum: ["prepend_hash", "keep_as_is"],
-              },
-              required: { type: "boolean" },
-            },
-          },
-        },
-        question_separator: {
-          type: "string",
-          description: "What separates questions (default: ---)",
-        },
-      },
-      required: ["project_path", "pattern_name", "mappings"],
-    },
-  },
-  {
-    name: "m5_list_formats",
-    description: "List all learned format patterns for M5.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        project_path: {
-          type: "string",
-          description: "Absolute path to the project folder",
-        },
-      },
-      required: ["project_path"],
-    },
-  },
-  {
-    name: "m5_detect_format",
-    description:
-      `Analyze a file to detect its format. ` +
-      `Use before m5_start to check if format is recognized.`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        project_path: {
-          type: "string",
-          description: "Absolute path to the project folder",
-        },
-        source_file: {
-          type: "string",
-          description: "Relative path to file to analyze",
-        },
-      },
-      required: ["project_path", "source_file"],
-    },
-  },
-  // REMOVED: m5_fallback, m5_submit_qfmd (combined into m5_manual)
 ];
 
 // Handle tools/list request
@@ -1128,124 +991,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
-  // REMOVED: m5_check, m5_generate handlers (use m5_start instead)
+  // ========== M5 SIMPLE HANDLERS (Manual Mode) ==========
+  // Old complex M5 handlers archived to _archive/m5_complex_2026-02-01/
 
-  // ========== M5 INTERACTIVE HANDLERS (Simplified) ==========
-
-  // Handle m5_start
-  if (name === "m5_start") {
+  // Handle m5_simple_start
+  if (name === "m5_simple_start") {
     try {
-      const validatedInput = m5StartSchema.parse(args);
-      const result = await m5Start(validatedInput);
+      const validatedInput = m5SimpleStartSchema.parse(args);
+      const result = await m5SimpleStart(validatedInput);
 
-      // NEW: Handle needs_teacher_help case - ASK TEACHER instead of failing
-      if (result.needs_teacher_help) {
+      if (result.success) {
         const lines: string[] = [];
-        lines.push(`# 🤔 M5 behöver din hjälp!`);
+        lines.push(`# M5 Enkel Session Startad`);
         lines.push(``);
+        lines.push(`**Frågor:** ${result.total_blocks}`);
         lines.push(`**Källa:** ${result.source_file}`);
+        lines.push(`**Output:** ${result.output_file}`);
         lines.push(``);
         lines.push(`---`);
         lines.push(``);
-        lines.push(result.teacher_question || "");
-        lines.push(``);
-        lines.push(`---`);
-        lines.push(``);
-        lines.push(`## Förhandsgranskning av filen (första 30 rader):`);
+        lines.push(`## Block 1 av ${result.total_blocks}`);
         lines.push(``);
         lines.push("```markdown");
-        lines.push(result.file_preview || "");
+        lines.push(result.current_block.content);
         lines.push("```");
         lines.push(``);
-
-        if (result.detected_sections && result.detected_sections.length > 0) {
-          lines.push(`## Detekterade sektioner:`);
-          lines.push(``);
-          for (const s of result.detected_sections) {
-            lines.push(`- **Rad ${s.line}:** ${s.content} (confidence: ${s.confidence}%)`);
-          }
-          lines.push(``);
-        }
-
-        lines.push(`---`);
-        lines.push(``);
-        lines.push(`**Alternativ:**`);
-        lines.push(`1. Beskriv hur dina frågor är strukturerade → jag anpassar parsern`);
-        lines.push(`2. Använd \`m5_manual\` för att skriva QFMD direkt`);
-        lines.push(`3. Justera M3-filen så varje fråga börjar med \`## Question N\` eller \`### QN\``);
-
-        return {
-          content: [{ type: "text", text: lines.join("\n") }],
-        };
-      }
-
-      if (result.success && result.first_question) {
-        const q = result.first_question;
-        const lines: string[] = [];
-
-        // Get session progress for type info
-        const { getProgress: getM5Progress } = await import("./m5/session.js");
-        const progress = getM5Progress();
-
-        lines.push(`# M5 Session Started`);
-        lines.push(``);
-        lines.push(`**Session ID:** ${result.session_id}`);
-        lines.push(`**Total Questions:** ${result.total_questions}`);
-        lines.push(`**Source:** ${result.source_file}`);
-        lines.push(`**Output:** ${result.output_file}`);
-        lines.push(``);
-
-        // Show type grouping
-        if (progress && progress.typeOrder.length > 0) {
-          lines.push(`## Frågor grupperade per typ:`);
-          lines.push(``);
-          for (const type of progress.typeOrder) {
-            const typeProgress = progress.progressByType[type];
-            const isCurrent = type === progress.currentType;
-            const marker = isCurrent ? "→" : " ";
-            lines.push(`${marker} **${type}:** ${typeProgress.total} frågor`);
-          }
-          lines.push(``);
-          lines.push(`*Bearbetar en typ i taget. Nuvarande typ: **${progress.currentType}***`);
-          lines.push(``);
-        }
-
-        lines.push(`---`);
-        lines.push(``);
-        lines.push(`## Fråga ${progress?.currentTypeIndex || 1} av ${progress?.questionsInCurrentType || 1} (${progress?.currentType || "unknown"})`);
-        lines.push(`### ${q.question_number} - Review`);
-        lines.push(``);
-
-        // Show interpretation
-        lines.push(`### Min tolkning:`);
-        lines.push(``);
-        lines.push(`| Fält | Värde | Confidence |`);
-        lines.push(`|------|-------|------------|`);
-        lines.push(`| **Titel** | ${q.interpretation.title.value || "❓ SAKNAS"} | ${q.interpretation.title.confidence}% |`);
-        lines.push(`| **Typ** | ${q.interpretation.type.value || "❓ SAKNAS"} (raw: "${q.interpretation.type.raw}") | ${q.interpretation.type.confidence}% |`);
-        lines.push(`| **Frågetext** | ${q.interpretation.stem.preview}... | ${q.interpretation.stem.confidence}% |`);
-        lines.push(`| **Alternativ** | ${q.interpretation.options.count} st | ${q.interpretation.options.confidence}% |`);
-        lines.push(`| **Svar** | ${q.interpretation.answer.value || "❓ SAKNAS"} | ${q.interpretation.answer.confidence}% |`);
-        lines.push(`| **Feedback** | ${q.interpretation.feedback.has_correct ? "✓" : "❌"} correct, ${q.interpretation.feedback.has_incorrect ? "✓" : "❌"} incorrect | |`);
-        lines.push(`| **Bloom** | ${q.interpretation.bloom.value || "-"} | |`);
-        lines.push(`| **Difficulty** | ${q.interpretation.difficulty.value || "-"} | |`);
-        lines.push(`| **Labels** | ${q.interpretation.labels.values.slice(0, 3).join(", ")}${q.interpretation.labels.count > 3 ? "..." : ""} | |`);
-        lines.push(``);
-
-        // Questions for user
-        if (q.needs_user_input) {
-          lines.push(`### ❓ Behöver svar:`);
-          lines.push(``);
-          for (const question of q.questions_for_user) {
-            lines.push(`- ${question}`);
-          }
-          lines.push(``);
-          lines.push(`*Använd m5_update_field för att fylla i saknade fält, sedan m5_approve.*`);
-        } else {
-          lines.push(`### ✅ Redo för godkännande`);
-          lines.push(``);
-          lines.push(`*Kör m5_approve för att godkänna och skriva till fil.*`);
-        }
+        lines.push(result.instructions);
 
         return {
           content: [{ type: "text", text: lines.join("\n") }],
@@ -1256,260 +1027,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           isError: true,
         };
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [{ type: "text", text: `Validation error: ${errorMessage}` }],
-        isError: true,
-      };
-    }
-  }
-
-  // Handle m5_approve
-  if (name === "m5_approve") {
-    try {
-      const validatedInput = m5ApproveSchema.parse(args);
-      const result = await m5Approve(validatedInput);
-
-      if (result.success) {
-        const lines: string[] = [];
-
-        // Get updated progress with type info
-        const { getProgress: getM5Progress } = await import("./m5/session.js");
-        const progress = getM5Progress();
-
-        lines.push(`✅ **${result.approved_question} godkänd och skriven till fil**`);
-        lines.push(``);
-
-        if (progress) {
-          // Show type-based progress
-          const typeProgress = progress.currentType
-            ? progress.progressByType[progress.currentType]
-            : null;
-
-          if (typeProgress) {
-            lines.push(`**Typ ${progress.currentType}:** ${typeProgress.approved}/${typeProgress.total} godkända`);
-          }
-          lines.push(`**Totalt:** ${progress.approved}/${progress.total} godkända`);
-          lines.push(``);
-        }
-
-        if (result.session_complete) {
-          lines.push(`🎉 **Session klar!** Alla frågor är behandlade.`);
-          lines.push(``);
-          lines.push(`*Kör m5_finish för att se sammanfattning.*`);
-        } else if (result.next_question) {
-          const q = result.next_question;
-
-          // Check if we moved to a new type
-          const prevType = q.interpretation.type.value;
-          if (progress && progress.currentTypeIndex === 1 && progress.remainingInCurrentType >= 0) {
-            // First question of a new type
-            lines.push(`---`);
-            lines.push(``);
-            lines.push(`## Ny frågetyp: **${progress.currentType}**`);
-            lines.push(``);
-            lines.push(`*${progress.questionsInCurrentType} frågor av denna typ*`);
-            lines.push(``);
-          }
-
-          lines.push(`---`);
-          lines.push(``);
-          lines.push(`## Fråga ${progress?.currentTypeIndex || "?"} av ${progress?.questionsInCurrentType || "?"} (${progress?.currentType || "unknown"})`);
-          lines.push(`### ${q.question_number} - Review`);
-          lines.push(``);
-
-          lines.push(`### Min tolkning:`);
-          lines.push(``);
-          lines.push(`| Fält | Värde | Confidence |`);
-          lines.push(`|------|-------|------------|`);
-          lines.push(`| **Titel** | ${q.interpretation.title.value || "❓ SAKNAS"} | ${q.interpretation.title.confidence}% |`);
-          lines.push(`| **Typ** | ${q.interpretation.type.value || "❓ SAKNAS"} | ${q.interpretation.type.confidence}% |`);
-          lines.push(`| **Frågetext** | ${q.interpretation.stem.preview}... | |`);
-          lines.push(`| **Alternativ** | ${q.interpretation.options.count} st | |`);
-          lines.push(`| **Svar** | ${q.interpretation.answer.value || "❓ SAKNAS"} | ${q.interpretation.answer.confidence}% |`);
-          lines.push(`| **Feedback** | ${q.interpretation.feedback.has_correct ? "✓" : "❌"} correct | |`);
-          lines.push(``);
-
-          if (q.needs_user_input) {
-            lines.push(`### ❓ Behöver svar:`);
-            for (const question of q.questions_for_user) {
-              lines.push(`- ${question}`);
-            }
-            lines.push(``);
-          } else {
-            lines.push(`### ✅ Redo för godkännande`);
-          }
-        }
-
-        return {
-          content: [{ type: "text", text: lines.join("\n") }],
-        };
-      } else {
-        return {
-          content: [{ type: "text", text: `Error: ${result.error}` }],
-          isError: true,
-        };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [{ type: "text", text: `Validation error: ${errorMessage}` }],
-        isError: true,
-      };
-    }
-  }
-
-  // Handle m5_update_field
-  if (name === "m5_update_field") {
-    try {
-      const validatedInput = m5UpdateFieldSchema.parse(args);
-      const result = await m5UpdateField(validatedInput);
-
-      if (result.success) {
-        const lines: string[] = [];
-        lines.push(`✅ **Uppdaterade ${result.updated_field}:** ${JSON.stringify(result.new_value)}`);
-        lines.push(``);
-
-        if (result.current_question) {
-          const q = result.current_question;
-          if (q.needs_user_input && q.questions_for_user.length > 0) {
-            lines.push(`**Kvarstående frågor:**`);
-            for (const question of q.questions_for_user) {
-              lines.push(`- ${question}`);
-            }
-          } else {
-            lines.push(`✅ **Redo för godkännande** - Kör m5_approve`);
-          }
-        }
-
-        return {
-          content: [{ type: "text", text: lines.join("\n") }],
-        };
-      } else {
-        return {
-          content: [{ type: "text", text: `Error: ${result.error}` }],
-          isError: true,
-        };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [{ type: "text", text: `Validation error: ${errorMessage}` }],
-        isError: true,
-      };
-    }
-  }
-
-  // Handle m5_skip
-  if (name === "m5_skip") {
-    try {
-      const validatedInput = m5SkipSchema.parse(args);
-      const result = await m5Skip(validatedInput);
-
-      if (result.success) {
-        const lines: string[] = [];
-        lines.push(`⏭️ **Hoppade över ${result.skipped_question}**`);
-        lines.push(``);
-
-        if (result.progress) {
-          lines.push(`**Progress:** ${result.progress.approved} godkända, ${result.progress.skipped} hoppade över`);
-          lines.push(``);
-        }
-
-        if (result.session_complete) {
-          lines.push(`🎉 **Session klar!**`);
-          lines.push(`*Kör m5_finish för sammanfattning.*`);
-        } else if (result.next_question) {
-          const q = result.next_question;
-          lines.push(`---`);
-          lines.push(`## ${q.question_number} - Review`);
-          lines.push(``);
-          lines.push(`| Fält | Värde |`);
-          lines.push(`|------|-------|`);
-          lines.push(`| **Titel** | ${q.interpretation.title.value || "❓ SAKNAS"} |`);
-          lines.push(`| **Typ** | ${q.interpretation.type.value || "❓ SAKNAS"} |`);
-          lines.push(`| **Svar** | ${q.interpretation.answer.value || "❓ SAKNAS"} |`);
-        }
-
-        return {
-          content: [{ type: "text", text: lines.join("\n") }],
-        };
-      } else {
-        return {
-          content: [{ type: "text", text: `Error skipping question` }],
-          isError: true,
-        };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [{ type: "text", text: `Validation error: ${errorMessage}` }],
-        isError: true,
-      };
-    }
-  }
-
-  // Handle m5_status
-  if (name === "m5_status") {
-    try {
-      const result = await m5Status();
-
-      // Get detailed progress with type info
-      const { getProgress: getM5Progress } = await import("./m5/session.js");
-      const progress = getM5Progress();
-
-      const lines: string[] = [];
-      lines.push(`# M5 Session Status`);
-      lines.push(``);
-
-      if (!result.session_active) {
-        lines.push(`**Status:** Ingen aktiv session`);
-        lines.push(``);
-        lines.push(`*Kör m5_start för att börja.*`);
-      } else {
-        lines.push(`**Session ID:** ${result.session_id}`);
-        lines.push(`**Output:** ${result.output_file}`);
-        lines.push(``);
-
-        // Show type-based progress
-        if (progress && progress.typeOrder.length > 0) {
-          lines.push(`## Progress per typ:`);
-          lines.push(``);
-          lines.push(`| Typ | Godkända | Kvar | Total |`);
-          lines.push(`|-----|----------|------|-------|`);
-
-          for (const type of progress.typeOrder) {
-            const tp = progress.progressByType[type];
-            const isCurrent = type === progress.currentType;
-            const marker = isCurrent ? "→ " : "  ";
-            lines.push(`| ${marker}**${type}** | ${tp.approved} | ${tp.pending} | ${tp.total} |`);
-          }
-          lines.push(``);
-
-          lines.push(`## Nuvarande:`);
-          lines.push(``);
-          lines.push(`- **Typ:** ${progress.currentType || "Klar"}`);
-          lines.push(`- **Fråga:** ${progress.currentTypeIndex} av ${progress.questionsInCurrentType}`);
-          lines.push(`- **Kvar i typ:** ${progress.remainingInCurrentType}`);
-          lines.push(``);
-        }
-
-        if (result.progress) {
-          lines.push(`## Totalt:`);
-          lines.push(``);
-          lines.push(`| Status | Antal |`);
-          lines.push(`|--------|-------|`);
-          lines.push(`| Godkända | ${result.progress.approved} |`);
-          lines.push(`| Hoppade över | ${result.progress.skipped} |`);
-          lines.push(`| Kvar | ${result.progress.pending} |`);
-          lines.push(`| **Total** | ${result.progress.total} |`);
-        }
-      }
-
-      return {
-        content: [{ type: "text", text: lines.join("\n") }],
-      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       return {
@@ -1519,28 +1036,159 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
-  // Handle m5_finish
-  if (name === "m5_finish") {
+  // Handle m5_simple_current
+  if (name === "m5_simple_current") {
     try {
-      const result = await m5Finish();
+      const result = await m5SimpleCurrent();
+
+      if (result.success && result.current_block) {
+        const lines: string[] = [];
+        lines.push(`## Block ${result.current_block.index} av ${result.current_block.total}`);
+        lines.push(``);
+        if (result.progress) {
+          lines.push(`**Progress:** ${result.progress.approved} godkända, ${result.progress.skipped} hoppade över, ${result.progress.remaining} kvar`);
+          lines.push(``);
+        }
+        lines.push("```markdown");
+        lines.push(result.current_block.content);
+        lines.push("```");
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error: ${result.error}` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_simple_create
+  if (name === "m5_simple_create") {
+    try {
+      const validatedInput = m5SimpleCreateSchema.parse(args);
+      const result = await m5SimpleCreate(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`✅ **Fråga ${result.question_number} skriven till fil**`);
+        lines.push(``);
+
+        if (result.progress) {
+          lines.push(`**Progress:** ${result.progress.approved} godkända, ${result.progress.skipped} hoppade över, ${result.progress.remaining} kvar`);
+          lines.push(``);
+        }
+
+        if (result.session_complete) {
+          lines.push(`🎉 **Session klar!** Kör m5_simple_finish för sammanfattning.`);
+        } else if (result.next_block) {
+          lines.push(`---`);
+          lines.push(``);
+          lines.push(`## Block ${result.next_block.index} av ${result.next_block.total}`);
+          lines.push(``);
+          lines.push("```markdown");
+          lines.push(result.next_block.content);
+          lines.push("```");
+        }
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error: ${result.error}` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_simple_skip
+  if (name === "m5_simple_skip") {
+    try {
+      const validatedInput = m5SimpleSkipSchema.parse(args);
+      const result = await m5SimpleSkip(validatedInput);
+
+      if (result.success) {
+        const lines: string[] = [];
+        lines.push(`⏭️ **Hoppade över block ${result.skipped_block}**`);
+        if (result.reason) {
+          lines.push(`Anledning: ${result.reason}`);
+        }
+        lines.push(``);
+
+        if (result.progress) {
+          lines.push(`**Progress:** ${result.progress.approved} godkända, ${result.progress.skipped} hoppade över, ${result.progress.remaining} kvar`);
+          lines.push(``);
+        }
+
+        if (result.session_complete) {
+          lines.push(`🎉 **Session klar!** Kör m5_simple_finish för sammanfattning.`);
+        } else if (result.next_block) {
+          lines.push(`---`);
+          lines.push(``);
+          lines.push(`## Block ${result.next_block.index} av ${result.next_block.total}`);
+          lines.push(``);
+          lines.push("```markdown");
+          lines.push(result.next_block.content);
+          lines.push("```");
+        }
+
+        return {
+          content: [{ type: "text", text: lines.join("\n") }],
+        };
+      } else {
+        return {
+          content: [{ type: "text", text: `Error skipping block` }],
+          isError: true,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      };
+    }
+  }
+
+  // Handle m5_simple_finish
+  if (name === "m5_simple_finish") {
+    try {
+      const result = await m5SimpleFinish();
 
       if (result.success && result.summary) {
         const lines: string[] = [];
-        lines.push(`# M5 Session Complete`);
+        lines.push(`# M5 Enkel Session Avslutad`);
         lines.push(``);
         lines.push(`## Sammanfattning`);
         lines.push(``);
         lines.push(`| Metric | Antal |`);
         lines.push(`|--------|-------|`);
-        lines.push(`| Total frågor | ${result.summary.total_questions} |`);
+        lines.push(`| Total block | ${result.summary.total_blocks} |`);
         lines.push(`| Godkända | ${result.summary.approved} |`);
         lines.push(`| Hoppade över | ${result.summary.skipped} |`);
         lines.push(``);
         lines.push(`**Output fil:** ${result.summary.output_file}`);
+        lines.push(`**Full path:** ${result.summary.output_path}`);
         lines.push(``);
         lines.push(`---`);
         lines.push(``);
-        lines.push(`**Nästa steg:** Kör Step 1 (step1_start) för att validera QFMD.`);
+        lines.push(`**Nästa steg:** Kör \`step2_validate\` för att validera QFMD.`);
 
         return {
           content: [{ type: "text", text: lines.join("\n") }],
@@ -1560,198 +1208,33 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
-  // Handle m5_manual (replaces m5_fallback + m5_submit_qfmd)
-  if (name === "m5_manual") {
+  // Handle m5_simple_status
+  if (name === "m5_simple_status") {
     try {
-      const qfmdContent = (args as any).qfmd_content;
-      const append = (args as any).append !== false; // Default true
-
-      if (!qfmdContent || typeof qfmdContent !== "string") {
-        return {
-          content: [{ type: "text", text: `Error: qfmd_content krävs` }],
-          isError: true,
-        };
-      }
-
-      // Validate QFMD has basic structure
-      if (!qfmdContent.includes("^type") || !qfmdContent.includes("@field:")) {
-        return {
-          content: [{
-            type: "text",
-            text: `⚠️ Varning: QFMD saknar standard-struktur (^type eller @field:).\n\n` +
-                  `Förväntad struktur:\n` +
-                  "```\n" +
-                  `# Q001 Title\n` +
-                  `^type essay\n` +
-                  `^identifier ES_Q001\n` +
-                  `\n@field: question_text\n...\n@end_field\n` +
-                  "```\n\n" +
-                  `Vill du fortsätta ändå? Använd write_project_file för att skriva direkt.`
-          }],
-          isError: true,
-        };
-      }
-
-      // Get session for output path, or use default
-      const session = await (await import("./m5/session.js")).getSession();
-      const outputPath = session
-        ? `${session.projectPath}/${session.outputFile}`
-        : null;
-
-      if (!outputPath) {
-        return {
-          content: [{
-            type: "text",
-            text: `Ingen aktiv M5-session. Använd write_project_file för att skriva direkt:\n\n` +
-                  `write_project_file({ project_path: "...", relative_path: "questions/m5_output.md", content: "..." })`
-          }],
-          isError: true,
-        };
-      }
-
-      // Write QFMD to file
-      const fs = await import("fs");
-      const existingContent = fs.existsSync(outputPath)
-        ? fs.readFileSync(outputPath, "utf-8")
-        : "";
-
-      const separator = append && existingContent.trim() ? "\n---\n\n" : "";
-      const header = !existingContent.trim()
-        ? `<!-- QFMD Format - Generated by M5 -->\n<!-- Generated: ${new Date().toISOString()} -->\n\n`
-        : "";
-
-      const newContent = append
-        ? existingContent + separator + header + qfmdContent
-        : header + qfmdContent;
-
-      fs.writeFileSync(outputPath, newContent, "utf-8");
+      const result = await m5SimpleStatus();
 
       const lines: string[] = [];
-      lines.push(`# ✅ QFMD skriven till fil`);
-      lines.push(``);
-      lines.push(`**Fil:** ${outputPath}`);
-      lines.push(`**Mode:** ${append ? "Append" : "Overwrite"}`);
-      lines.push(`**Tecken:** ${qfmdContent.length}`);
-      lines.push(``);
-      lines.push(`**Nästa steg:** Kör step2_validate för att validera QFMD-formatet.`);
-
-      return {
-        content: [{ type: "text", text: lines.join("\n") }],
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [{ type: "text", text: `Error: ${errorMessage}` }],
-        isError: true,
-      };
-    }
-  }
-
-  // Handle m5_teach_format (RFC-016)
-  if (name === "m5_teach_format") {
-    try {
-      const validatedInput = m5TeachFormatSchema.parse(args);
-      const result = await m5TeachFormat(validatedInput);
-
-      if (!result.success) {
-        return {
-          content: [{ type: "text", text: `Error: ${result.error}` }],
-          isError: true,
-        };
-      }
-
-      const lines: string[] = [];
-      lines.push(`# M5 Format Pattern Saved`);
-      lines.push(``);
-      lines.push(`**Pattern ID:** ${result.pattern_id}`);
-      lines.push(`**Name:** ${result.pattern_name}`);
-      lines.push(``);
-      lines.push(`${result.message}`);
-      lines.push(``);
-      lines.push(`**Detected Markers:**`);
-      for (const marker of result.detected_markers || []) {
-        lines.push(`- \`${marker}\``);
-      }
-      lines.push(``);
-      lines.push(`**Nästa steg:** Kör \`m5_start\` för att bearbeta frågorna med det nya mönstret.`);
-
-      return {
-        content: [{ type: "text", text: lines.join("\n") }],
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [{ type: "text", text: `Error: ${errorMessage}` }],
-        isError: true,
-      };
-    }
-  }
-
-  // Handle m5_list_formats (RFC-016)
-  if (name === "m5_list_formats") {
-    try {
-      const validatedInput = m5ListFormatsSchema.parse(args);
-      const result = await m5ListFormats(validatedInput);
-
-      const lines: string[] = [];
-      lines.push(`# M5 Learned Format Patterns`);
-      lines.push(``);
-      lines.push(`**Total:** ${result.total_patterns} mönster`);
+      lines.push(`# M5 Enkel Session Status`);
       lines.push(``);
 
-      for (const p of result.patterns) {
-        lines.push(`## ${p.name} ${p.builtin ? "(inbyggd)" : ""}`);
-        lines.push(`- **ID:** ${p.pattern_id}`);
-        lines.push(`- **Använd:** ${p.times_used} gånger`);
-        lines.push(`- **Frågor processade:** ${p.questions_processed}`);
-        lines.push(`- **Detektionsmarkörer:** ${p.detection_markers.join(", ")}`);
-        if (p.learned_date) {
-          lines.push(`- **Lärd:** ${p.learned_date}`);
-        }
+      if (!result.active) {
+        lines.push(`**Status:** Ingen aktiv session`);
         lines.push(``);
-      }
-
-      return {
-        content: [{ type: "text", text: lines.join("\n") }],
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return {
-        content: [{ type: "text", text: `Error: ${errorMessage}` }],
-        isError: true,
-      };
-    }
-  }
-
-  // Handle m5_detect_format (RFC-016)
-  if (name === "m5_detect_format") {
-    try {
-      const validatedInput = m5DetectFormatSchema.parse(args);
-      const result = await m5DetectFormat(validatedInput);
-
-      const lines: string[] = [];
-
-      if (result.detected) {
-        lines.push(`# Format Detected!`);
-        lines.push(``);
-        lines.push(`**Pattern:** ${result.pattern_name}`);
-        lines.push(`**Confidence:** ${result.confidence}%`);
-        lines.push(``);
-        lines.push(result.suggestion || "");
+        lines.push(`*Kör m5_simple_start för att börja.*`);
       } else {
-        lines.push(`# Unknown Format`);
+        lines.push(`**Källa:** ${result.source_file}`);
+        lines.push(`**Output:** ${result.output_file}`);
         lines.push(``);
-        lines.push(`Hittade dessa möjliga markörer i filen:`);
-        for (const marker of result.potential_markers || []) {
-          lines.push(`- \`${marker}\``);
+        if (result.progress) {
+          lines.push(`## Progress`);
+          lines.push(``);
+          lines.push(`| Status | Antal |`);
+          lines.push(`|--------|-------|`);
+          lines.push(`| Nuvarande | ${result.progress.current} av ${result.progress.total} |`);
+          lines.push(`| Godkända | ${result.progress.approved} |`);
+          lines.push(`| Hoppade över | ${result.progress.skipped} |`);
+          lines.push(`| Kvar | ${result.progress.remaining} |`);
         }
-        lines.push(``);
-        lines.push(`**Förhandsvisning:**`);
-        lines.push("```");
-        lines.push(result.file_preview || "");
-        lines.push("```");
-        lines.push(``);
-        lines.push(result.suggestion || "");
       }
 
       return {
@@ -1771,7 +1254,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     content: [
       {
         type: "text",
-        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file, m5_start, m5_approve, m5_update_field, m5_skip, m5_status, m5_finish, m5_manual, m5_teach_format, m5_list_formats, m5_detect_format`,
+        text: `Unknown tool: ${name}. Available tools: load_stage, complete_stage, read_materials, read_reference, save_m1_progress, write_m1_stage, read_project_file, write_project_file, m5_simple_start, m5_simple_current, m5_simple_create, m5_simple_skip, m5_simple_finish, m5_simple_status`,
       },
     ],
     isError: true,
@@ -1782,7 +1265,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`QF-Scaffolding MCP Server v${VERSION} running (M1-M5 Interactive)`);
+  console.error(`QF-Scaffolding MCP Server v${VERSION} running (M1-M4 + M5 Simple)`);
 }
 
 main().catch((error) => {

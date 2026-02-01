@@ -4,6 +4,34 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Changed - 2026-02-01
+
+#### M5 Simplified & Methodology Documentation
+- **Removed:** Complex M5 tools (m5_start, m5_approve, m5_teach_format, etc.)
+- **Kept:** Simple M5 tools (m5_simple_start, m5_simple_create, m5_simple_skip, etc.)
+- **Archived:** Old M5 code to `_archive/m5_complex_backup.zip`
+- **Version:** qf-scaffolding bumped to 0.6.0
+
+#### M5 Methodology Docs (Second Source of Truth)
+- **Created:** `methodology/m5/` folder with format documentation
+- **Files:**
+  - `README.md` - M5 workflow explanation
+  - `FORMAT_REFERENCE.md` - Exact QFMD format per question type
+  - `SYNC_STATUS.md` - Sync status with parser, drift warning
+- **Purpose:** M5 cannot call parser (different MCP), needs own format docs
+- **Key insight:** Parser (markdown_parser.py) is source of truth, but M5 needs readable docs
+
+#### M5 Now Reads FORMAT_REFERENCE.md Dynamically
+- **Change:** m5_simple_start reads `methodology/m5/FORMAT_REFERENCE.md` at runtime
+- **Benefit:** Update format docs without rebuilding MCP
+- **Architecture:** Claude Desktop sees full FORMAT_REFERENCE in instructions
+
+#### QFMD Format Discoveries
+- **Question ID:** Must be UPPERCASE (`# Q001A` not `# Q001a`)
+- **text_entry types:** Require `@field: blanks` with `@@field: blank_1`, not `@field: answer`
+- **Blank marker:** `{{blank_1}}` required in question_text
+- **Parser regex:** `Q\d+[A-Z]?` only matches uppercase letters
+
 ### Fixed - 2026-01-30
 
 #### Bug: step0_start crashed when entry_point="setup"
