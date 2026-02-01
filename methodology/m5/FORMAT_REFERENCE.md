@@ -43,36 +43,52 @@
 
 ---
 
-## ⚠️ LaTeX-formatering för Inspera
+## ⚠️ Matematik i Inspera
 
-**VIKTIGT:** Inspera använder INTE standard LaTeX `$...$` syntax!
+### Svarsfält (fungerar automatiskt)
+För `text_entry_math` skapar QTI-generatorn `inspera:type="math"` som ger studenten en math-editor.
 
-| Typ | ✅ Använd | ❌ INTE |
-|-----|----------|---------|
-| Inline math | `\(4x^{2}-10x\)` | `$4x^{2}-10x$` |
-| Display math | `\[4x^{2}-10x\]` | `$$4x^{2}-10x$$` |
+### Frågetext (begränsning)
+**OBS:** LaTeX i frågetexten (`\(...\)` eller `$...$`) renderas **INTE automatiskt** i Inspera efter QTI-import.
+
+**Lösning:** Skriv enkel matematik med Unicode-tecken:
+
+| Istället för LaTeX | Skriv |
+|-------------------|-------|
+| `\(4x^2\)` | `4x²` |
+| `\(x \cdot y\)` | `x · y` eller `x * y` |
+| `\(\frac{1}{2}\)` | `1/2` eller `½` |
+| `\(\sqrt{x}\)` | `√x` |
+| `\(\pm\)` | `±` |
+
+### Kopiera vanliga Unicode-tecken
+
+```
+Exponenter: ⁰ ¹ ² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹ ⁿ
+Index:      ₀ ₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉
+Operatorer: · × ÷ ± ∓ √ ∛ ∑ ∏ ∫
+Relationer: ≤ ≥ ≠ ≈ ∝ ∞
+Pilar:      → ← ↔ ⇒ ⇐ ⇔
+Grekiska:   α β γ δ ε θ λ μ π σ ω
+```
 
 ### Exempel
 
 ```markdown
-# Rätt för Inspera:
-Beräkna \(10 + 2 \cdot 5\) = {{blank_1}}
-Lös ekvationen: \(2x + 6 = 16\)
+@field: question_text
+Beräkna 5(2 + 2 · 4) = {{blank_1}}
+@end_field
 
-# FEL - renderas inte:
-Beräkna $10 + 2 \cdot 5$ = {{blank_1}}
+@field: question_text
+Lös ekvationen: 2x + 6 = 16, x = {{blank_1}}
+@end_field
 ```
 
-### Vanliga LaTeX-kommandon
-
-| Kommando | Resultat |
-|----------|----------|
-| `\cdot` | · (multiplikation) |
-| `\frac{a}{b}` | bråk |
-| `x^{2}` | x² |
-| `x_{i}` | xᵢ |
-| `\sqrt{x}` | √x |
-| `\pm` | ± |
+### Komplex matematik?
+Om du behöver komplexa formler (bråk, rötter, etc.):
+1. Exportera till QTI
+2. Öppna frågan i Inspera
+3. Använd Math Editor (Σ-knappen) för att lägga till formler manuellt
 
 ---
 
@@ -90,7 +106,7 @@ För frågor med **numeriska svar** (heltal, decimaltal).
 ^labels #ämne #bloom_apply #difficulty_easy
 
 @field: question_text
-Beräkna \(10 + 2 \cdot 5\) = {{blank_1}}
+Beräkna 10 + 2 · 5 = {{blank_1}}
 @end_field
 
 @field: blanks
@@ -145,7 +161,7 @@ För frågor med **matematiska uttryck** som svar (algebra, ekvationer).
 ^labels #ämne #bloom_apply #difficulty_medium
 
 @field: question_text
-Lös ekvationen: \(2x + 6 = 16\)
+Lös ekvationen: 2x + 6 = 16
 
 x = {{blank_1}}
 @end_field
