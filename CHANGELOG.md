@@ -16,7 +16,7 @@ All notable changes to QuestionForge will be documented in this file.
 
 #### Repository Prepared for Public Release
 - **Moved to private storage**: Internal docs (handoffs, analysis, chat logs, ACDM logs, test data)
-- **Anonymized**: All hardcoded paths (`/Users/niklaskarlsson/` → `/path/to/`)
+- **Anonymized**: All hardcoded user paths (`/Users/username/` → `/path/to/`)
 - **Anonymized**: Course names (`BIOG001X` → `EXAMPLE_COURSE`)
 - **Anonymized**: Email domains (`@chalmers.se` → `@example.edu`)
 - **Removed**: Empty `docs/instructions/` directory
