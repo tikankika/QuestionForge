@@ -4,6 +4,24 @@ All notable changes to QuestionForge will be documented in this file.
 
 ## [Unreleased]
 
+### Added - 2026-02-03
+
+#### Public Release Documentation
+- **README.md**: Project overview, features, architecture diagram, quick start
+- **CONTRIBUTING.md**: Contribution guidelines, code style, commit format
+- **docs/GETTING_STARTED.md**: Detailed installation guide, first project walkthrough, FAQ
+- **LICENSE.md**: CC BY-NC-SA 4.0 license with user-friendly summary
+
+### Changed - 2026-02-03
+
+#### Repository Prepared for Public Release
+- **Moved to private storage**: Internal docs (handoffs, analysis, chat logs, ACDM logs, test data)
+- **Anonymized**: All hardcoded paths (`/Users/niklaskarlsson/` → `/path/to/`)
+- **Anonymized**: Course names (`BIOG001X` → `EXAMPLE_COURSE`)
+- **Anonymized**: Email domains (`@chalmers.se` → `@example.edu`)
+- **Removed**: Empty `docs/instructions/` directory
+- **Structure**: Clean `docs/` with only public-facing documentation (adr/, rfcs/, specs/, guides/, workflows/)
+
 ### Fixed - 2026-02-01
 
 #### qti-core: text_entry_math Missing Multiple Correct Answers
