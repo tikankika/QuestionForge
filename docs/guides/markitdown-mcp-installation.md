@@ -1,7 +1,7 @@
 # MarkItDown MCP - Komplett Installationsguide
 
-**Version:** 1.0
-**Datum:** 2026-01-20
+**Version:** 1.1
+**Datum:** 2026-01-31
 **För:** macOS (anpassningsbar för Windows/Linux)
 **Estimerad tid:** 30-45 minuter
 
@@ -14,9 +14,10 @@
 3. [Installation Steg-för-Steg](#installation-steg-för-steg)
 4. [Konfiguration för Claude Desktop](#konfiguration-för-claude-desktop)
 5. [Testning](#testning)
-6. [Säkerhetsåtgärder](#säkerhetsåtgärder)
-7. [Felsökning](#felsökning)
-8. [Underhåll](#underhåll)
+6. [Kända begränsningar](#kända-begränsningar)
+7. [Säkerhetsåtgärder](#säkerhetsåtgärder)
+8. [Felsökning](#felsökning)
+9. [Underhåll](#underhåll)
 
 ---
 
@@ -290,6 +291,69 @@ Claude bör:
 
 ---
 
+## KÄNDA BEGRÄNSNINGAR
+
+### 1. Bildextraktion fungerar inte i Claude Desktop
+
+**Problem:** När MarkItDown konverterar dokument med bilder, trunkeras base64-datan. Istället för fullständig bilddata visas bara `data:image/png;base64...`
+
+**Symptom:**
+- Markdown-output visar `![](data:image/png;base64...)`
+- Försök att extrahera bilden misslyckas
+- Claude Desktop kan nå max meddelandelängd om man försöker inkludera base64-datan
+
+**Lösning:** Extrahera bilder direkt från Word-filen (som är ett ZIP-arkiv):
+
+```python
+import zipfile
+import os
+
+docx_path = "/path/to/dokument.docx"
+output_dir = "/path/to/output/images"
+
+os.makedirs(output_dir, exist_ok=True)
+
+# Word-filer är ZIP-arkiv
+with zipfile.ZipFile(docx_path, 'r') as z:
+    media_files = [f for f in z.namelist() if f.startswith('word/media/')]
+
+    for i, media_file in enumerate(media_files, 1):
+        ext = os.path.splitext(media_file)[1]
+        output_name = f"image{i}{ext}"
+
+        with z.open(media_file) as src:
+            with open(os.path.join(output_dir, output_name), 'wb') as dst:
+                dst.write(src.read())
+```
+
+**Rekommendation:**
+| Användning | Verktyg |
+|------------|---------|
+| Konvertera dokument → markdown text | MarkItDown MCP i Claude Desktop |
+| Extrahera bilder | Python-script eller Claude Code |
+
+---
+
+### 2. uv måste anges med full sökväg
+
+**Problem:** Claude Desktop har begränsad PATH. Om `uv` ligger i `~/.local/bin/` hittas den inte.
+
+**Lösning:** Använd full sökväg i konfigurationen:
+```json
+{
+  "command": "/Users/DITT-ANVÄNDARNAMN/.local/bin/uv",
+  "args": [...]
+}
+```
+
+**Hitta din uv-sökväg:**
+```bash
+which uv
+# Output: ~/.local/bin/uv
+```
+
+---
+
 ## SÄKERHETSÅTGÄRDER
 
 ### OBLIGATORISKA ÅTGÄRDER
@@ -540,6 +604,7 @@ open https://github.com/microsoft/markitdown/releases
 
 | Datum | Version | Ändringar |
 |-------|---------|-----------|
+| 2026-01-31 | 1.1 | Lagt till "Kända begränsningar" - bildextraktion, uv PATH |
 | 2026-01-20 | 1.0 | Initial version av guide |
 
 ---

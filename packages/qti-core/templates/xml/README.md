@@ -387,11 +387,11 @@ Labels are user-defined text tags for organizing and filtering content in Insper
 - **NO** `<imsmd:id>` element - just the value
 - Any text value (searchable if 3+ characters)
 - Apply to Questions AND Question Sets
-- In MQG format: `^labels #Easy #BIOG001X #Prokaryot`
+- In MQG format: `^labels #Easy #EXAMPLE_COURSE #Prokaryot`
 
 **Common uses:**
 - Difficulty: `Easy`, `Medium`, `Hard`
-- Course codes: `BIOG001X`, `TRA265`
+- Course codes: `EXAMPLE_COURSE`, `TRA265`
 - Topics: `Prokaryot`, `Celltyper`, `Evolution`
 - Bloom's levels: `Remember`, `Understand`, `Apply`
 

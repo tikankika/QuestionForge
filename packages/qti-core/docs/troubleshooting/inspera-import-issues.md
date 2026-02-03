@@ -239,8 +239,8 @@ Metadata not properly set in markdown frontmatter or XML.
 1. Add frontmatter to markdown:
    ```yaml
    ---
-   title: "BIOG001X Frågebank"
-   identifier: "BIOG001X_001"
+   title: "EXAMPLE_COURSE Frågebank"
+   identifier: "EXAMPLE_COURSE_001"
    ---
    ```
 

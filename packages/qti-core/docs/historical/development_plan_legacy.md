@@ -662,11 +662,11 @@ def create_assessment_item(question_data):
 ## References and Resources
 
 ### Example Files from Inspera
-- `/Users/niklaskarlsson/QTI-Generator-for-Inspera/QTI_test1/InsperaAssessmentExport_731212122_422217866/`
+- `/path/to/qti-generator/QTI_test1/InsperaAssessmentExport_731212122_422217866/`
   - ID_422217866-item.xml (simple multiple choice question)
   - imsmanifest.xml (package manifest)
 
-- `/Users/niklaskarlsson/QTI-Generator-for-Inspera/QTI_test1/InsperaAssessmentExport_968954738_359001188/`
+- `/path/to/qti-generator/QTI_test1/InsperaAssessmentExport_968954738_359001188/`
   - 16 question files with different types
   - 13 image resources
   - Complete assessment structure

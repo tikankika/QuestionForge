@@ -471,7 +471,7 @@ def extract_field(text: str, field_name: str) -> str:
 2. ⏳ Implementera transforms.py
 3. ⏳ Implementera analyzer.py  
 4. ⏳ Implementera MCP tools
-5. ⏳ Testa på BIOG001X_Fys_v63.md
+5. ⏳ Testa på EXAMPLE_COURSE_Fys_v63.md
 
 ---
 

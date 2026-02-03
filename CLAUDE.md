@@ -10,7 +10,7 @@ QuestionForge is a teacher-led, AI-assisted framework for creating high-quality 
 
 ```bash
 # Project structure
-cd /Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge
+cd .
 
 # MCPs (to be implemented)
 packages/qf-scaffolding/   # TypeScript - methodology guidance

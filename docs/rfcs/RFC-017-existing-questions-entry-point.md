@@ -2,7 +2,7 @@
 
 **Status:** Draft → Ready for Implementation
 **Created:** 2026-01-29
-**Updated:** 2026-01-30
+**Updated:** 2026-01-31
 **Author:** Niklas Karlsson + Claude
 **Related:** RFC-014 (Resource Handling), RFC-016 (M5 Self-Learning Format Recognition)
 **Scrutiny:** Passed with revisions (2026-01-30)
@@ -82,56 +82,38 @@ Matematik_Prov1_abc123/
 
 ## Key Decisions (Resolved)
 
-### Decision 1: Conversion via Separate MarkItDown MCP
+### Decision 1: Input Format & Conversion
 
-**DECIDED:** Claude orkestrerar konvertering via separat MarkItDown MCP (inte integrerat i qf-pipeline)
+**DECIDED:** QuestionForge tar emot **markdown**. För andra format, använd befintliga verktyg.
 
-**Arkitektur:**
+**Input:**
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  CLAUDE DESKTOP                                                             │
-│       │                                                                     │
-│       ├── MarkItDown MCP ──── convert_to_markdown(uri)                     │
-│       │         │                                                           │
-│       │         ↓                                                           │
-│       │    docx/xlsx/pdf → markdown                                        │
-│       │         │                                                           │
-│       │         ↓                                                           │
-│       │    Sparar till: questions/source_converted.md                      │
-│       │                                                                     │
-│       └── qf-pipeline MCP ── step0_start(source_file="source_converted.md")│
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+questions entry point → tar emot markdown-fil
 ```
 
-**Workflow (Claude orkestrerar):**
+**Har läraren PDF/docx?** Använd `qf-scaffolding:read_materials`:
+
 ```python
-# Steg 1: Lärare ger Claude en Word-fil
-# "Konvertera prov.docx och skapa QF-projekt"
+# Steg 1: Läs PDF/docx med read_materials
+content = read_materials(project_path, filename="prov.pdf")
+# → Returnerar extraherad text
 
-# Steg 2: Claude anropar MarkItDown MCP
-markdown_content = convert_to_markdown("file:///Users/.../prov.docx")
+# Steg 2: Spara som markdown
+write_project_file(project_path, "questions/source.md", content)
 
-# Steg 3: Claude sparar till projektmappen
-# Sparar till: /Nextcloud/Courses/.../questions/source_converted.md
-
-# Steg 4: Claude anropar qf-pipeline
-step0_start(
-    entry_point="questions",
-    source_file="/Nextcloud/Courses/.../questions/source_converted.md",
-    resources_folder="/path/to/bilder/"  # Optional
-)
+# Steg 3: Starta questions workflow
+step0_start(entry_point="questions", source_file="questions/source.md")
 ```
 
-**Fördelar med separat MCP:**
-- Inga extra dependencies i qf-pipeline
-- MarkItDown underhålls av Microsoft
-- Claude har full kontroll över processen
-- Filen sparas permanent (inte temp)
+**Alternativt:** Använd `markitdown` CLI i terminal:
+```bash
+markitdown prov.docx > source.md
+```
 
-**Krav:**
-- MarkItDown MCP måste vara installerad och konfigurerad i Claude Desktop
-- Filesystem MCP behövs för att spara den konverterade filen
+**Fördelar:**
+- Återanvänder befintligt verktyg (`read_materials`)
+- Inga nya dependencies
+- Enkelt och fungerar idag
 
 ### Decision 2: Resource Linking in QFMD
 
@@ -267,19 +249,19 @@ except Exception as e:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │  STEG 1: Lärare ber om hjälp                                                │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  Lärare: "Jag har ett prov i Word-format som jag vill göra om till Inspera"│
-│          📎 Fil: /Nextcloud/Courses/Matematik/prov.docx                     │
+│  Lärare: "Jag har ett prov i PDF-format som jag vill göra om till Inspera" │
+│          📎 Fil: /Nextcloud/Courses/Matematik/prov.pdf                      │
 │          📎 Bilder: /Nextcloud/Courses/Matematik/bilder/                    │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  STEG 2: Claude konverterar med MarkItDown MCP                              │
+│  STEG 2: Claude läser PDF med read_materials                                │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  Claude: "Jag konverterar Word-filen till markdown..."                      │
+│  Claude: "Jag läser PDF-filen..."                                           │
 │                                                                             │
-│  → Anropar MarkItDown: convert_to_markdown("file:///Nextcloud/.../prov.docx")│
-│  → Får tillbaka markdown-text                                               │
-│  → Sparar till: /Nextcloud/Courses/Matematik/questions/source_converted.md │
+│  → qf-scaffolding: read_materials(project_path, filename="prov.pdf")       │
+│  → Får tillbaka extraherad text                                             │
+│  → Sparar till: questions/source.md                                         │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -287,7 +269,7 @@ except Exception as e:
 │  ─────────────────────────────────────────────────────────────────────────  │
 │  → Anropar qf-pipeline: step0_start(                                        │
 │        entry_point="questions",                                             │
-│        source_file="/Nextcloud/.../questions/source_converted.md",          │
+│        source_file="questions/source.md",                                   │
 │        resources_folder="/Nextcloud/.../bilder/"                            │
 │     )                                                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -561,42 +543,33 @@ def copy_resources(src_folder: Path, dest_folder: Path) -> dict:
     }
 ```
 
-### Phase 3: MarkItDown MCP (Separat Installation)
+### Phase 3: Dokumentkonvertering (Befintliga verktyg)
 
-**OBS:** MarkItDown är en SEPARAT MCP-server, inte integrerad i qf-pipeline.
+**Ingen ny installation krävs.** Använd befintliga verktyg:
 
-**Installation:** Se `docs/guides/markitdown-mcp-installation.md`
+| Format | Verktyg | Kommentar |
+|--------|---------|-----------|
+| PDF | `qf-scaffolding:read_materials` | Redan implementerat |
+| DOCX | `markitdown` CLI (terminal) | Installeras separat om behövs |
+| Markdown | Direkt input | Ingen konvertering |
 
-**Claude Desktop konfiguration:**
-```json
-{
-  "mcpServers": {
-    "markitdown": {
-      "command": "docker",
-      "args": [
-        "run", "--rm", "-i",
-        "-v", "/Users/niklaskarlsson/Nextcloud/Courses:/workdir:ro",
-        "markitdown-mcp:latest"
-      ]
-    }
-  }
-}
+**Exempel med read_materials:**
+```python
+# Claude läser PDF
+content = read_materials(project_path, filename="prov.pdf")
+
+# Claude sparar som markdown
+write_project_file(project_path, "questions/source.md", content.text_content)
+
+# Claude startar questions workflow
+step0_start(entry_point="questions", source_file="questions/source.md")
 ```
 
-**Hur Claude använder det:**
-```python
-# Claude anropar MarkItDown MCP
-markdown_content = convert_to_markdown("file:///workdir/Matematik/prov.docx")
-
-# Claude sparar resultatet till projektmappen
-# (via Filesystem MCP eller direkt i chatten)
-# Sparar till: /Nextcloud/Courses/Matematik/questions/source_converted.md
-
-# Sen anropar Claude qf-pipeline
-step0_start(
-    entry_point="questions",
-    source_file="/Nextcloud/Courses/Matematik/questions/source_converted.md"
-)
+**Alternativ: markitdown CLI** (om docx eller bättre formatering behövs)
+```bash
+# I terminal
+pip install markitdown[all]
+markitdown prov.docx > source.md
 ```
 
 ---
@@ -700,7 +673,7 @@ echo "Question 1: What is 2+2?" > $TEST_DIR/test.docx
 # Run via Python
 python3 << 'EOF'
 import sys
-sys.path.insert(0, '/Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge/packages/qf-pipeline/src')
+sys.path.insert(0, './packages/qf-pipeline/src')
 from qf_pipeline.utils.session_manager import create_session_for_questions
 from pathlib import Path
 
@@ -740,7 +713,7 @@ echo "TXT" > $TEST_DIR/images/notes.txt  # Should be SKIPPED
 # Run
 python3 << 'EOF'
 import sys
-sys.path.insert(0, '/Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge/packages/qf-pipeline/src')
+sys.path.insert(0, './packages/qf-pipeline/src')
 from qf_pipeline.utils.session_manager import create_session_for_questions
 from pathlib import Path
 
@@ -854,19 +827,19 @@ echo "✅ Test 3 workflow documented"
 RFC-017 introduces:
 1. **New entry point `questions`** for existing questions (markdown format)
 2. **`resources_folder` parameter** for accompanying images/audio
-3. **Claude-orkestrerad konvertering** via separat MarkItDown MCP
+3. **Återanvändning av `read_materials`** för PDF-läsning (ingen ny kod)
 4. **Flexible routing** to M2, M4, or M5 based on teacher needs
 5. **`questions/resources/` folder** in project structure
 6. **Resource linking syntax** in QFMD: `![](resources/filename)`
 7. **Comprehensive error handling** with rollback on failure
 
 **Arkitektur:**
-- MarkItDown MCP (separat): docx/xlsx/pdf → markdown
+- `qf-scaffolding:read_materials`: läser PDF → text (befintligt verktyg)
+- `markitdown` CLI (valfritt): docx/xlsx → markdown (extern, terminal)
 - qf-pipeline: tar emot markdown, hanterar resurser, kör M5 → Pipeline
-- Claude: orkestrerar hela flödet
 
 This fills the gap for teachers who have existing questions but don't fit the current M1→M2→M3→M4→Pipeline workflow.
 
 ---
 
-*RFC-017 created 2026-01-29, updated 2026-01-30 (MarkItDown som separat MCP, Claude orkestrerar)*
+*RFC-017 created 2026-01-29, updated 2026-01-31 (Förenklad: återanvänd read_materials, markitdown valfritt)*

@@ -53,7 +53,7 @@ async def handle_step2_validate(arguments: dict):
     file_path = session.working_file if session else arguments.get("file_path")
     
     # Path to qti-core
-    qti_core_path = Path("/Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge/packages/qti-core")
+    qti_core_path = Path("./packages/qti-core")
     
     # Run step1_validate.py
     result = subprocess.run(
@@ -83,7 +83,7 @@ async def handle_step4_export(arguments: dict):
     file_path = session.working_file
     language = arguments.get("language", "sv")
     
-    qti_core_path = Path("/Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge/packages/qti-core")
+    qti_core_path = Path("./packages/qti-core")
     
     scripts = [
         {'name': 'step1_validate.py', 'args': [str(file_path), '--verbose']},

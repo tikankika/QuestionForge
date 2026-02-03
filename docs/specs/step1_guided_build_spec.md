@@ -60,7 +60,7 @@ changes:
   - question: Q001
     field: "labels"
     old: null
-    new: "^labels #BIOG001X #Remember #Easy"
+    new: "^labels #EXAMPLE_COURSE #Remember #Easy"
     timestamp: "2026-01-07T10:05:00Z"
 ```
 
@@ -337,7 +337,7 @@ comparison_result:
       field: "^labels"
       message: "Saknar ^labels metadata"
       current: null
-      suggestion: "^labels #BIOG001X #Remember #Easy"
+      suggestion: "^labels #EXAMPLE_COURSE #Remember #Easy"
       auto_fixable: false  # behöver user input för Bloom/Difficulty
       
     - severity: "critical"
@@ -393,7 +393,7 @@ def format_suggestions(comparison: ComparisonResult) -> str:
 
 1. **Saknar ^labels metadata**
    - Nuvarande: (saknas)
-   - Förslag: `^labels #BIOG001X #[BLOOM] #[DIFFICULTY]`
+   - Förslag: `^labels #EXAMPLE_COURSE #[BLOOM] #[DIFFICULTY]`
    - ❓ Vilken Bloom-nivå? [Remember] [Understand] [Apply] [Analyze]
    - ❓ Vilken svårighetsgrad? [Easy] [Medium] [Hard]
 
@@ -434,7 +434,7 @@ decision:
   action: "modify"
   modifications:
     - field: "^labels"
-      value: "^labels #BIOG001X #Cellbiologi #Remember #Easy"
+      value: "^labels #EXAMPLE_COURSE #Cellbiologi #Remember #Easy"
   accept_auto: true  # applicera auto-fixable issues också
 ```
 
@@ -465,7 +465,7 @@ change:
   fixes_applied:
     - field: "^labels"
       old: null
-      new: "^labels #BIOG001X #Cellbiologi #Remember #Easy"
+      new: "^labels #EXAMPLE_COURSE #Cellbiologi #Remember #Easy"
       source: "user_input"
     - field: "options"
       old: "1. Alt\n2. Alt"

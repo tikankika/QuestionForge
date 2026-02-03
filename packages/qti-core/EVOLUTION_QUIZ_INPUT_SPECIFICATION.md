@@ -2,7 +2,7 @@
 
 **Purpose**: This document shows the EXACT markdown format required for the Python QTI Generator scripts to successfully convert Evolution quiz questions to QTI 2.2 XML for Inspera import.
 
-**Target Output**: `/Users/niklaskarlsson/QTI-Generator-for-Inspera/output/test02_evolution_biog001x_QTI/`
+**Target Output**: `/path/to/qti-generator/output/test02_evolution_biog001x_QTI/`
 
 **Process**:
 1. Claude Desktop + Teacher dialogue → Creates markdown following THIS specification

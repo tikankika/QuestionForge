@@ -25,7 +25,7 @@ Every question MUST use this exact format:
 ### Format
 **Comma-separated list** containing (in order):
 
-1. **Course Code** - Course identifier (e.g., BIOG001X, TRA265)
+1. **Course Code** - Course identifier (e.g., EXAMPLE_COURSE, TRA265)
 2. **Learning Content Words** - Descriptive keywords for the learning content (e.g., Celltyper, Prokaryot, Eukaryot, Mitokondrier)
 3. **Bloom's Taxonomy Level** - ONE of: Remember, Understand, Apply, Analyze, Evaluate, Create
 4. **Difficulty Level** - ONE of: Easy, Medium, Hard
@@ -33,7 +33,7 @@ Every question MUST use this exact format:
 
 ### Valid Example
 ```markdown
-**Tags**: BIOG001X, Celltyper, Prokaryot, Eukaryot, Cellkärna, Understand, Easy
+**Tags**: EXAMPLE_COURSE, Celltyper, Prokaryot, Eukaryot, Cellkärna, Understand, Easy
 ```
 
 ### Bloom's Taxonomy Levels (Required)
@@ -70,7 +70,7 @@ These formats will cause **VALIDATION ERROR**:
 ### ❌ DO NOT USE Space-Separated Tags
 
 ```markdown
-❌ **Tags**: BIOG001X Celltyper Prokaryot Understand Easy
+❌ **Tags**: EXAMPLE_COURSE Celltyper Prokaryot Understand Easy
 ```
 
 **Use comma-separated instead.**
@@ -85,7 +85,7 @@ These formats will cause **VALIDATION ERROR**:
 **Type**: multiple_choice_single
 **Identifier**: MC_Q001
 **Points**: 1
-**Tags**: BIOG001X, Celltyper, Prokaryot, Eukaryot, Cellkärna, Understand, Easy
+**Tags**: EXAMPLE_COURSE, Celltyper, Prokaryot, Eukaryot, Cellkärna, Understand, Easy
 **Language**: sv
 
 ## Question Text
@@ -139,11 +139,11 @@ The QTI Generator creates Inspera searchable labels ONLY from the **Tags** field
 
 **Example:** This Tags field:
 ```markdown
-**Tags**: BIOG001X, Celltyper, Prokaryot, Understand, Easy
+**Tags**: EXAMPLE_COURSE, Celltyper, Prokaryot, Understand, Easy
 ```
 
 Creates these Inspera labels:
-- BIOG001X
+- EXAMPLE_COURSE
 - Celltyper
 - Prokaryot
 - Understand
@@ -174,7 +174,7 @@ If you have questions using the OLD format with separate fields:
 **Type**: multiple_choice_single
 **Identifier**: Q001
 **Points**: 1
-**Tags**: BIOG001X, LO1, LO2, Prokaryot, Eukaryot, Understand, Easy
+**Tags**: EXAMPLE_COURSE, LO1, LO2, Prokaryot, Eukaryot, Understand, Easy
 **Language**: sv
 ```
 

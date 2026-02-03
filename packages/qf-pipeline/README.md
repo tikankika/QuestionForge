@@ -78,7 +78,7 @@ PYTHONPATH="src:$PYTHONPATH" python3 -m pytest tests/ -v
 
 ## Dependencies
 
-- **QTI-Generator-for-Inspera**: Must exist at `/Users/niklaskarlsson/QTI-Generator-for-Inspera`
+- **QTI-Generator-for-Inspera**: Must exist at `/path/to/qti-generator`
 - **Python**: 3.10+ recommended
 - **mcp**: MCP SDK for Python
 

@@ -45,7 +45,7 @@ Under M1 Stage 0 (Material Analysis) byggdes `preparation/m1_stage0_materials.md
 
 ## Affected File
 
-`/Users/niklaskarlsson/Nextcloud/Courses/ARTI1000X/Test/Kunskapskontroll/Entery_check_modul2_hv_v17/preparation/m1_stage0_materials.md`
+`/path/to/courses/ARTI1000X/Test/Kunskapskontroll/Entery_check_modul2_hv_v17/preparation/m1_stage0_materials.md`
 
 ## Fix Options
 

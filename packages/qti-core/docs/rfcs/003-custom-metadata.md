@@ -102,7 +102,7 @@ Add support for Inspera's new Custom Metadata feature, allowing structured metad
 ^type multiple_choice_single
 ^identifier MC_Q001
 ^points 1
-^labels #Easy #BIOG001X #Prokaryot                          # Labels (free-form)
+^labels #Easy #EXAMPLE_COURSE #Prokaryot                          # Labels (free-form)
 ^custom_metadata Nivåer: nivå 1                             # Single-select
 ^custom_metadata Område Biologi: cellbiologi, fysiologi     # Multi-select (comma-separated)
 ```

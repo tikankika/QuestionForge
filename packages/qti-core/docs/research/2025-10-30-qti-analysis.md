@@ -462,7 +462,7 @@ For types not in exports but visible in UI:
 
 - QTI 2.2 Specification: https://www.imsglobal.org/question/qtiv2p2/imsqti_v2p2.html
 - Inspera Platform: https://www.inspera.com/
-- Export Location: `/Users/niklaskarlsson/QTI-Generator-for-Inspera/QTI_test1/`
+- Export Location: `/path/to/qti-generator/QTI_test1/`
 
 ---
 

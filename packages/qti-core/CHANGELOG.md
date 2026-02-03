@@ -332,7 +332,7 @@ Avslutar sektionskapande...
   - Fixed 4 locations where tags were parsed incorrectly (lines 175, 267, 467, 506)
   - **Root Cause:** Backup string parsing only handled comma-separated tags, not space-separated
   - **Symptom:** Filter counts showed "51 kvar" but matching showed "0 frågor matchar"
-  - **Before:** `split(',')` only worked for "Easy, Remember, BIOG001X"
+  - **Before:** `split(',')` only worked for "Easy, Remember, EXAMPLE_COURSE"
   - **After:** Handles both comma-separated AND space-separated formats consistently
   - **Impact:** Filter matching now works correctly regardless of tag format in markdown
 
@@ -781,7 +781,7 @@ Added complete support for Editor Configuration extraction and validation for te
 - ✓ Validator warns about missing Editor Configuration section
 - ✓ Validator warns about missing individual configuration fields
 - ✓ Text area questions use configured values instead of defaults
-- ✓ Tested with 70-question BIOG001X cell biology bank
+- ✓ Tested with 70-question EXAMPLE_COURSE cell biology bank
 
 **Conclusion:** text_area question type now fully supports editor configuration. Both parser and validator align with BB6 specification requirements.
 
@@ -808,7 +808,7 @@ Major session fixing multiple critical bugs discovered during production use wit
     - `step4_generate_xml.py` (line 338): Add `'metadata': question` to xml_files
     - `step5_create_zip.py` (lines 218-230): Extract metadata and pass to packager as `metadata['questions']`
   - Result: All tags now appear as labels in Inspera Question Bank ✓
-  - Verified: 12 tags exported correctly (BIOG001X, DNA, Genetik, etc.)
+  - Verified: 12 tags exported correctly (EXAMPLE_COURSE, DNA, Genetik, etc.)
 
 - **XML Comment Validation Errors**
   - Inspera import failed with "The string '--' is not permitted within comments"
@@ -865,7 +865,7 @@ Major session fixing multiple critical bugs discovered during production use wit
 
 #### Test Results
 - DNA_Structure_Question_MINIMAL: ✓ SUCCESS (with truncated filename)
-- BIOG001X_Bildfragor_1: ✓ SUCCESS (3 images, labels visible)
+- EXAMPLE_COURSE_Bildfragor_1: ✓ SUCCESS (3 images, labels visible)
 - Cellcykel_GapMatch_Question_MINIMAL: ✓ FIXED (image reference corrected)
 - Batch processing: ✓ TESTED (correctly identifies processed files)
 
@@ -1351,7 +1351,7 @@ HS_Q014_virus_dra_och_slapp_i_bild.png
 
 **Real-World Test:**
 ```bash
-$ qti-gen BIOG001X_Bildfragor.md output.zip --strict
+$ qti-gen EXAMPLE_COURSE_Bildfragor.md output.zip --strict
 ✓ All resources validated successfully
 ✓ Copied 3 resources
   Sanitized: Cellens_beståndsdelar.png → cellens_bestandsdelar.png
@@ -1376,7 +1376,7 @@ This session fixed a critical bug where hotspot questions used hardcoded 'image.
   - Parser stores inline images with 'path' key (from `![alt](filename.png)` syntax)
   - Hotspot generator was reading wrong key, resulting in hardcoded 'image.png'
   - Now matches graphicgapmatch_v2 behavior (line 1073)
-  - Tested with BIOG001X_Bildfragor.md - all 3 images now included correctly
+  - Tested with EXAMPLE_COURSE_Bildfragor.md - all 3 images now included correctly
   - **Impact**: Hotspot questions now work with images, enabling biology cell/virus diagram questions
 
 #### Planned (Next Week - Phase 4)
@@ -1563,7 +1563,7 @@ This session consolidated the QTI generation workflow from 5 manual steps down t
 #### Testing
 
 **Preprocessing Pipeline Validation**
-- Tested with BIOG001X (39 questions, GenAI format)
+- Tested with EXAMPLE_COURSE (39 questions, GenAI format)
 - Successfully added unified feedback to 39 questions
 - Successfully filtered 1 hotspot question
 - Auto-validation passed
@@ -1693,14 +1693,14 @@ This session consolidated the QTI generation workflow from 5 manual steps down t
   - **Workaround**: Convert to other question types or complete implementation
 
 #### Testing
-- **BIOG001X Biology Quiz (38 questions)**
+- **EXAMPLE_COURSE Biology Quiz (38 questions)**
   - All question types validated and exported successfully
   - Multiple choice: Options displayed correctly (GenAI format)
   - Inline choice: Dropdowns working (GenAI format)
   - Match: All pairs displayed correctly (GenAI format)
   - Graphicgapmatch: Images included and displayed (Q5, Q7)
   - Text entry: Inline blanks working correctly
-  - Export: `BIOG001X_38_Questions_FINAL_ALL_WORKING.zip`
+  - Export: `EXAMPLE_COURSE_38_Questions_FINAL_ALL_WORKING.zip`
   - Size: 1.3MB with 2 images (338KB + 987KB)
 
 ### 2025-11-09 - Saturday (Session 9)
@@ -2179,7 +2179,7 @@ if not feedback and feedback_content:
 
 #### Research Notes
 **Evolution Quiz Context:**
-- 61-question Swedish biology quiz (Evolution topic, BIOG001X course)
+- 61-question Swedish biology quiz (Evolution topic, EXAMPLE_COURSE course)
 - Custom Swedish feedback format: Rätt, Fel, Delvis rätt, Obesvarad
 - All previous fixes operational (text entry markers, labels, multiple correct answers, language codes, manifest version)
 - Feedback correctly parsed from markdown and present in XML modalFeedback elements
@@ -2343,7 +2343,7 @@ Since Inspera requires unified feedback, the generator now uses only the 'correc
 #### Technical Notes
 **Label Generation Changes:**
 - **BEFORE**: Auto-generated labels with prefixes (Biology - Evolution, LO:LO2, Bloom:Remember, Type:multiple_choice_single) + custom labels
-- **AFTER**: Only custom labels from **Labels**: field (BIOG001X, evolution, definition, Remember, LO2, (E))
+- **AFTER**: Only custom labels from **Labels**: field (EXAMPLE_COURSE, evolution, definition, Remember, LO2, (E))
 - **Rationale**: Analysis of actual Inspera exports revealed plain text labels without prefixes is standard practice
 - **Impact**: Users have complete control over labels through markdown **Labels**: field
 - **Documentation**: Own documentation (metadata_reference.md) explicitly warned against prefixes but code was adding them
@@ -2353,7 +2353,7 @@ Since Inspera requires unified feedback, the generator now uses only the 'correc
 - Questions processed: 56 (all multiple_choice_single)
 - Questions skipped: 12 (6 true_false, 4 multiple_choice_multiple, 2 fill_in_the_blank - not yet supported)
 - Output: `output/evolution_biog001x/Evolution_quiz_with_labels.zip` ready for Inspera import
-- All custom labels (BIOG001X, evolution, definition, population, genetik, Remember, LO codes, difficulty indicators) now appear correctly
+- All custom labels (EXAMPLE_COURSE, evolution, definition, population, genetik, Remember, LO codes, difficulty indicators) now appear correctly
 
 **Conversion Workflow:**
 ```bash
@@ -2370,7 +2370,7 @@ python3 main.py output_FILTERED.md output.zip --language sv
 #### Research Notes
 **Inspera Label Format Analysis:**
 - Examined real Inspera exports (InsperaAssessmentExport_857624276_422661969.zip, InsperaAssessmentExport_10858105_422661276.zip)
-- Found labels are plain text strings without prefixes (e.g., "BIOG001X", "evolution", "Darwinfinkar", "QTI-devlopment")
+- Found labels are plain text strings without prefixes (e.g., "EXAMPLE_COURSE", "evolution", "Darwinfinkar", "QTI-devlopment")
 - No instances of "LO:", "Bloom:", or "Type:" prefixes in any real export
 - Generator code was adding prefixes for "namespacing" but this contradicted actual Inspera practice
 - Own documentation (metadata_reference.md v2.0) correctly documented plain text labels but code didn't match
@@ -2536,7 +2536,7 @@ python3 main.py output_FILTERED.md output.zip --language sv
 - Metadata lives in imsmanifest.xml, NOT in question files
 - Labels are plain strings (NO prefixes like "LO:", "Bloom:")
 - NO structured learning_objectives in Inspera (just plain label strings)
-- Label examples from real exports: "BIOG001X", "evolution", "Remember", "LO1"
+- Label examples from real exports: "EXAMPLE_COURSE", "evolution", "Remember", "LO1"
 
 #### Critical Findings from Inspera Export Analysis
 1. **Labels** - Taxons WITHOUT `<imsmd:id>` become searchable tags

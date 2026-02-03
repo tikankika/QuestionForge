@@ -20,7 +20,7 @@ Assessment_suite/pre-assessment-mcp har ett beprövat mönster:
 - `phase1_explore` - Skannar och identifierar filer
 - `phase1_setup` - Skapar projektstruktur, kopierar filer
 
-Se: `/Users/niklaskarlsson/AIED_EdTech_projects/Assessment_suite/packages/pre-assessment-mcp/src/pre_assessment_mcp/tools/`
+Se: `/path/to/assessment-suite/packages/pre-assessment-mcp/src/pre_assessment_mcp/tools/`
 
 ## Beslut
 
@@ -69,19 +69,19 @@ session:
   updated: "2026-01-05T23:45:00Z"
   
 source:
-  original_path: "/Users/.../BIOG001X_Fys_v65_5.md"
-  filename: "BIOG001X_Fys_v65_5.md"
-  copied_to: "01_source/BIOG001X_Fys_v65_5.md"
+  original_path: "/Users/.../EXAMPLE_COURSE_Fys_v65_5.md"
+  filename: "EXAMPLE_COURSE_Fys_v65_5.md"
+  copied_to: "01_source/EXAMPLE_COURSE_Fys_v65_5.md"
   
 working:
-  path: "02_working/BIOG001X_Fys_v65_5.md"
+  path: "02_working/EXAMPLE_COURSE_Fys_v65_5.md"
   last_validated: "2026-01-05T23:35:00Z"
   validation_status: "valid"
   question_count: 27
   
 exports:
   - timestamp: "2026-01-05T23:45:00Z"
-    output_file: "03_output/BIOG001X_Fys_QTI.zip"
+    output_file: "03_output/EXAMPLE_COURSE_Fys_QTI.zip"
     questions_exported: 27
 ```
 

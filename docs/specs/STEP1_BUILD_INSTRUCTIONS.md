@@ -1679,7 +1679,7 @@ TOOLS = [
 
 ## TESTING
 
-### Test File: BIOG001X_Fys_v63.md (verklig fil)
+### Test File: EXAMPLE_COURSE_Fys_v63.md (verklig fil)
 
 ```bash
 # Kör test
@@ -1692,7 +1692,7 @@ from qf_pipeline.step1.detector import detect_format
 from qf_pipeline.step1.parser import parse_file
 from pathlib import Path
 
-content = Path('test_data/BIOG001X_Fys_v63.md').read_text()
+content = Path('test_data/EXAMPLE_COURSE_Fys_v63.md').read_text()
 print(f'Format: {detect_format(content)}')
 questions = parse_file(content)
 print(f'Questions: {len(questions)}')

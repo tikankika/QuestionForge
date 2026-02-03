@@ -475,7 +475,7 @@ python main.py Evolution_FILTERED.md Evolution_quiz.zip --language sv
 
 ## Case Study: Evolution Question Bank
 
-**Source**: BIOG001X Evolution - Question Bank (68 questions)
+**Source**: EXAMPLE_COURSE Evolution - Question Bank (68 questions)
 **Format**: Dual-structure markdown with separate Metadata/Question Content sections
 **Conversion Results**:
 - **Total questions**: 68

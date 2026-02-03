@@ -4,7 +4,7 @@
 ^identifier MC_CUSTOM_001
 ^title Biology Cell Question
 ^points 1
-^labels #BIOG001X #Cellbiologi #Remember #Easy
+^labels #EXAMPLE_COURSE #Cellbiologi #Remember #Easy
 ^custom_metadata Nivåer: nivå 1
 ^custom_metadata Område Biologi: cellbiologi
 
@@ -52,7 +52,7 @@ Vänligen välj ett alternativ.
 ^identifier MC_CUSTOM_002
 ^title Multi-select Metadata Test
 ^points 2
-^labels #BIOG001X #Fysiologi #Understand #Medium
+^labels #EXAMPLE_COURSE #Fysiologi #Understand #Medium
 ^custom_metadata Nivåer: nivå 2
 ^custom_metadata Område Biologi: fysiologi, cellbiologi
 

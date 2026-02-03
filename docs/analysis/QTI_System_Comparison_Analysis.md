@@ -3,8 +3,8 @@
 ## EXECUTIVE SUMMARY
 
 Denna analys jämför två system för QTI-generering:
-1. **Terminal QTI Generator** (`/Users/niklaskarlsson/QTI-Generator-for-Inspera/scripts/interactive_qti.py`)
-2. **qf-pipeline MCP** (`/Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge/packages/qf-pipeline`)
+1. **Terminal QTI Generator** (`/path/to/qti-generator/scripts/interactive_qti.py`)
+2. **qf-pipeline MCP** (`./packages/qf-pipeline`)
 
 **Kärnfråga:** Hur skiljer sig första steget i varje system, och vad betyder det för användarupplevelsen?
 
@@ -21,10 +21,10 @@ Denna analys jämför två system för QTI-generering:
 
 ▶ Välj MQG folder:
 
-  1. Biologi BIOG001X (Autumn 2025) ✓
-  2. TRA265 LP2 2025 ✗
-  3. Mate2b001x Autmn 2025 ✓
-  4. Biog001x Cellbiologi Genetik 4 ✓
+  1. Biologi EXAMPLE_COURSE (Autumn 2025) ✓
+  2. EXAMPLE_COURSE_B LP2 2025 ✗
+  3. EXAMPLE_COURSE_C Autmn 2025 ✓
+  4. Example Course Biology 4 ✓
   5. Biog001x Fys ✓
 
   98. Ange egen sökväg manuellt

@@ -752,7 +752,7 @@ Claude: step1_finish()
 
 ## TEST CASE
 
-Fil: `BIOG001X_Fys_v63.md` (27 frågor)
+Fil: `EXAMPLE_COURSE_Fys_v63.md` (27 frågor)
 
 Expected:
 - `step1_start()` → Session startad

@@ -9,7 +9,7 @@
 ## Prerequisites
 
 - [ ] Verifiera att qti-core scripts fungerar i terminal
-- [ ] Bekräfta path till qti-core: `/Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge/packages/qti-core`
+- [ ] Bekräfta path till qti-core: `./packages/qti-core`
 - [ ] Testa subprocess isolation lokalt
 
 ---

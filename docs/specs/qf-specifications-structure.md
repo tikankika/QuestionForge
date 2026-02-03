@@ -192,7 +192,7 @@ Hierarchical label definitions:
 # Label Taxonomy for QuestionForge
 
 courses:
-  - code: BIOG001X
+  - code: EXAMPLE_COURSE
     name: Grundläggande biologi
     topics:
       - Celler
@@ -214,7 +214,7 @@ difficulty:
   - Hard
 
 # Format: @tags: #CourseCode #Topic #BloomLevel #Difficulty
-# Example: @tags: #BIOG001X #Celler #Apply #Medium
+# Example: @tags: #EXAMPLE_COURSE #Celler #Apply #Medium
 ```
 
 ---

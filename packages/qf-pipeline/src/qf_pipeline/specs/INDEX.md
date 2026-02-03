@@ -110,7 +110,7 @@ validation_result = validate_against_spec(question, spec)
 2. ⏳ Implementera `load_spec()` funktion
 3. ⏳ Implementera `compare_to_spec()` funktion
 4. ⏳ Implementera `apply_transform()` funktion
-5. ⏳ Testa på verklig fil (BIOG001X_Fys_v63.md)
+5. ⏳ Testa på verklig fil (EXAMPLE_COURSE_Fys_v63.md)
 6. ⏳ Skapa specs för resterande 12 typer
 
 ---

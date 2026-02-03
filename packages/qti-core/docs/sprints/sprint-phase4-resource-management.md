@@ -490,8 +490,8 @@ def create_qti_package(quiz_dir: Path, output_zip: Path):
    - Handle all edge cases
 
 4. Write integration tests (3 hours)
-   - Test with BIOG001X Evolution (1 image)
-   - Test with BIOG001X Virus (3 images)
+   - Test with EXAMPLE_COURSE Evolution (1 image)
+   - Test with EXAMPLE_COURSE Virus (3 images)
    - Test with TRA265 (hotspot images)
 
 **Estimated:** 11 hours (2.5 days)
@@ -623,8 +623,8 @@ def create_qti_package(quiz_dir: Path, output_zip: Path):
 ### Testing
 - [ ] Unit tests for ResourceManager (>90% coverage)
 - [ ] Integration tests with real assessments:
-  - [ ] BIOG001X Evolution (61 questions, 1 image)
-  - [ ] BIOG001X Virus (39 questions, 3 images)
+  - [ ] EXAMPLE_COURSE Evolution (61 questions, 1 image)
+  - [ ] EXAMPLE_COURSE Virus (39 questions, 3 images)
   - [ ] TRA265 L1b (13 questions, hotspot images)
 - [ ] Regression tests (all existing tests pass)
 - [ ] Manual testing with Nextcloud paths
@@ -724,8 +724,8 @@ def create_qti_package(quiz_dir: Path, output_zip: Path):
 
 **Afternoon (2 hours):**
 - [ ] Write integration tests
-- [ ] Test with BIOG001X Evolution
-- [ ] Test with BIOG001X Virus
+- [ ] Test with EXAMPLE_COURSE Evolution
+- [ ] Test with EXAMPLE_COURSE Virus
 
 **Evening (5 min):**
 - [ ] Update CHANGELOG.md

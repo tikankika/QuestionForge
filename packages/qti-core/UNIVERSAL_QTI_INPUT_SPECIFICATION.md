@@ -137,14 +137,14 @@ learning_objectives:
 **Format:** `**Tags**: CourseCode, LearningContentWords, BloomLevel, Difficulty, [Keywords]`
 
 **MUST include:**
-1. **Course Code** (e.g., BIOG001X, TRA265)
+1. **Course Code** (e.g., EXAMPLE_COURSE, TRA265)
 2. **Learning Content Words** (e.g., Celltyper, Prokaryot, Eukaryot)
 3. **Bloom's Level** - ONE of: Remember, Understand, Apply, Analyze, Evaluate, Create
 4. **Difficulty** - ONE of: Easy, Medium, Hard
 
 **Example:**
 ```markdown
-**Tags**: BIOG001X, Celltyper, Prokaryot, Eukaryot, Cellkärna, Understand, Easy
+**Tags**: EXAMPLE_COURSE, Celltyper, Prokaryot, Eukaryot, Cellkärna, Understand, Easy
 ```
 
 **How it works:**

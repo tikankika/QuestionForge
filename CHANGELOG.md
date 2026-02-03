@@ -830,7 +830,7 @@ M5 → Step 2 → Router → Step 3 → Step 4
   - `step2_validate` and `step4_export` failed with import errors
   - Parser found 0 questions despite file having valid content
 - **Cause:** PYTHONPATH in `claude_desktop_config.json` pointed to old location
-  - Old: `/Users/niklaskarlsson/QTI-Generator-for-Inspera`
+  - Old: `/path/to/qti-generator`
   - New: `.../QuestionForge/packages/qti-core`
 - **Fix:** Updated PYTHONPATH in Claude Desktop config
 - **Files modified:**

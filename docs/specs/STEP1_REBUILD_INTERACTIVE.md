@@ -137,7 +137,7 @@ def step1_fix_manual(question_id: str, field: str, value: str):
     """
     Applicera EN manuell fix baserat på lärar-input.
     """
-    # Exempel: field="^labels", value="^labels #BIOG001X #Remember #Easy"
+    # Exempel: field="^labels", value="^labels #EXAMPLE_COURSE #Remember #Easy"
     return {
         "fixed": True,
         "field": field,
@@ -171,7 +171,7 @@ def step1_suggest(question_id: str, field: str):
         # Generera baserat på frågetyp och innehåll
         return {
             "field": field,
-            "suggestion": "^labels #BIOG001X #Matsmältning #Remember #Easy",
+            "suggestion": "^labels #EXAMPLE_COURSE #Matsmältning #Remember #Easy",
             "needs_confirmation": True
         }
 ```
@@ -362,11 +362,11 @@ Claude: step1_batch_apply("missing_partial_feedback", "copy_from_correct")
 ## EXEMPEL: Komplett Session
 
 ```
-USER: Kör Step 1 på BIOG001X_Fys_v63.md
+USER: Kör Step 1 på EXAMPLE_COURSE_Fys_v63.md
 
 CLAUDE: [step1_start]
 📁 Session startad!
-- Fil: BIOG001X_Fys_v63.md
+- Fil: EXAMPLE_COURSE_Fys_v63.md
 - Format: v6.3 (behöver uppgradering till v6.5)
 - Frågor: 27 st
 

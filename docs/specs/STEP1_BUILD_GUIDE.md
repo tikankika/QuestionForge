@@ -110,15 +110,15 @@ r'\{\{BLANK-(\d+)\}\}' → r'{{blank_\1}}'
 
 Use real file for testing:
 ```
-/Users/niklaskarlsson/Nextcloud/Courses/Biologi/BIOG001x_2025/Exams/
-  MQG_folders_biog001x_autmn_2025/biog001x_fys/BIOG001X_Fys_v63.md
+/path/to/courses/Biologi/BIOG001x_2025/Exams/
+  MQG_folders_biog001x_autmn_2025/biog001x_fys/EXAMPLE_COURSE_Fys_v63.md
 ```
 
 Compare output against valid v6.5:
 ```
-/Users/niklaskarlsson/Nextcloud/Courses/Biologi/BIOG001x_2025/Exams/
+/path/to/courses/Biologi/BIOG001x_2025/Exams/
   MQG_folders_biog001x_autmn_2025/biog001x_fys_105/
-  BIOG001X_Fys_v65_5/02_working/BIOG001X_Fys_v65_5.md
+  EXAMPLE_COURSE_Fys_v65_5/02_working/EXAMPLE_COURSE_Fys_v65_5.md
 ```
 
 ---

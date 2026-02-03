@@ -35,7 +35,7 @@ What color is the pixel?
 ## Test Execution
 
 ```bash
-cd /Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge/packages/qti-core
+cd ./packages/qti-core
 
 # Step 1: Validate
 python3 scripts/step1_validate.py tests/fixtures/v65/image_test.md

@@ -174,7 +174,7 @@ ALLOWED_OUTPUT_ROOTS = [
     Path("/tmp"),
     Path.home() / "course_extractor",
     # Add your specific paths:
-    # Path("/Users/niklaskarlsson/Nextcloud/Courses"),
+    # Path("/path/to/courses"),
 ]
 
 # Timeout handler
@@ -515,7 +515,7 @@ ALLOWED_OUTPUT_ROOTS = [
     Path("/tmp"),
     Path.home() / "course_extractor",
     # ADD YOUR PATHS:
-    Path("/Users/niklaskarlsson/Nextcloud/Courses"),
+    Path("/path/to/courses"),
 ]
 ```
 
