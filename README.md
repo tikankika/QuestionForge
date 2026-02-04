@@ -95,8 +95,7 @@ QuestionForge/
 ├── docs/
 │   ├── adr/              # Architecture Decision Records
 │   ├── rfcs/             # Request for Comments
-│   ├── specs/            # Technical specifications
-│   └── guides/           # Installation guides
+│   └── specs/            # Technical specifications
 └── qf-specifications/    # Shared specifications (logging schema)
 ```
 
