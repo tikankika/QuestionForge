@@ -1,29 +1,29 @@
 {
   "folders": [
     {
-      "name": "Biologi EXAMPLE_COURSE (Autumn 2025)",
-      "path": "~/Nextcloud/Courses/Biologi/Biog001x_2025/Exams/MQG_folders_biog001x_autmn_2025",
+      "name": "Biology EXAMPLE_COURSE (Autumn 2025)",
+      "path": "~/Nextcloud/Courses/Biology/EXAMPLE_COURSE_2025/Exams/MQG_folders",
       "default_language": "sv",
-      "description": "Biologifrågor för EXAMPLE_COURSE hösten 2025"
+      "description": "Biology questions for EXAMPLE_COURSE autumn 2025"
     },
     {
-      "name": "TRA265 LP2 2025",
-      "path": "~/Nextcloud/Chalmers/TRA265 (lp2-2025)/MQG_folders_TRA265_lp2_2025",
+      "name": "COURSE101 LP2 2025",
+      "path": "~/Nextcloud/Courses/COURSE101/MQG_folders_lp2_2025",
       "default_language": "sv",
-      "description": "TRA265 frågor läsperiod 2 2025"
+      "description": "COURSE101 questions period 2 2025"
     },
     {
-      "name": "Mate2b001x Autmn 2025",
+      "name": "MATH201 Autumn 2025",
       "path": "/path/to/configure",
       "default_language": "sv"
     },
     {
-      "name": "Biog001x Cellbiologi Genetik 4",
+      "name": "BIO101 Cell Biology",
       "path": "/path/to/configure",
       "default_language": "sv"
     },
     {
-      "name": "Biog001x Fys",
+      "name": "BIO101 Physiology",
       "path": "/path/to/configure",
       "default_language": "sv"
     }
