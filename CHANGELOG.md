@@ -148,7 +148,7 @@ First public release.
 - **Configuration:** Added to Claude Desktop config
 - **Usage:** `convert_to_markdown("file:///path/to/file.docx")`
 - **Formats supported:** 29+ formats including Office documents, PDFs, images
-- **Guide:** `docs/guides/markitdown-mcp-installation.md`
+- **Guide:** [Microsoft MarkItDown MCP](https://github.com/microsoft/markitdown)
 
 ### Discovered - 2026-01-30
 
@@ -972,7 +972,7 @@ M5 → Step 2 → Router → Step 3 → Step 4
 - **Impact:**
   - `course-extractor-mcp` → Archived (moved to separate repo)
   - RFC-008 → Superseded by MarkItDown approach
-- **Next:** Install MarkItDown MCP following `docs/guides/markitdown-mcp-installation.md`
+- **Next:** Install MarkItDown MCP following [Microsoft MarkItDown MCP](https://github.com/microsoft/markitdown)
 
 ### Added - 2026-01-20
 
@@ -996,7 +996,7 @@ M5 → Step 2 → Router → Step 3 → Step 4
 
 #### MarkItDown MCP: Roadmap Documentation
 - **Docs:** Added MarkItDown MCP integration to roadmap (Fas 6)
-- **Guide:** Created `docs/guides/markitdown-mcp-installation.md` (600+ lines)
+- **Guide:** Created [Microsoft MarkItDown MCP](https://github.com/microsoft/markitdown) (600+ lines)
   - Complete installation guide for Microsoft's MarkItDown MCP
   - Security best practices (read-only mounts, localhost binding)
   - Troubleshooting section

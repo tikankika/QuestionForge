@@ -456,7 +456,7 @@ M5 output → Step 2 (validate) → Router → Step 3 (auto-fix) → Step 4 (exp
 ### Resources
 - GitHub: https://github.com/microsoft/markitdown
 - MCP Package: https://github.com/microsoft/markitdown/tree/main/packages/markitdown-mcp
-- Complete installation guide: `docs/guides/markitdown-mcp-installation.md`
+- Complete installation guide: [Microsoft MarkItDown MCP](https://github.com/microsoft/markitdown)
 
 ### Deprecated: course-extractor-mcp
 - Moved to separate repo (AGPL isolation)
@@ -546,7 +546,7 @@ qti-core/
 | `docs/adr/ADR-014-shared-session.md` | Shared Session architecture |
 | `docs/specs/STEP1_REBUILD_INTERACTIVE.md` | Step 1 spec |
 | `docs/DISCOVERY_BRIEF.md` | Original vision |
-| `docs/guides/markitdown-mcp-installation.md` | **NEW** MarkItDown MCP installation guide |
+| [Microsoft MarkItDown MCP](https://github.com/microsoft/markitdown) | **NEW** MarkItDown MCP installation guide |
 
 ---
 
