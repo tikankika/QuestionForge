@@ -205,6 +205,6 @@ npm run test:watch
 - [RFC-007: LLM Workflow Control Patterns](../../docs/rfcs/RFC-007-llm-workflow-control-patterns.md)
 - [WORKFLOW.md](../../WORKFLOW.md) - Complete workflow documentation
 
-## Licence
+## License
 
-MIT
+CC BY-NC-SA 4.0 - See [LICENSE.md](../../LICENSE.md)

@@ -65,7 +65,7 @@ Replace `/path/to` with actual paths.
 | `validate_file` | Validate markdown file format |
 | `validate_content` | Validate markdown string |
 | `parse_markdown` | Parse markdown into structured data |
-| `list_question_types` | List 16 supported question types |
+| `list_question_types` | List 15 supported question types |
 
 ## Testing Wrappers (without MCP)
 
@@ -100,3 +100,7 @@ qf-pipeline/
 └── tests/
     └── test_wrappers.py
 ```
+
+## License
+
+CC BY-NC-SA 4.0 - See [LICENSE.md](../../LICENSE.md)

@@ -340,7 +340,7 @@ unzip -l output/test_output.zip
 
 ## License
 
-This project is open source and available for educational use.
+CC BY-NC-SA 4.0 - See [LICENSE.md](../../LICENSE.md)
 
 ## Citation
 
@@ -404,7 +404,7 @@ This project follows the [Software Development Protocol v2.2](Software_Developme
 
 ### v0.2.4-alpha (2025-11-01)
 - **NEW**: Modern Python packaging with pyproject.toml (PEP 517/518)
-- **NEW**: MIT License for open source distribution
+- **NEW**: CC BY-NC-SA 4.0 License for open source distribution
 - **NEW**: Development dependencies in requirements-dev.txt
 - **NEW**: Package manifest (MANIFEST.in) for template inclusion
 - **IMPROVED**: Dual installation methods (traditional + modern)
