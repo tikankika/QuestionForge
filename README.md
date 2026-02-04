@@ -1,5 +1,8 @@
 # QuestionForge
 
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](CHANGELOG.md)
+[![License](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-green.svg)](LICENSE.md)
+
 > AI-assisted framework for creating high-quality educational assessment questions from instructional materials.
 
 ## What is QuestionForge?

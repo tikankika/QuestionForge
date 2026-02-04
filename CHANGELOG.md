@@ -2,9 +2,11 @@
 
 All notable changes to QuestionForge will be documented in this file.
 
-## [Unreleased]
+## [0.1.0] - 2026-02-03
 
-### Added - 2026-02-03
+First public release.
+
+### Added
 
 #### Public Release Documentation
 - **README.md**: Project overview, features, architecture diagram, quick start
