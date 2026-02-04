@@ -6,87 +6,87 @@
 
 ---
 
-## Diskussionens gång
+## Discussion Flow
 
-### 1. Initial upptäckt
-Niklas upptäckte att manuella scripts och pipeline inte gör samma sak.
+### 1. Initial Discovery
+Niklas discovered that manual scripts and pipeline don't do the same thing.
 
-### 2. Djupdykning
-Vi verifierade VARJE steg i Appendix A.1.2 genom källkodsanalys.
+### 2. Deep Dive
+We verified EVERY step in Appendix A.1.2 through source code analysis.
 
-**Resultat:**
-- 7/9 steg korrekta ✅
-- 2/9 steg inkorrekta ❌
+**Result:**
+- 7/9 steps correct ✅
+- 2/9 steps incorrect ❌
 
-### 3. Identifierade buggar
+### 3. Identified Bugs
 
-| Bug | Beskrivning | Allvarlighet |
-|-----|-------------|--------------|
-| **Validering skippad** | step4_export validerar inte före export | ⚠️ Medium |
-| **Path mapping saknas** | apply_resource_mapping() körs aldrig | 🔴 Kritisk |
-
----
-
-## Lösningsförslag
-
-### Niklas förslag
-"Låt pipeline köra scripts direkt via subprocess - så vet vi att det blir samma resultat!"
-
-### RFC-012 förslag  
-"Refactor scripts först så de är importerbara, sen importera dem."
-
-### Vårt beslut: HYBRID ✅
-
-**Phase 1 (NU):** Subprocess
-- Snabbt (1 dag)
-- Låg risk
-- Fungerar omedelbart
-
-**Phase 2 (SENARE):** Refactor
-- Renare arkitektur
-- Bättre performance
-- Tar längre tid (3-5 dagar)
+| Bug | Description | Severity |
+|-----|-------------|----------|
+| **Validation skipped** | step4_export doesn't validate before export | ⚠️ Medium |
+| **Path mapping missing** | apply_resource_mapping() never runs | 🔴 Critical |
 
 ---
 
-## Motivering för hybrid approach
+## Solution Proposals
 
-1. **Kritisk bug måste fixas NU**
-   - Bilder fungerar inte i QTI-export
-   - Användarimpact är hög
+### Niklas's Proposal
+"Let pipeline run scripts directly via subprocess - then we know the result will be the same!"
 
-2. **Subprocess är säkert**
-   - Scripts fungerar redan perfekt
-   - Inga ändringar behövs
-   - Perfekt isolation
+### RFC-012 Proposal  
+"Refactor scripts first so they're importable, then import them."
 
-3. **Lär oss requirements**
-   - Genom subprocess ser vi exakt vad som behövs
-   - Enklare att refactora när vi vet kraven
+### Our Decision: HYBRID ✅
 
-4. **Migration path är klar**
-   - Phase 1 → Phase 2 väl definierad
-   - Kan göras steg för steg
-   - Låg risk att introducera nya buggar
+**Phase 1 (NOW):** Subprocess
+- Quick (1 day)
+- Low risk
+- Works immediately
 
----
-
-## Nästa steg
-
-1. ✅ Uppdatera RFC-012 (KLART)
-2. [ ] Implementera Phase 1 i server.py
-3. [ ] Testa subprocess approach
-4. [ ] Dokumentera i WORKFLOW.md
-5. [ ] Planera Phase 2 refactoring
+**Phase 2 (LATER):** Refactor
+- Cleaner architecture
+- Better performance
+- Takes longer (3-5 days)
 
 ---
 
-## Key insights
+## Rationale for Hybrid Approach
 
-1. **"Use filesystem"** - Niklas reminder att alltid använda Filesystem tools
-2. **Scripts är source of truth** - Pipeline ska anropa scripts, inte reimplementera
-3. **Subprocess först är OK** - MVP > Perfection initialt
-4. **Dokumentation är kritisk** - RFC + WORKFLOW.md håller allt tydligt
+1. **Critical bug must be fixed NOW**
+   - Images don't work in QTI export
+   - User impact is high
+
+2. **Subprocess is safe**
+   - Scripts already work perfectly
+   - No changes needed
+   - Perfect isolation
+
+3. **Learn the requirements**
+   - Through subprocess we see exactly what's needed
+   - Easier to refactor when we know the requirements
+
+4. **Migration path is clear**
+   - Phase 1 → Phase 2 well defined
+   - Can be done step by step
+   - Low risk of introducing new bugs
+
+---
+
+## Next Steps
+
+1. ✅ Update RFC-012 (DONE)
+2. [ ] Implement Phase 1 in server.py
+3. [ ] Test subprocess approach
+4. [ ] Document in WORKFLOW.md
+5. [ ] Plan Phase 2 refactoring
+
+---
+
+## Key Insights
+
+1. **"Use filesystem"** - Niklas's reminder to always use Filesystem tools
+2. **Scripts are source of truth** - Pipeline should call scripts, not re-implement
+3. **Subprocess first is OK** - MVP > Perfection initially
+4. **Documentation is critical** - RFC + WORKFLOW.md keeps everything clear
 
 ---
 

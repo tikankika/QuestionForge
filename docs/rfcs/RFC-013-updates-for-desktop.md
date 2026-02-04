@@ -1,26 +1,26 @@
 # RFC-013 Updates for Desktop
 
-**Datum:** 2026-01-25
-**Uppdaterad:** 2026-01-25 (validation responsibilities)
-**Från:** Code session review + Desktop diskussion
+**Date:** 2026-01-25
+**Updated:** 2026-01-25 (validation responsibilities)
+**From:** Code session review + Desktop discussion
 
 ---
 
-## Del A: Tekniska fixes (4 st)
+## Part A: Technical Fixes (4 items)
 
-## Del B: Validation Responsibilities (6 beslut)
+## Part B: Validation Responsibilities (6 decisions)
 
 ---
 
-# DEL A: TEKNISKA FIXES
+# PART A: TECHNICAL FIXES
 
-## 4 Ändringar att göra i RFC-013
+## 4 Changes to Make in RFC-013
 
 ### 1. Question Type Names - FIX
-**Fel:** `multiple_choice_question`
-**Rätt:** `multiple_choice_single` (en rätt) och `multiple_response` (flera rätt)
+**Wrong:** `multiple_choice_question`
+**Correct:** `multiple_choice_single` (one correct) and `multiple_response` (multiple correct)
 
-Alla korrekta typnamn:
+All correct type names:
 ```
 multiple_choice_single    text_entry              match
 multiple_response         text_entry_numeric      hotspot
@@ -30,18 +30,18 @@ essay                     audio_record            composite_editor
 nativehtml
 ```
 
-### 2. Ta bort Line Numbering - REMOVE
-**Beslut:** Line numbers är over-engineering. Question IDs räcker.
+### 2. Remove Line Numbering - REMOVE
+**Decision:** Line numbers are over-engineering. Question IDs are sufficient.
 
-Ta bort:
-- Section om "Line Numbering System"
-- `001`, `002` prefix i alla exempel
-- "strip line numbers before export" logik
+Remove:
+- Section about "Line Numbering System"
+- `001`, `002` prefix in all examples
+- "strip line numbers before export" logic
 
-Question ID (`Q001`, `Q002`) + YAML frontmatter ger all tracking vi behöver.
+Question ID (`Q001`, `Q002`) + YAML frontmatter provides all tracking we need.
 
-### 3. Lägg till RFC-012 Reference - ADD
-I Introduction, lägg till:
+### 3. Add RFC-012 Reference - ADD
+In Introduction, add:
 
 ```markdown
 ### Related RFCs
@@ -49,188 +49,188 @@ I Introduction, lägg till:
 ```
 
 ### 4. Step 2 Already Implemented - NOTE
-I Step 2 section, lägg till note:
+In Step 2 section, add note:
 
 ```markdown
-**Note:** Validator implementerad i RFC-012. Använder `markdown_parser.validate()` -
-samma parser som Step 4. Garanterar: validate pass → export works.
+**Note:** Validator implemented in RFC-012. Uses `markdown_parser.validate()` -
+same parser as Step 4. Guarantees: validate pass → export works.
 ```
 
 ---
 
-## Sammanfattning
+## Summary
 
-| Issue | Åtgärd |
+| Issue | Action |
 |-------|--------|
-| Question type names | Byt `multiple_choice_question` → `multiple_choice_single` |
-| Line numbering | Ta bort helt - använd Question IDs istället |
-| RFC-012 reference | Lägg till i Introduction |
-| Step 2 validator | Notera att det redan är implementerat |
+| Question type names | Change `multiple_choice_question` → `multiple_choice_single` |
+| Line numbering | Remove entirely - use Question IDs instead |
+| RFC-012 reference | Add in Introduction |
+| Step 2 validator | Note that it's already implemented |
 
 ---
 
-# DEL B: VALIDATION RESPONSIBILITIES
+# PART B: VALIDATION RESPONSIBILITIES
 
-Från diskussion om överlappning mellan M5, Step 1, Step 2, Step 3.
+From discussion about overlap between M5, Step 1, Step 2, Step 3.
 
 ---
 
-## Beslut 5: M5 Ansvar - STRUKTURELLT KORREKT OUTPUT
+## Decision 5: M5 Responsibility - STRUCTURALLY CORRECT OUTPUT
 
-M5 ska generera markdown med korrekt struktur från början:
+M5 should generate markdown with correct structure from the start:
 
 ```
-M5's ansvar:
-├── Separatorer mellan frågor (---)
-├── Korrekt field syntax (@field: / @end_field)
-├── Komplett struktur för varje frågetyp
+M5's responsibility:
+├── Separators between questions (---)
+├── Correct field syntax (@field: / @end_field)
+├── Complete structure for each question type
 └── Valid MQG format
 
-OUTPUT: Strukturellt valid markdown
-(Kan ha content-issues, men struktur = OK)
+OUTPUT: Structurally valid markdown
+(May have content issues, but structure = OK)
 ```
 
-**Uppdatera i RFC-013:** M5 section ska tydligt specificera att output ska vara strukturellt korrekt.
+**Update in RFC-013:** M5 section should clearly specify that output must be structurally correct.
 
 ---
 
-## Beslut 6: Step 1 Ansvar - SÄKERHETSNÄT
+## Decision 6: Step 1 Responsibility - SAFETY NET
 
-Step 1 fixar "oväntade" strukturproblem som INTE borde finnas:
+Step 1 fixes "unexpected" structural problems that SHOULD NOT exist:
 
 ```
-Step 1's ansvar:
-├── M5 buggar (genererade fel syntax)
-├── File corruption (user redigerade manuellt)
-├── Import från äldre format
-└── Oväntade edge cases
+Step 1's responsibility:
+├── M5 bugs (generated wrong syntax)
+├── File corruption (user edited manually)
+├── Import from older format
+└── Unexpected edge cases
 
-Om M5 är perfekt → Step 1 hittar 0 issues ✅
+If M5 is perfect → Step 1 finds 0 issues ✅
 ```
 
-**Uppdatera i RFC-013:** Step 1 är ett säkerhetsnät, inte en obligatorisk fix-station.
+**Update in RFC-013:** Step 1 is a safety net, not a mandatory fix station.
 
 ---
 
-## Beslut 7: "Structural" Definition - RELATIV, INTE FAST
+## Decision 7: "Structural" Definition - RELATIVE, NOT FIXED
 
-**Nyckelinsikt:** "Structural" betyder "Step 3 kan inte auto-fixa detta JUST NU"
+**Key insight:** "Structural" means "Step 3 cannot auto-fix this RIGHT NOW"
 
 ```
-Samma error kan vara:
-├── "Structural" → När Step 3 saknar pattern
-└── "Auto-fixable" → När Step 3 lärt sig pattern
+Same error can be:
+├── "Structural" → When Step 3 lacks pattern
+└── "Auto-fixable" → When Step 3 has learned pattern
 
-Över tid: Färre saker är "structural" (Step 3 lär sig)
+Over time: Fewer things are "structural" (Step 3 learns)
 ```
 
-**Startlista för "structural" (alltid route till Step 1 i iteration 0):**
+**Starting list for "structural" (always route to Step 1 in iteration 0):**
 - Missing separator between questions
-- Unclosed fields (@field utan @end_field)
+- Unclosed fields (@field without @end_field)
 - Unknown field types
 
-**Uppdatera i RFC-013:** Förklara att "structural" är relativ kategori.
+**Update in RFC-013:** Explain that "structural" is a relative category.
 
 ---
 
-## Beslut 8: Pattern Separation - TVÅ SEPARATA SYSTEM
+## Decision 8: Pattern Separation - TWO SEPARATE SYSTEMS
 
-Step 1 och Step 3 har SEPARATA pattern-databaser:
+Step 1 and Step 3 have SEPARATE pattern databases:
 
 ```
 Step 1 patterns:
-├── Används ENDAST i Step 1
-├── Hjälper AI föreslå fix till lärare
-└── "Baserat på 15 tidigare filer, separator brukar vara här"
+├── Used ONLY in Step 1
+├── Helps AI suggest fix to teacher
+└── "Based on 15 previous files, separator is usually here"
 
 Step 3 patterns:
-├── Används ENDAST i Step 3
-├── Auto-appliceras utan lärare
-└── "Denna error har auto-fixats 47 gånger framgångsrikt"
+├── Used ONLY in Step 3
+├── Auto-applied without teacher
+└── "This error has been auto-fixed 47 times successfully"
 
-INGEN DELNING mellan systemen (enklare, inga edge cases)
+NO SHARING between systems (simpler, no edge cases)
 ```
 
-**Uppdatera i RFC-013:** Specificera att pattern-databaser är separata.
+**Update in RFC-013:** Specify that pattern databases are separate.
 
 ---
 
-## Beslut 9: Step 3 Routing - FÖRSÖK AUTO-FIXA ÄVEN "STRUCTURAL"
+## Decision 9: Step 3 Routing - TRY AUTO-FIX EVEN "STRUCTURAL"
 
-I iteration > 0, försöker Step 3 auto-fixa även "structural" errors:
+In iteration > 0, Step 3 tries to auto-fix even "structural" errors:
 
 ```python
-# Step 3 logik (pseudokod)
+# Step 3 logic (pseudocode)
 for error in errors:
     pattern = find_pattern(error, min_confidence=0.9)
 
     if pattern:
-        # Lärt pattern med hög confidence
+        # Learned pattern with high confidence
         apply_pattern(error)  # Auto-fix
     else:
         if iteration == 0:
-            route_to_step1(error)  # Första gången: lärare
+            route_to_step1(error)  # First time: teacher
         else:
-            mark_unfixable(error)  # Redan försökt: ge upp
+            mark_unfixable(error)  # Already tried: give up
 ```
 
-**Uppdatera i RFC-013:** Step 3 försöker alltid auto-fixa om pattern finns.
+**Update in RFC-013:** Step 3 always tries to auto-fix if pattern exists.
 
 ---
 
-## Beslut 10: Skip Tracking - INGEN DELNING
+## Decision 10: Skip Tracking - NO SHARING
 
 ```
-Step 1: Teacher skippar issue
-    ↓ (ingen tracking till Step 3)
-Step 2: Validation failar (samma issue)
+Step 1: Teacher skips issue
+    ↓ (no tracking to Step 3)
+Step 2: Validation fails (same issue)
     ↓
-Step 3: Försöker auto-fixa
-    ├── Har pattern? → Auto-fix → Success
-    └── Inget pattern? → Route till Step 1 ELLER fail
+Step 3: Tries to auto-fix
+    ├── Has pattern? → Auto-fix → Success
+    └── No pattern? → Route to Step 1 OR fail
 ```
 
-**Resultat:** Teacher får ny chans i Step 1, eller filen failar.
+**Result:** Teacher gets new chance in Step 1, or file fails.
 
-**Uppdatera i RFC-013:** Step 3 vet INTE vad som skippades i Step 1.
+**Update in RFC-013:** Step 3 does NOT know what was skipped in Step 1.
 
 ---
 
-# SAMMANFATTNING ALLA BESLUT
+# SUMMARY OF ALL DECISIONS
 
-| # | Beslut | Kort |
-|---|--------|------|
-| 1 | Question type names | `multiple_choice_single`, inte `multiple_choice_question` |
-| 2 | Line numbering | Ta bort - Question IDs räcker |
-| 3 | RFC-012 reference | Lägg till i Introduction |
-| 4 | Step 2 validator | Redan implementerat (RFC-012) |
-| 5 | M5 ansvar | Generera strukturellt korrekt output |
-| 6 | Step 1 ansvar | Säkerhetsnät för oväntade problem |
-| 7 | "Structural" definition | Relativ - "kan inte auto-fixas just nu" |
-| 8 | Pattern separation | Två separata databaser (Step 1 / Step 3) |
-| 9 | Step 3 routing | Försök auto-fixa även structural om pattern finns |
-| 10 | Skip tracking | Ingen delning - skipped failar i Step 2 |
+| # | Decision | Brief |
+|---|----------|-------|
+| 1 | Question type names | `multiple_choice_single`, not `multiple_choice_question` |
+| 2 | Line numbering | Remove - Question IDs are sufficient |
+| 3 | RFC-012 reference | Add in Introduction |
+| 4 | Step 2 validator | Already implemented (RFC-012) |
+| 5 | M5 responsibility | Generate structurally correct output |
+| 6 | Step 1 responsibility | Safety net for unexpected problems |
+| 7 | "Structural" definition | Relative - "cannot be auto-fixed right now" |
+| 8 | Pattern separation | Two separate databases (Step 1 / Step 3) |
+| 9 | Step 3 routing | Try auto-fix even structural if pattern exists |
+| 10 | Skip tracking | No sharing - skipped items fail in Step 2 |
 
 ---
 
-## Flowchart att lägga till i RFC-013
+## Flowchart to Add to RFC-013
 
 ```
-M5: Generera markdown
-  ↓ (ska vara strukturellt perfekt)
+M5: Generate markdown
+  ↓ (should be structurally perfect)
 
-Step 1: Review för oväntade issues
+Step 1: Review for unexpected issues
   ├─ 0 issues? → Step 2
-  ├─ Issues? → Teacher fixar → Step 2
-  └─ Skip? → Step 2 (kommer faila)
+  ├─ Issues? → Teacher fixes → Step 2
+  └─ Skip? → Step 2 (will fail)
 
-Step 2: Validera
+Step 2: Validate
   ├─ Valid? → Step 4 Export
   └─ Invalid? → Step 3
 
 Step 3: Auto-fix iteration
   ├─ Auto-fixable? → Apply → Step 2 (loop)
-  ├─ Missing content? → Route till M5
-  ├─ Structural (inget pattern)? → Route till Step 1
-  └─ Max iterations? → Rapport failure
+  ├─ Missing content? → Route to M5
+  ├─ Structural (no pattern)? → Route to Step 1
+  └─ Max iterations? → Report failure
 ```

@@ -1,22 +1,22 @@
-# ADR-007: Tool Naming Convention för qf-pipeline
+# ADR-007: Tool Naming Convention for qf-pipeline
 
 ## Status
 **Accepted**
 
-## Datum
+## Date
 2026-01-06
 
-## Kontext
+## Context
 
-qf-pipeline har en pipeline-struktur med distinkta steg (Steps 0-4). Under utvecklingen uppstod frågan om hur MCP-verktyg ska namnges för att:
+qf-pipeline has a pipeline structure with distinct steps (Steps 0-4). During development the question arose of how MCP tools should be named to:
 
-1. Tydliggöra vilket steg verktyget tillhör
-2. Hålla namnen konsekventa med Assessment_suite (som använder `phaseN_`)
-3. Undvika förvirring när fler verktyg läggs till
+1. Clarify which step the tool belongs to
+2. Keep names consistent with Assessment_suite (which uses `phaseN_`)
+3. Avoid confusion when more tools are added
 
-### Referens: Assessment_suite mönster
+### Reference: Assessment_suite Pattern
 
-Assessment_suite använder `phaseN_` prefix:
+Assessment_suite uses `phaseN_` prefix:
 ```
 phase4a_questions
 phase4b_rubric
@@ -24,17 +24,17 @@ phase6_start
 phase6_status
 ```
 
-Plus cross-phase verktyg utan prefix:
+Plus cross-phase tools without prefix:
 ```
 rubric_read
 rubric_edit
 ```
 
-## Beslut
+## Decision
 
-### Namnkonvention: `stepN_verb`
+### Naming Convention: `stepN_verb`
 
-Alla qf-pipeline verktyg använder prefix `stepN_` där N är step-nummer:
+All qf-pipeline tools use prefix `stepN_` where N is the step number:
 
 ```
 step0_  → Session Management
@@ -44,213 +44,213 @@ step3_  → Decision
 step4_  → Export
 ```
 
-### Regler
+### Rules
 
-1. **Prefix:** `stepN_` (step + nummer + underscore)
-2. **Verb:** Kort, beskrivande (start, validate, export)
-3. **Cross-step verktyg:** Inget prefix (ex: `list_types`)
-4. **Konsekvent med Assessment_suite:** Samma mönster som `phaseN_`
+1. **Prefix:** `stepN_` (step + number + underscore)
+2. **Verb:** Short, descriptive (start, validate, export)
+3. **Cross-step tools:** No prefix (e.g., `list_types`)
+4. **Consistent with Assessment_suite:** Same pattern as `phaseN_`
 
-## Verktygsnamn
+## Tool Names
 
 ### Step 0: Session Management
 
-| Verktyg | Funktion |
-|---------|----------|
-| `step0_start` | Skapa ny session ELLER ladda befintlig |
-| `step0_status` | Visa sessionstatus |
+| Tool | Function |
+|------|----------|
+| `step0_start` | Create new session OR load existing |
+| `step0_status` | Show session status |
 
-### Step 1: Guided Build (PLANERAD)
+### Step 1: Guided Build (PLANNED)
 
-| Verktyg | Funktion |
-|---------|----------|
-| `step1_build` | Starta/fortsätt guided build |
-| `step1_fix` | Applicera fix (+ apply to similar) |
-| `step1_skip` | Hoppa över aktuell fråga |
-| `step1_done` | Avsluta guided build |
+| Tool | Function |
+|------|----------|
+| `step1_build` | Start/continue guided build |
+| `step1_fix` | Apply fix (+ apply to similar) |
+| `step1_skip` | Skip current question |
+| `step1_done` | End guided build |
 
 ### Step 2: Validator
 
-| Verktyg | Funktion |
-|---------|----------|
-| `step2_validate` | Validera fil (använder working_file om session aktiv) |
-| `step2_validate_content` | Validera markdown-innehåll direkt (för snippets) |
-| `step2_read` | Läs arbetsfilen för inspektion/felsökning |
+| Tool | Function |
+|------|----------|
+| `step2_validate` | Validate file (uses working_file if session active) |
+| `step2_validate_content` | Validate markdown content directly (for snippets) |
+| `step2_read` | Read working file for inspection/debugging |
 
-### Step 3: Decision (PLANERAD)
+### Step 3: Decision (PLANNED)
 
-| Verktyg | Funktion |
-|---------|----------|
-| `step3_choose` | Välj exportformat (QTI Questions / Question Set) |
+| Tool | Function |
+|------|----------|
+| `step3_choose` | Choose export format (QTI Questions / Question Set) |
 
 ### Step 4: Export
 
-| Verktyg | Funktion |
-|---------|----------|
-| `step4_export` | Exportera till QTI-paket |
+| Tool | Function |
+|------|----------|
+| `step4_export` | Export to QTI package |
 
 ### Cross-Step (Utilities)
 
-| Verktyg | Funktion |
-|---------|----------|
-| `list_types` | Lista stödda frågetyper |
+| Tool | Function |
+|------|----------|
+| `list_types` | List supported question types |
 
-## Komplett verktygslista
+## Complete Tool List
 
 ```
 Step 0 (Session):
-  step0_start     # Ny eller ladda session
-  step0_status    # Visa status
+  step0_start     # New or load session
+  step0_status    # Show status
 
-Step 1 (Guided Build) - PLANERAD:
-  step1_build     # Starta/fortsätt
-  step1_fix       # Applicera fix
-  step1_skip      # Hoppa över
-  step1_done      # Avsluta
+Step 1 (Guided Build) - PLANNED:
+  step1_build     # Start/continue
+  step1_fix       # Apply fix
+  step1_skip      # Skip
+  step1_done      # End
 
 Step 2 (Validator):
-  step2_validate          # Validera fil
-  step2_validate_content  # Validera innehåll direkt
-  step2_read              # Läs fil för felsökning
+  step2_validate          # Validate file
+  step2_validate_content  # Validate content directly
+  step2_read              # Read file for debugging
 
-Step 3 (Decision) - PLANERAD:
-  step3_choose    # Välj exportformat
+Step 3 (Decision) - PLANNED:
+  step3_choose    # Choose export format
 
 Step 4 (Export):
-  step4_export    # Skapa QTI-paket
+  step4_export    # Create QTI package
 
 Cross-Step:
-  list_types      # Frågetyper
+  list_types      # Question types
 ```
 
-**Totalt:** 12 verktyg (5 byggda, 6 planerade, 1 utility)
+**Total:** 12 tools (5 built, 6 planned, 1 utility)
 
-## Mappning: Nuvarande → Nytt
+## Mapping: Current → New
 
-| Nuvarande namn | Nytt namn | Status |
-|----------------|-----------|--------|
-| `start_session` | `step0_start` | Byggt → byt namn |
-| `get_session_status` | `step0_status` | Byggt → byt namn |
-| `end_session` | *(ta bort)* | Onödig |
-| `load_session` | `step0_start` | Slå ihop |
-| `validate_file` | `step2_validate` | Byggt → byt namn |
-| `validate_content` | `step2_validate_content` | Byggt → byt namn (behålls separat) |
-| `export_questions` | `step4_export` | Byggt → byt namn |
-| `parse_markdown` | *(ta bort)* | Intern utility, ej publikt verktyg |
-| `list_question_types` | `list_types` | Byggt → byt namn |
+| Current Name | New Name | Status |
+|--------------|----------|--------|
+| `start_session` | `step0_start` | Built → rename |
+| `get_session_status` | `step0_status` | Built → rename |
+| `end_session` | *(remove)* | Unnecessary |
+| `load_session` | `step0_start` | Merge |
+| `validate_file` | `step2_validate` | Built → rename |
+| `validate_content` | `step2_validate_content` | Built → rename (keep separate) |
+| `export_questions` | `step4_export` | Built → rename |
+| `parse_markdown` | *(remove)* | Internal utility, not public tool |
+| `list_question_types` | `list_types` | Built → rename |
 
-## Jämförelse med Assessment_suite
+## Comparison with Assessment_suite
 
-| Koncept | Assessment_suite | qf-pipeline |
+| Concept | Assessment_suite | qf-pipeline |
 |---------|------------------|-------------|
 | Prefix | `phaseN_` | `stepN_` |
 | Session | `phase6_start` | `step0_start` |
 | Status | `phase6_status` | `step0_status` |
 | Cross-phase | `rubric_read` | `list_types` |
 
-## Konsekvenser
+## Consequences
 
-### Positiva
-- Konsekvent med Assessment_suite mönster
-- Tydlig visuell gruppering
-- Lätt att förstå pipeline-ordning
-- Skalbar för nya verktyg
+### Positive
+- Consistent with Assessment_suite pattern
+- Clear visual grouping
+- Easy to understand pipeline order
+- Scalable for new tools
 
-### Negativa
-- Kräver refaktorering av befintlig kod
-- `stepN_` är lite längre än `sN_`
+### Negative
+- Requires refactoring of existing code
+- `stepN_` is slightly longer than `sN_`
 
-## Alternativ som övervägdes
+## Alternatives Considered
 
-### A: `sN_` (kortare)
+### A: `sN_` (shorter)
 ```
 s0_start, s2_validate, s4_export
 ```
-**Avvisat:** Mindre läsbart, avviker från Assessment_suite
+**Rejected:** Less readable, deviates from Assessment_suite
 
-### B: `stepN_` (valt)
+### B: `stepN_` (chosen)
 ```
 step0_start, step2_validate, step4_export
 ```
-**Valt:** Konsekvent med `phaseN_`, tydligt
+**Chosen:** Consistent with `phaseN_`, clear
 
 ## Implementation
 
-1. ✅ Uppdatera `server.py` med nya verktygsnamn
-2. ✅ Slå ihop `start_session` + `load_session` → `step0_start`
-3. ✅ Behåll `validate_file` → `step2_validate` och `validate_content` → `step2_validate_content` (separata)
-4. ✅ Ta bort `end_session` och `parse_markdown` som publika verktyg
-5. Uppdatera tester
+1. ✅ Update `server.py` with new tool names
+2. ✅ Merge `start_session` + `load_session` → `step0_start`
+3. ✅ Keep `validate_file` → `step2_validate` and `validate_content` → `step2_validate_content` (separate)
+4. ✅ Remove `end_session` and `parse_markdown` as public tools
+5. Update tests
 
 ---
 
-## TILLÄGG: Init-verktyg (KRITISKT)
+## ADDENDUM: Init Tool (CRITICAL)
 
-### Bakgrund
+### Background
 
-Vid testning upptäcktes att Claude hoppade över att fråga användaren om fil och mapp innan `step0_start` kördes. Detta beror på att Claude inte har instruktioner om HUR verktygen ska användas.
+During testing it was discovered that Claude skipped asking the user for file and folder before running `step0_start`. This is because Claude has no instructions about HOW the tools should be used.
 
-**Lösning:** Samma mönster som Assessment_suite - ett `init`-verktyg som Claude MÅSTE kalla först.
+**Solution:** Same pattern as Assessment_suite - an `init` tool that Claude MUST call first.
 
-### Nytt verktyg: `init`
+### New Tool: `init`
 
-| Verktyg | Funktion |
-|---------|----------|
-| `init` | CALL THIS FIRST! Returnerar kritiska instruktioner |
+| Tool | Function |
+|------|----------|
+| `init` | CALL THIS FIRST! Returns critical instructions |
 
-### Specifikation
+### Specification
 
 ```python
 def init() -> dict:
     """
     CALL THIS FIRST!
     
-    Returnerar kritiska instruktioner för att använda qf-pipeline.
-    Claude MÅSTE följa dessa instruktioner.
+    Returns critical instructions for using qf-pipeline.
+    Claude MUST follow these instructions.
     
     Returns:
         {
-            "instructions": str,       # Markdown med instruktioner
-            "available_tools": [...],  # Lista på verktyg
-            "critical_rules": [...]    # Regler som MÅSTE följas
+            "instructions": str,       # Markdown with instructions
+            "available_tools": [...],  # List of tools
+            "critical_rules": [...]    # Rules that MUST be followed
         }
     """
 ```
 
-### Init-instruktioner (innehåll som returneras)
+### Init Instructions (returned content)
 
 ```markdown
-# QF-Pipeline - Kritiska Instruktioner
+# QF-Pipeline - Critical Instructions
 
-## REGLER (MÅSTE FÖLJAS)
+## RULES (MUST BE FOLLOWED)
 
-1. **FRÅGA ALLTID användaren INNAN du kör step0_start:**
-   - "Vilken markdown-fil vill du arbeta med?" (source_file)
-   - "Var ska projektet sparas?" (output_folder)
-   - Vänta på svar innan du fortsätter!
+1. **ALWAYS ASK the user BEFORE running step0_start:**
+   - "Which markdown file do you want to work with?" (source_file)
+   - "Where should the project be saved?" (output_folder)
+   - Wait for response before continuing!
 
-2. **ANVÄND INTE bash/cat/ls** - qf-pipeline har full filåtkomst
+2. **DO NOT USE bash/cat/ls** - qf-pipeline has full file access
 
-3. **SÄG ALDRIG "ladda upp filen"** - MCP kan läsa filer direkt
+3. **NEVER SAY "upload the file"** - MCP can read files directly
 
-4. **FÖLJ PIPELINE-ORDNINGEN:**
+4. **FOLLOW THE PIPELINE ORDER:**
    - step0_start → step2_validate → step4_export
-   - Validera ALLTID innan export!
+   - ALWAYS validate before export!
 
 ## STANDARD WORKFLOW
 
-1. User: "Använd qf-pipeline" / "Exportera till QTI"
-2. Claude: "Vilken markdown-fil vill du arbeta med?"
+1. User: "Use qf-pipeline" / "Export to QTI"
+2. Claude: "Which markdown file do you want to work with?"
 3. User: "/path/to/file.md"
-4. Claude: "Var ska projektet sparas? (output_folder)"
+4. Claude: "Where should the project be saved? (output_folder)"
 5. User: "/path/to/output/"
-6. Claude: [step0_start] → Skapar session
-7. Claude: [step2_validate] → Validerar
-8. Om valid: [step4_export] → Exporterar
-   Om invalid: Visa fel, hjälp användaren fixa
+6. Claude: [step0_start] → Creates session
+7. Claude: [step2_validate] → Validates
+8. If valid: [step4_export] → Exports
+   If invalid: Show errors, help user fix
 ```
 
-### Tool Description (för server.py)
+### Tool Description (for server.py)
 
 ```python
 Tool(
@@ -269,33 +269,33 @@ Tool(
 )
 ```
 
-### Uppdaterad verktygslista
+### Updated Tool List
 
 ```
 System:
   init                    # CALL THIS FIRST!
 
 Step 0 (Session):
-  step0_start             # Ny eller ladda session
-  step0_status            # Visa status
+  step0_start             # New or load session
+  step0_status            # Show status
 
 Step 2 (Validator):
-  step2_validate          # Validera fil
-  step2_validate_content  # Validera innehåll
-  step2_read              # Läs fil för felsökning
+  step2_validate          # Validate file
+  step2_validate_content  # Validate content
+  step2_read              # Read file for debugging
 
 Step 4 (Export):
-  step4_export            # Skapa QTI-paket
+  step4_export            # Create QTI package
 
 Cross-Step:
-  list_types              # Frågetyper
+  list_types              # Question types
 ```
 
-**Totalt:** 8 byggda verktyg (+ 6 planerade för Step 1 och Step 3)
+**Total:** 8 built tools (+ 6 planned for Step 1 and Step 3)
 
 ---
 
-## Relaterade dokument
+## Related Documents
 
 - [ADR-006: Session Management](ADR-006-session-management.md)
 - [qf-pipeline-spec.md](../specs/qf-pipeline-spec.md)
@@ -303,5 +303,5 @@ Cross-Step:
 
 ---
 
-*Dokumenterat 2026-01-06 som del av ACDM IMPLEMENT-fasen*
-*Uppdaterat 2026-01-06: Tillagt init-verktyg efter testning*
+*Documented 2026-01-06 as part of ACDM IMPLEMENT phase*
+*Updated 2026-01-06: Added init tool after testing*

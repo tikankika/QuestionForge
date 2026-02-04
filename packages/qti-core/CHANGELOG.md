@@ -2581,7 +2581,7 @@ For YAML frontmatter documentation, see question_generation_template.md.
 ### Added
 - **Modern Python packaging infrastructure** for distribution readiness
   - Added `pyproject.toml` with complete package metadata (PEP 517/518 compliance)
-  - Added `LICENSE` file (MIT License) for open source distribution
+  - Added `LICENSE` file (CC BY-NC-SA 4.0) for open source distribution
   - Added `requirements-dev.txt` for development dependencies (pytest, black, flake8, mypy)
   - Added `MANIFEST.in` to include templates and documentation in package distribution
 - **Package metadata configuration**:

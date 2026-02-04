@@ -3,24 +3,24 @@
 **Version:** 1.0  
 **Status:** Draft  
 **Date:** 2026-01-05  
-**Purpose:** Spårbarhet + ML-träningsdata
+**Purpose:** Traceability + ML training data
 
 ---
 
-## Designprinciper
+## Design Principles
 
-1. **Lokal först** - PostgreSQL körs lokalt hos varje lärare
-2. **Alla loopar spåras** - Guided Build, Validation, Review
-3. **Abandonerade sessioner loggas** - Värdefull ML-data
-4. **Snapshots vid nyckelsteg** - Inte varje mikroändring
-5. **Aktör alltid noterad** - Lärare / AI / Automatisk validering
-6. **ML-redo från dag 1** - Strukturerad data för framtida träning
+1. **Local first** - PostgreSQL runs locally for each teacher
+2. **All loops tracked** - Guided Build, Validation, Review
+3. **Abandoned sessions logged** - Valuable ML data
+4. **Snapshots at key steps** - Not every micro-change
+5. **Actor always noted** - Teacher / AI / Automatic validation
+6. **ML-ready from day 1** - Structured data for future training
 
 ---
 
 ## PostgreSQL Schema
 
-### Övergripande struktur
+### Overall Structure
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
@@ -33,26 +33,26 @@
                         └───────────┘
 ```
 
-### Tabell: sessions
+### Table: sessions
 
 ```sql
 CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
-    -- Identifiering
+    -- Identification
     session_name VARCHAR(255) NOT NULL,
     
-    -- Kontext
+    -- Context
     course_code VARCHAR(50),
     course_name VARCHAR(255),
     module_name VARCHAR(255),
     assessment_type VARCHAR(50),  -- 'quiz', 'exam', 'formative'
     
-    -- Tidsstämplar
+    -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    completed_at TIMESTAMP WITH TIME ZONE,  -- NULL = pågående eller abandonerad
-    abandoned_at TIMESTAMP WITH TIME ZONE,  -- NULL = inte abandonerad
+    completed_at TIMESTAMP WITH TIME ZONE,  -- NULL = in progress or abandoned
+    abandoned_at TIMESTAMP WITH TIME ZONE,  -- NULL = not abandoned
     
     -- Status
     status VARCHAR(20) DEFAULT 'active',  -- 'active', 'completed', 'abandoned'
@@ -61,7 +61,7 @@ CREATE TABLE sessions (
     target_question_count INTEGER,
     actual_question_count INTEGER DEFAULT 0,
     
-    -- Konfiguration som användes
+    -- Configuration used
     config JSONB  -- Blueprint, Bloom's distribution, etc.
 );
 
@@ -70,44 +70,44 @@ CREATE INDEX idx_sessions_course ON sessions(course_code);
 CREATE INDEX idx_sessions_created ON sessions(created_at);
 ```
 
-### Tabell: questions
+### Table: questions
 
 ```sql
 CREATE TABLE questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
     
-    -- Identifiering
+    -- Identification
     question_identifier VARCHAR(100) NOT NULL,  -- 'MC_Q001'
     question_type VARCHAR(50) NOT NULL,         -- 'multiple_choice_single'
     
-    -- Aktuell status
+    -- Current status
     current_stage VARCHAR(30) DEFAULT 'draft',
     -- Stages: 'draft', 'guided_build', 'validating', 'review', 'finalized', 'exported', 'abandoned'
     
-    -- Senaste version
+    -- Latest version
     current_version INTEGER DEFAULT 1,
-    current_content JSONB,  -- Senaste snapshot
+    current_content JSONB,  -- Latest snapshot
     
-    -- Pedagogisk kontext
+    -- Pedagogical context
     learning_objective VARCHAR(255),
     bloom_level VARCHAR(20),
     difficulty VARCHAR(20),
     
-    -- Tidsstämplar
+    -- Timestamps
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     finalized_at TIMESTAMP WITH TIME ZONE,
     exported_at TIMESTAMP WITH TIME ZONE,
     abandoned_at TIMESTAMP WITH TIME ZONE,
     
-    -- Statistik
+    -- Statistics
     total_iterations INTEGER DEFAULT 0,
     validation_attempts INTEGER DEFAULT 0,
     validation_failures INTEGER DEFAULT 0,
     
-    -- Kvalitetsbedömning (optional, för ML)
-    teacher_quality_score INTEGER,  -- 1-5 om läraren bedömer
+    -- Quality assessment (optional, for ML)
+    teacher_quality_score INTEGER,  -- 1-5 if teacher rates
     
     UNIQUE(session_id, question_identifier)
 );
@@ -118,48 +118,48 @@ CREATE INDEX idx_questions_type ON questions(question_type);
 CREATE INDEX idx_questions_bloom ON questions(bloom_level);
 ```
 
-### Tabell: events
+### Table: events
 
 ```sql
 CREATE TABLE events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
     
-    -- Tidsstämpel
+    -- Timestamp
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
-    -- Event-typ
+    -- Event type
     event_type VARCHAR(50) NOT NULL,
-    -- Types: se EVENT_TYPES nedan
+    -- Types: see EVENT_TYPES below
     
-    -- Vem/vad orsakade eventet
+    -- Who/what caused the event
     actor_type VARCHAR(30) NOT NULL,  -- 'teacher', 'ai_suggestion', 'auto_validation', 'system'
-    actor_detail TEXT,                 -- Beskrivning av vad som hände
+    actor_detail TEXT,                 -- Description of what happened
     
-    -- Stage-förändring
+    -- Stage change
     stage_before VARCHAR(30),
     stage_after VARCHAR(30),
     
-    -- Version-förändring
+    -- Version change
     version_before INTEGER,
     version_after INTEGER,
     
-    -- Loop-kontext
+    -- Loop context
     loop_type VARCHAR(30),         -- 'guided_build', 'validation', 'review', NULL
-    loop_iteration INTEGER,        -- Vilken iteration i loopen (1, 2, 3...)
+    loop_iteration INTEGER,        -- Which iteration in the loop (1, 2, 3...)
     
-    -- Ändringsdetaljer
+    -- Change details
     change_summary JSONB,
-    -- Exempel: {"fields_changed": ["options[1].text"], "change_type": "distractor_improvement"}
+    -- Example: {"fields_changed": ["options[1].text"], "change_type": "distractor_improvement"}
     
-    -- Valideringsresultat (om event_type = validation_*)
+    -- Validation result (if event_type = validation_*)
     validation_result JSONB,
-    -- Exempel: {"passed": false, "errors": [...], "warnings": [...]}
+    -- Example: {"passed": false, "errors": [...], "warnings": [...]}
     
-    -- För abandoned events
+    -- For abandoned events
     abandonment_reason TEXT,
     
-    -- Referens till snapshots
+    -- Reference to snapshots
     snapshot_before_id UUID,
     snapshot_after_id UUID
 );
@@ -171,7 +171,7 @@ CREATE INDEX idx_events_actor ON events(actor_type);
 CREATE INDEX idx_events_loop ON events(loop_type, loop_iteration);
 ```
 
-### Tabell: snapshots
+### Table: snapshots
 
 ```sql
 CREATE TABLE snapshots (
@@ -181,14 +181,14 @@ CREATE TABLE snapshots (
     -- Version
     version INTEGER NOT NULL,
     
-    -- Tidsstämpel
+    -- Timestamp
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     
-    -- Fullständigt innehåll
+    -- Complete content
     content JSONB NOT NULL,
-    -- Innehåller: question_text, options, correct_answer, feedback, metadata, etc.
+    -- Contains: question_text, options, correct_answer, feedback, metadata, etc.
     
-    -- Hashvärde för snabb jämförelse
+    -- Hash value for quick comparison
     content_hash VARCHAR(64),
     
     UNIQUE(question_id, version)
@@ -204,48 +204,48 @@ CREATE INDEX idx_snapshots_version ON snapshots(question_id, version);
 
 ### Lifecycle Events
 
-| Event Type | Beskrivning | Actor Types |
+| Event Type | Description | Actor Types |
 |------------|-------------|-------------|
-| `question_created` | Fråga skapades (första draft) | teacher, ai_suggestion |
-| `question_modified` | Fråga ändrades | teacher, ai_suggestion |
-| `question_finalized` | Markerad som klar | teacher |
-| `question_exported` | Exporterad till QTI | system |
-| `question_abandoned` | Övergavs (aldrig klar) | teacher, system (timeout) |
+| `question_created` | Question created (first draft) | teacher, ai_suggestion |
+| `question_modified` | Question modified | teacher, ai_suggestion |
+| `question_finalized` | Marked as complete | teacher |
+| `question_exported` | Exported to QTI | system |
+| `question_abandoned` | Abandoned (never completed) | teacher, system (timeout) |
 
 ### Guided Build Loop Events
 
-| Event Type | Beskrivning | Actor Types |
+| Event Type | Description | Actor Types |
 |------------|-------------|-------------|
-| `build_started` | Guided build påbörjades | system |
-| `build_field_completed` | Ett fält färdigställt | teacher, ai_suggestion |
-| `build_ai_suggestion_offered` | AI föreslog innehåll | ai_suggestion |
-| `build_ai_suggestion_accepted` | Lärare accepterade förslag | teacher |
-| `build_ai_suggestion_rejected` | Lärare avvisade förslag | teacher |
-| `build_ai_suggestion_modified` | Lärare modifierade förslag | teacher |
-| `build_iteration_complete` | En iteration klar | system |
-| `build_completed` | Guided build avslutad | system |
-| `build_abandoned` | Guided build avbruten | teacher |
+| `build_started` | Guided build started | system |
+| `build_field_completed` | A field completed | teacher, ai_suggestion |
+| `build_ai_suggestion_offered` | AI suggested content | ai_suggestion |
+| `build_ai_suggestion_accepted` | Teacher accepted suggestion | teacher |
+| `build_ai_suggestion_rejected` | Teacher rejected suggestion | teacher |
+| `build_ai_suggestion_modified` | Teacher modified suggestion | teacher |
+| `build_iteration_complete` | An iteration complete | system |
+| `build_completed` | Guided build finished | system |
+| `build_abandoned` | Guided build cancelled | teacher |
 
 ### Validation Loop Events
 
-| Event Type | Beskrivning | Actor Types |
+| Event Type | Description | Actor Types |
 |------------|-------------|-------------|
-| `validation_started` | Validering påbörjades | system |
-| `validation_passed` | Alla valideringar passerade | auto_validation |
-| `validation_failed` | Validering misslyckades | auto_validation |
-| `validation_error_fixed` | Fel korrigerades | teacher, ai_suggestion |
-| `validation_warning_acknowledged` | Varning ignorerades medvetet | teacher |
-| `validation_abandoned` | Gav upp efter upprepade fel | teacher |
+| `validation_started` | Validation started | system |
+| `validation_passed` | All validations passed | auto_validation |
+| `validation_failed` | Validation failed | auto_validation |
+| `validation_error_fixed` | Error corrected | teacher, ai_suggestion |
+| `validation_warning_acknowledged` | Warning deliberately ignored | teacher |
+| `validation_abandoned` | Gave up after repeated errors | teacher |
 
 ### Review Loop Events
 
-| Event Type | Beskrivning | Actor Types |
+| Event Type | Description | Actor Types |
 |------------|-------------|-------------|
-| `review_started` | QA-granskning påbörjades | teacher |
-| `review_issue_found` | Problem identifierades | teacher |
-| `review_returned_to_build` | Skickades tillbaka till generation | teacher |
-| `review_approved` | Godkänd i granskning | teacher |
-| `review_abandoned` | Övergavs i granskning | teacher |
+| `review_started` | QA review started | teacher |
+| `review_issue_found` | Problem identified | teacher |
+| `review_returned_to_build` | Sent back to generation | teacher |
+| `review_approved` | Approved in review | teacher |
+| `review_abandoned` | Abandoned in review | teacher |
 
 ---
 
@@ -273,15 +273,15 @@ CREATE INDEX idx_snapshots_version ON snapshots(question_id, version);
                     └────────►│  EXPORTED   │
                               └─────────────┘
 
-Pilar:
+Arrows:
 ───► Normal progression
-◄─── Loop tillbaka (validation failed, review issue)
-- - - Abandonment (kan ske från alla stages)
+◄─── Loop back (validation failed, review issue)
+- - - Abandonment (can occur from all stages)
 ```
 
 ---
 
-## Loop-spårning
+## Loop Tracking
 
 ### Guided Build Loop
 
@@ -292,17 +292,17 @@ iteration 1:
   ├── build_ai_suggestion_accepted
   ├── build_field_completed (question_text)
   ├── build_ai_suggestion_offered (options)
-  ├── build_ai_suggestion_rejected  ◄── Läraren vill inte ha detta
+  ├── build_ai_suggestion_rejected  ◄── Teacher doesn't want this
   └── [iteration 1 incomplete]
 
 iteration 2:
-  ├── build_ai_suggestion_offered (options - ny variant)
-  ├── build_ai_suggestion_modified ◄── Läraren editerade
+  ├── build_ai_suggestion_offered (options - new variant)
+  ├── build_ai_suggestion_modified ◄── Teacher edited
   ├── build_field_completed (options)
   ├── build_field_completed (answer)
   ├── build_field_completed (feedback)
   ├── build_iteration_complete
-  └── build_completed ◄── Alla fält klara
+  └── build_completed ◄── All fields complete
 ```
 
 ### Validation Loop
@@ -312,19 +312,19 @@ attempt 1:
   ├── validation_started
   ├── validation_failed
   │   └── errors: ["Missing correct answer", "Distractor too similar"]
-  └── [tillbaka till build eller manuell fix]
+  └── [back to build or manual fix]
 
 attempt 2:
   ├── validation_error_fixed (actor: teacher)
   ├── validation_started
   ├── validation_failed
   │   └── errors: ["Distractor too similar"]
-  └── [fortfarande problem]
+  └── [still problems]
 
 attempt 3:
   ├── validation_error_fixed (actor: ai_suggestion)
   ├── validation_started
-  └── validation_passed ◄── Äntligen!
+  └── validation_passed ◄── Finally!
 ```
 
 ---
@@ -333,14 +333,14 @@ attempt 3:
 
 ```json
 {
-  "question_text": "Vilken process...",
+  "question_text": "Which process...",
   "question_type": "multiple_choice_single",
   
   "options": [
-    {"letter": "A", "text": "Mitos", "is_correct": false},
-    {"letter": "B", "text": "Meios", "is_correct": true},
+    {"letter": "A", "text": "Mitosis", "is_correct": false},
+    {"letter": "B", "text": "Meiosis", "is_correct": true},
     {"letter": "C", "text": "Cytokinesis", "is_correct": false},
-    {"letter": "D", "text": "Apoptos", "is_correct": false}
+    {"letter": "D", "text": "Apoptosis", "is_correct": false}
   ],
   
   "correct_answer": "B",
@@ -362,7 +362,7 @@ attempt 3:
     "learning_objective": "LO_3.2",
     "bloom_level": "understand",
     "difficulty": "medium",
-    "misconception_targeted": "Förväxling mitos/meios"
+    "misconception_targeted": "Confusion between mitosis/meiosis"
   }
 }
 ```
@@ -371,16 +371,16 @@ attempt 3:
 
 ## Abandonment Tracking
 
-### När registreras abandonment?
+### When is abandonment registered?
 
-1. **Explicit abandonment** - Lärare klickar "Avbryt" eller "Släng fråga"
-2. **Session timeout** - Ingen aktivitet på X minuter + session stängd
-3. **Session closed without completion** - Browser stängd mitt i arbete
+1. **Explicit abandonment** - Teacher clicks "Cancel" or "Discard question"
+2. **Session timeout** - No activity for X minutes + session closed
+3. **Session closed without completion** - Browser closed mid-work
 
-### Vad sparas vid abandonment?
+### What is saved on abandonment?
 
 ```sql
--- I events-tabellen
+-- In events table
 INSERT INTO events (
     question_id,
     event_type,
@@ -402,18 +402,18 @@ INSERT INTO events (
 );
 ```
 
-### ML-värde av abandonment-data
+### ML Value of Abandonment Data
 
-- **Pattern:** "Frågor som överges efter 3+ valideringsfel"
-- **Pattern:** "Frågetyper som ofta överges" 
-- **Pattern:** "Bloom-nivåer som är svåra att generera"
-- **Pattern:** "Vilka AI-förslag leder till abandonment"
+- **Pattern:** "Questions abandoned after 3+ validation failures"
+- **Pattern:** "Question types that are often abandoned" 
+- **Pattern:** "Bloom levels that are difficult to generate"
+- **Pattern:** "Which AI suggestions lead to abandonment"
 
 ---
 
 ## ML Export Format
 
-### JSONL för träningsdata
+### JSONL for Training Data
 
 ```jsonl
 {"type": "question_lifecycle", "question_id": "...", "session_id": "...", "question_type": "multiple_choice_single", "bloom_level": "understand", "outcome": "completed", "iterations": 3, "validation_attempts": 2, "snapshots": [...], "events": [...]}
@@ -423,7 +423,7 @@ INSERT INTO events (
 ### Export Query
 
 ```sql
--- Exportera alla frågor med fullständig historik
+-- Export all questions with complete history
 SELECT 
     q.id,
     q.question_type,
@@ -446,36 +446,36 @@ GROUP BY q.id, s.course_code, s.assessment_type;
 
 ---
 
-## MCP-specifik loggning
+## MCP-Specific Logging
 
-### qf-scaffolding (Metodologi)
+### qf-scaffolding (Methodology)
 
-Loggar på **session**-nivå:
-- Vilka moduler (M1-M4) genomfördes
-- Stage gates som passerades
-- Tid per modul
-- Beslut som togs
+Logs at **session** level:
+- Which modules (M1-M4) were completed
+- Stage gates that were passed
+- Time per module
+- Decisions that were made
 
-**Behöver INTE PostgreSQL** - kan vara enkel markdown/JSON i projektmappen.
+**Does NOT need PostgreSQL** - can be simple markdown/JSON in project folder.
 
-### qf-pipeline (Frågegenerering)
+### qf-pipeline (Question Generation)
 
-Loggar på **fråga**-nivå (detta dokument):
-- Alla events, snapshots, loops
-- **KRÄVER PostgreSQL** för ML-träning
+Logs at **question** level (this document):
+- All events, snapshots, loops
+- **REQUIRES PostgreSQL** for ML training
 
-### Separationsprincip
+### Separation Principle
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Session (qf-scaffolding)                      │
-│   Loggas: Markdown i projektmapp                                 │
-│   Syfte: Lärarens process-dokumentation                          │
+│   Logged: Markdown in project folder                             │
+│   Purpose: Teacher's process documentation                       │
 ├─────────────────────────────────────────────────────────────────┤
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │              Question Pipeline (qf-pipeline)             │   │
-│   │   Loggas: PostgreSQL                                     │   │
-│   │   Syfte: ML-träningsdata + spårbarhet                    │   │
+│   │   Logged: PostgreSQL                                     │   │
+│   │   Purpose: ML training data + traceability               │   │
 │   │                                                          │   │
 │   │   question_1: [events...] [snapshots...]                 │   │
 │   │   question_2: [events...] [snapshots...]                 │   │
@@ -508,33 +508,33 @@ Loggar på **fråga**-nivå (detta dokument):
 ### Phase 4: ML Export (Future)
 - [ ] JSONL export functionality
 - [ ] Aggregation queries
-- [ ] Data anonymization (om central server)
+- [ ] Data anonymisation (if central server)
 - [ ] Training pipeline integration
 
 ---
 
-## Beslutade konfigurationer
+## Decided Configurations
 
-| Parameter | Beslut | Datum |
-|-----------|--------|-------|
-| Session timeout | **30 minuter** utan aktivitet = abandoned | 2026-01-05 |
-| Snapshot frekvens | **Vid VARJE event** (inte bara stage-byte) | 2026-01-05 |
-| qf-scaffolding loggning | **Separat** (markdown i projektmapp, INTE PostgreSQL) | 2026-01-05 |
-| Data retention | Permanent lokalt, anonymiserat vid central export | 2026-01-05 |
+| Parameter | Decision | Date |
+|-----------|----------|------|
+| Session timeout | **30 minutes** without activity = abandoned | 2026-01-05 |
+| Snapshot frequency | **At EVERY event** (not just stage change) | 2026-01-05 |
+| qf-scaffolding logging | **Separate** (markdown in project folder, NOT PostgreSQL) | 2026-01-05 |
+| Data retention | Permanent locally, anonymised on central export | 2026-01-05 |
 
 ---
 
-## Relaterad loggning (Andra system)
+## Related Logging (Other Systems)
 
-### Assessment MCP - Dokument-nivå metadata
+### Assessment MCP - Document-level Metadata
 
-Assessment-filer (Q-filer) har egen YAML frontmatter för att spåra bedömningsprocessen:
+Assessment files (Q-files) have their own YAML frontmatter to track the assessment process:
 
 ```yaml
 ---
 ASSESSMENT-STATUS:
-  File: "Q001_alla_elever.md"
-  Question: "Fråga 001: Global Warming Potential (GWP)"
+  File: "Q001_all_students.md"
+  Question: "Question 001: Global Warming Potential (GWP)"
   Max-points: 3
   Total-students: 18
   Last-assessed-student: "NatSur2000"
@@ -545,9 +545,9 @@ ASSESSMENT-STATUS:
 ---
 ```
 
-**Syfte:** Spåra var läraren är i bedömningsprocessen  
-**Hanteras av:** Assessment MCP (separat projekt)  
-**Status:** Separat specifikation behövs
+**Purpose:** Track where the teacher is in the assessment process  
+**Handled by:** Assessment MCP (separate project)  
+**Status:** Separate specification needed
 
 ---
 

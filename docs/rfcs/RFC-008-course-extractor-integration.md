@@ -10,15 +10,15 @@
 
 ## Summary
 
-Integrate `course-extractor-mcp` (Python) med QuestionForge M1 för att extrahera text **och bilder** från PDF-kursmaterial.
+Integrate `course-extractor-mcp` (Python) with QuestionForge M1 to extract text **and images** from PDF course materials.
 
 ## Problem
 
-`read_materials.ts` använder `pdf-parse` som endast extraherar text. Kursmaterial innehåller ofta diagram, figurer och tabeller som är viktiga för att skapa bra frågor.
+`read_materials.ts` uses `pdf-parse` which only extracts text. Course materials often contain diagrams, figures and tables that are important for creating good questions.
 
-## Lösning: Claude Orchestration
+## Solution: Claude Orchestration
 
-Två separata MCPs, Claude koordinerar:
+Two separate MCPs, Claude coordinates:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -26,36 +26,36 @@ Två separata MCPs, Claude koordinerar:
 │  └── extract_pdf → text_markdown + images[]            │
 └─────────────────────────────────────────────────────────┘
                           │
-                    Claude läser
-                    bilder (vision)
+                    Claude reads
+                    images (vision)
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
 │  qf-scaffolding (TypeScript, MIT)                       │
-│  └── M1 workflow med content från course-extractor     │
+│  └── M1 workflow with content from course-extractor    │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Varför Separation?
+## Why Separation?
 
-1. **AGPL-isolering**: course-extractor använder PyMuPDF (AGPL). Separat repo = ingen licenssmitt.
-2. **RFC-004 filosofi**: "Claude läser content, MCP hanterar projekt"
-3. **Enkelhet**: Inga MCP-till-MCP-bryggor behövs
+1. **AGPL isolation**: course-extractor uses PyMuPDF (AGPL). Separate repo = no licence contamination.
+2. **RFC-004 philosophy**: "Claude reads content, MCP handles project"
+3. **Simplicity**: No MCP-to-MCP bridges needed
 
-## M1 Workflow med Integration
+## M1 Workflow with Integration
 
 ```
 Stage 0:
-1. Lärare laddar upp PDF
-2. Claude anropar: course-extractor.extract_pdf(file_path)
-   → Returnerar: { text_markdown, images: [{saved_path}] }
-3. Claude läser bilder (multimodal vision)
-4. Claude anropar: qf-scaffolding.load_stage(stage=0)
-5. Claude analyserar content (text + bildförståelse)
-6. Fortsätt M1 workflow enligt RFC-007 Option A
+1. Teacher uploads PDF
+2. Claude calls: course-extractor.extract_pdf(file_path)
+   → Returns: { text_markdown, images: [{saved_path}] }
+3. Claude reads images (multimodal vision)
+4. Claude calls: qf-scaffolding.load_stage(stage=0)
+5. Claude analyses content (text + image understanding)
+6. Continue M1 workflow according to RFC-007 Option A
 ```
 
-## Konfiguration
+## Configuration
 
 ### Claude Desktop (claude_desktop_config.json)
 
@@ -76,28 +76,28 @@ Stage 0:
 
 ## Repos
 
-| Repo | Licens | Syfte |
-|------|--------|-------|
-| `course-extractor-mcp` | AGPL 3.0 | PDF text+bilder |
+| Repo | Licence | Purpose |
+|------|---------|---------|
+| `course-extractor-mcp` | AGPL 3.0 | PDF text+images |
 | `QuestionForge` | MIT | Scaffolding + Pipeline |
 
 ## Implementation
 
-**Ingen kodändring krävs i qf-scaffolding.**
+**No code change required in qf-scaffolding.**
 
-Endast:
-1. Dokumentera workflow i M1 instructions
-2. Uppdatera Stage 0 prompt att nämna course-extractor
+Only:
+1. Document workflow in M1 instructions
+2. Update Stage 0 prompt to mention course-extractor
 
-## Verifiering
+## Verification
 
-1. Starta båda MCPs
-2. Ladda upp PDF med bilder i Claude Desktop
-3. Verifiera att Claude:
-   - Anropar extract_pdf först
-   - Läser extraherade bilder
-   - Fortsätter med M1 workflow
+1. Start both MCPs
+2. Upload PDF with images in Claude Desktop
+3. Verify that Claude:
+   - Calls extract_pdf first
+   - Reads extracted images
+   - Continues with M1 workflow
 
 ## Decision
 
-- [x] Godkänd för implementation
+- [x] Approved for implementation

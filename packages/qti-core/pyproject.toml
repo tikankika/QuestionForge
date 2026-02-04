@@ -8,7 +8,7 @@ version = "0.2.4"
 description = "Convert markdown quiz files to QTI 2.2 packages for Inspera Assessment Platform"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
+license = {text = "CC-BY-NC-SA-4.0"}
 authors = [
     {name = "Niklas Karlsson", email = "tikankika@users.noreply.github.com"}
 ]
@@ -25,7 +25,7 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Education",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",

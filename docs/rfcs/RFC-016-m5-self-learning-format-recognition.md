@@ -10,60 +10,60 @@
 
 ## Problem
 
-M5 flexible_parser har hårdkodade mönster:
+M5 flexible_parser has hardcoded patterns:
 - `### Q1`
 - `## Question 1`
 - `## Fråga 1`
 
-När lärare använder annat format (t.ex. M3-output med `**Title:**/**Stem:**`):
+When teachers use a different format (e.g., M3 output with `**Title:**/**Stem:**`):
 ```
-**Title:** Grundbegrepp inom AI
+**Title:** Basic AI concepts
 **Type:** essay
 **Bloom:** understand
-**Stem:** I materialet introduceras...
+**Stem:** The material introduces...
 ```
 
-Resultat: "0 frågor hittades" → Dead end.
+Result: "0 questions found" → Dead end.
 
-**Detta är FEL approach!**
-
----
-
-## Filosofi: Teacher-Led, AI-Assisted
-
-QuestionForge bygger på:
-- **Läraren leder** - AI assisterar
-- **Dialog** - inte automatik
-- **Lärande** - inte hårdkodning
-
-M5 ska INTE försöka parsa allt automatiskt.
-M5 ska FRÅGA läraren när den inte förstår.
+**This is the WRONG approach!**
 
 ---
 
-## Lösning: Self-Learning Format Recognition
+## Philosophy: Teacher-Led, AI-Assisted
 
-### Princip
+QuestionForge is built on:
+- **Teacher leads** - AI assists
+- **Dialogue** - not automation
+- **Learning** - not hardcoding
+
+M5 should NOT try to parse everything automatically.
+M5 should ASK the teacher when it doesn't understand.
+
+---
+
+## Solution: Self-Learning Format Recognition
+
+### Principle
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  1. M5 ser nytt format                              │
-│     → Frågar läraren om hjälp                       │
+│  1. M5 sees new format                              │
+│     → Asks teacher for help                         │
 ├─────────────────────────────────────────────────────┤
-│  2. Läraren förklarar mappningen                    │
-│     → "Title betyder titel, Stem är frågetexten"   │
+│  2. Teacher explains the mapping                    │
+│     → "Title means title, Stem is the question text"│
 ├─────────────────────────────────────────────────────┤
-│  3. M5 sparar mönstret                              │
+│  3. M5 saves the pattern                            │
 │     → format_patterns.json                          │
 ├─────────────────────────────────────────────────────┤
-│  4. Nästa gång samma format                         │
-│     → M5 känner igen det automatiskt               │
+│  4. Next time same format                           │
+│     → M5 recognises it automatically               │
 └─────────────────────────────────────────────────────┘
 ```
 
-### Liknar Step 3 fix_rules
+### Similar to Step 3 fix_rules
 
-Step 3 har `fix_rules.json` för transformationer:
+Step 3 has `fix_rules.json` for transformations:
 ```json
 {
   "STEP3_001": {
@@ -74,7 +74,7 @@ Step 3 har `fix_rules.json` för transformationer:
 }
 ```
 
-M5 får `format_patterns.json` för format-igenkänning:
+M5 gets `format_patterns.json` for format recognition:
 ```json
 {
   "patterns": [
@@ -105,132 +105,132 @@ M5 får `format_patterns.json` för format-igenkänning:
 
 ---
 
-## Workflow: Första gången (okänt format)
+## Workflow: First Time (unknown format)
 
-### Steg 1: M5 upptäcker okänt format
+### Step 1: M5 discovers unknown format
 
 ```
 ══════════════════════════════════════════════════════
-M5 - BEHÖVER HJÄLP
+M5 - NEEDS HELP
 ══════════════════════════════════════════════════════
 
-Jag hittade en fil men känner inte igen formatet.
+I found a file but don't recognise the format.
 
-Filens första 30 rader:
+File's first 30 lines:
 ┌────────────────────────────────────────────────────┐
-│ **Title:** Grundbegrepp inom AI                    │
+│ **Title:** Basic AI concepts                       │
 │ **Type:** essay                                    │
 │ **Bloom:** understand                              │
 │ **Difficulty:** easy                               │
 │ **Points:** 3                                      │
-│ **Tags:** #elements_of_AI_chapter1 #grundbegrepp   │
-│ **Learning Objective:** ARTI1000X - Kunskaper...   │
+│ **Tags:** #elements_of_AI_chapter1 #basic_concepts │
+│ **Learning Objective:** ARTI1000X - Knowledge...   │
 │ **Stem:**                                          │
-│ I materialet introduceras flera viktiga begrepp... │
+│ The material introduces several important concepts │
 │                                                    │
 │ ---                                                │
 │                                                    │
-│ **Title:** Maskininlärningens roll                 │
+│ **Title:** The role of machine learning            │
 │ ...                                                │
 └────────────────────────────────────────────────────┘
 
-Jag ser mönster med **Rubrik:** men vet inte vad de betyder.
+I see patterns with **Header:** but don't know what they mean.
 
-Kan du hjälpa mig förstå formatet?
-
-══════════════════════════════════════════════════════
-```
-
-### Steg 2: Läraren förklarar
-
-Läraren svarar (naturligt språk):
-```
-Title är frågetiteln
-Type är frågetyp (essay, multiple_choice_single, etc)
-Bloom ska bli en tagg
-Difficulty ska också bli en tagg
-Points är poäng
-Tags är taggar (behåll som de är)
-Learning Objective - hoppa över, ta inte med
-Stem är där frågetexten börjar
---- separerar frågorna
-```
-
-### Steg 3: M5 bekräftar förståelse
-
-```
-══════════════════════════════════════════════════════
-M5 - BEKRÄFTAR MAPPNING
-══════════════════════════════════════════════════════
-
-Okej, jag förstår formatet så här:
-
-  **Title:**      → Frågetitel (title)
-  **Type:**       → Frågetyp (type)
-  **Bloom:**      → Lägg till som tagg (#understand)
-  **Difficulty:** → Lägg till som tagg (#easy)
-  **Points:**     → Poäng (points)
-  **Tags:**       → Taggar (labels) - behåll som de är
-  **Learning Objective:** → HOPPA ÖVER
-  **Stem:**       → Frågetext (question_text)
-  ---             → Fråga-separator
-
-Stämmer detta?
-  [1] Ja, spara detta mönster
-  [2] Nej, låt mig korrigera
+Can you help me understand the format?
 
 ══════════════════════════════════════════════════════
 ```
 
-### Steg 4: Spara mönster
+### Step 2: Teacher explains
 
-Läraren säger "Ja" → M5 sparar till `format_patterns.json`
+Teacher responds (natural language):
+```
+Title is the question title
+Type is question type (essay, multiple_choice_single, etc)
+Bloom should become a tag
+Difficulty should also become a tag
+Points is points
+Tags are tags (keep as they are)
+Learning Objective - skip, don't include
+Stem is where the question text begins
+--- separates questions
+```
+
+### Step 3: M5 confirms understanding
 
 ```
 ══════════════════════════════════════════════════════
-M5 - MÖNSTER SPARAT
+M5 - CONFIRMING MAPPING
 ══════════════════════════════════════════════════════
 
-✅ Sparade mönstret "M3 Bold Headers"
-   Fil: logs/m5_format_patterns.json
+OK, I understand the format like this:
 
-Nästa gång jag ser detta format kommer jag känna igen det.
+  **Title:**      → Question title (title)
+  **Type:**       → Question type (type)
+  **Bloom:**      → Add as tag (#understand)
+  **Difficulty:** → Add as tag (#easy)
+  **Points:**     → Points (points)
+  **Tags:**       → Tags (labels) - keep as they are
+  **Learning Objective:** → SKIP
+  **Stem:**       → Question text (question_text)
+  ---             → Question separator
 
-Nu kan vi börja bearbeta frågorna!
+Is this correct?
+  [1] Yes, save this pattern
+  [2] No, let me correct
 
-Hittade: 5 frågor
+══════════════════════════════════════════════════════
+```
 
-Visa fråga 1?
-  [1] Ja, fortsätt
-  [2] Visa alla först
+### Step 4: Save pattern
+
+Teacher says "Yes" → M5 saves to `format_patterns.json`
+
+```
+══════════════════════════════════════════════════════
+M5 - PATTERN SAVED
+══════════════════════════════════════════════════════
+
+✅ Saved pattern "M3 Bold Headers"
+   File: logs/m5_format_patterns.json
+
+Next time I see this format I will recognise it.
+
+Now we can start processing the questions!
+
+Found: 5 questions
+
+Show question 1?
+  [1] Yes, continue
+  [2] Show all first
 
 ══════════════════════════════════════════════════════
 ```
 
 ---
 
-## Workflow: Andra gången (känt format)
+## Workflow: Second Time (known format)
 
 ```
 ══════════════════════════════════════════════════════
-M5 - FORMAT IGENKÄNT
+M5 - FORMAT RECOGNISED
 ══════════════════════════════════════════════════════
 
-Jag känner igen detta format!
+I recognise this format!
 
-Format: "M3 Bold Headers" (lärt 2026-01-28)
+Format: "M3 Bold Headers" (learned 2026-01-28)
 Confidence: 90%
-Använt: 3 gånger tidigare
+Used: 3 times previously
 
-Hittade: 8 frågor
+Found: 8 questions
 
-  - essay: 5 st
-  - multiple_choice_single: 3 st
+  - essay: 5
+  - multiple_choice_single: 3
 
-Vill du börja bearbeta frågorna?
-  [1] Ja, börja med fråga 1
-  [2] Visa alla frågor först
-  [3] Detta ser fel ut, låt mig korrigera mappningen
+Do you want to start processing the questions?
+  [1] Yes, start with question 1
+  [2] Show all questions first
+  [3] This looks wrong, let me correct the mapping
 
 ══════════════════════════════════════════════════════
 ```
@@ -378,7 +378,7 @@ async function m5Start(projectPath: string, sourceFile: string) {
       reason: "unknown_format",
       file_preview: getFirstNLines(content, 30),
       detected_markers: findPotentialMarkers(content),
-      question: "Jag känner inte igen detta format. Kan du hjälpa mig förstå vad varje rubrik betyder?"
+      question: "I don't recognise this format. Can you help me understand what each header means?"
     };
   }
 }
@@ -418,7 +418,7 @@ async function m5TeachFormat(
 
   return {
     success: true,
-    message: `Mönster "${patternName}" sparat!`,
+    message: `Pattern "${patternName}" saved!`,
     pattern_id: pattern.pattern_id
   };
 }

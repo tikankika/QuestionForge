@@ -1,66 +1,66 @@
-# ADR-006: Session Management för qf-pipeline
+# ADR-006: Session Management for qf-pipeline
 
 ## Status
 **Proposed** → Pending implementation
 
-## Datum
+## Date
 2026-01-05
 
-## Kontext
+## Context
 
-qf-pipeline (QuestionForge pipeline MCP) byggdes initialt med fokus på export-funktionalitet. Vid testning upptäcktes att:
+qf-pipeline (QuestionForge pipeline MCP) was initially built with a focus on export functionality. During testing it was discovered that:
 
-1. **Filåtkomst saknas** - MCP-servern kunde inte läsa filer från användarens lokala filsystem
-2. **Ingen arbetskopia** - Användaren kunde inte redigera filer utan att påverka originalet
-3. **Ingen projektstruktur** - Export skedde utan organiserad mappstruktur
+1. **File access missing** - The MCP server could not read files from the user's local filesystem
+2. **No working copy** - The user could not edit files without affecting the original
+3. **No project structure** - Export occurred without an organised folder structure
 
-### Referensimplementation
+### Reference Implementation
 
-Assessment_suite/pre-assessment-mcp har ett beprövat mönster:
-- `phase1_explore` - Skannar och identifierar filer
-- `phase1_setup` - Skapar projektstruktur, kopierar filer
+Assessment_suite/pre-assessment-mcp has a proven pattern:
+- `phase1_explore` - Scans and identifies files
+- `phase1_setup` - Creates project structure, copies files
 
-Se: `/path/to/assessment-suite/packages/pre-assessment-mcp/src/pre_assessment_mcp/tools/`
+See: `/path/to/assessment-suite/packages/pre-assessment-mcp/src/pre_assessment_mcp/tools/`
 
-## Beslut
+## Decision
 
-Implementera session management i qf-pipeline med följande komponenter:
+Implement session management in qf-pipeline with the following components:
 
-### Nytt verktyg: `start_session`
+### New Tool: `start_session`
 
 ```python
 start_session(
-    source_file: str,      # Sökväg till markdown-fil
-    output_folder: str,    # Var projektet ska skapas
-    project_name: str = None  # Valfritt, auto-generera från filnamn
+    source_file: str,      # Path to markdown file
+    output_folder: str,    # Where the project should be created
+    project_name: str = None  # Optional, auto-generate from filename
 ) -> dict
 ```
 
-**Returnerar:**
+**Returns:**
 ```json
 {
   "success": true,
   "project_path": "/path/to/project",
   "working_file": "/path/to/project/02_working/file.md",
   "session_id": "uuid",
-  "message": "Session startad. Arbetar med: file.md"
+  "message": "Session started. Working with: file.md"
 }
 ```
 
-### Projektmappstruktur
+### Project Folder Structure
 
 ```
 project_name/
-├── 01_source/          ← Original (ALDRIG modifierad)
+├── 01_source/          ← Original (NEVER modified)
 │   └── original_file.md
-├── 02_working/         ← Arbetskopia (kan redigeras)
+├── 02_working/         ← Working copy (can be edited)
 │   └── original_file.md
-├── 03_output/          ← Exporterade filer
-│   └── (QTI-paket, ZIP-filer)
-└── session.yaml        ← Metadata och state
+├── 03_output/          ← Exported files
+│   └── (QTI packages, ZIP files)
+└── session.yaml        ← Metadata and state
 ```
 
-### session.yaml schema
+### session.yaml Schema
 
 ```yaml
 session:
@@ -85,72 +85,72 @@ exports:
     questions_exported: 27
 ```
 
-### Uppdatering av befintliga verktyg
+### Updates to Existing Tools
 
-| Verktyg | Förändring |
-|---------|------------|
-| `validate_file` | Accepterar absolut sökväg ELLER relativ inom session |
-| `export_questions` | Skriver till 03_output/ om session aktiv |
-| `parse_markdown` | Oförändrad (fungerar redan) |
+| Tool | Change |
+|------|--------|
+| `validate_file` | Accepts absolute path OR relative within session |
+| `export_questions` | Writes to 03_output/ if session active |
+| `parse_markdown` | Unchanged (already works) |
 
-## Konsekvenser
+## Consequences
 
-### Positiva
-- Användaren kan arbeta med lokala filer
-- Original bevaras alltid (01_source)
-- Arbetskopia kan redigeras fritt
-- Tydlig separation: input → arbete → output
-- Metadata spårar sessionen
+### Positive
+- User can work with local files
+- Original is always preserved (01_source)
+- Working copy can be edited freely
+- Clear separation: input → work → output
+- Metadata tracks the session
 
-### Negativa
-- Extra steg: måste starta session innan arbete
-- Mer kod att underhålla
-- Projektmappar skapas (tar diskutrymme)
+### Negative
+- Extra step: must start session before work
+- More code to maintain
+- Project folders created (uses disk space)
 
-### Neutrala
-- Följer etablerat mönster från pre-assessment-mcp
-- Konsekvent med Assessment_suite arkitektur
+### Neutral
+- Follows established pattern from pre-assessment-mcp
+- Consistent with Assessment_suite architecture
 
-## Alternativ som övervägdes
+## Alternatives Considered
 
-### A: Endast filläsning (ingen session)
-- Enklare implementation
-- Men: ingen arbetskopia, ingen struktur
-- **Avvisat:** För begränsat för produktionsanvändning
+### A: File reading only (no session)
+- Simpler implementation
+- But: no working copy, no structure
+- **Rejected:** Too limited for production use
 
-### B: In-memory arbete
-- Läs fil → arbeta i minnet → exportera
-- Men: förlorar arbete vid krasch
-- **Avvisat:** Riskabelt för större projekt
+### B: In-memory work
+- Read file → work in memory → export
+- But: loses work on crash
+- **Rejected:** Risky for larger projects
 
-### C: Session management (valt)
-- Inspirerat av pre-assessment-mcp
-- Beprövat mönster
-- **Valt:** Bäst balans mellan enkelhet och funktion
+### C: Session management (chosen)
+- Inspired by pre-assessment-mcp
+- Proven pattern
+- **Chosen:** Best balance between simplicity and functionality
 
 ## Implementation
 
-### Filer att skapa/uppdatera
+### Files to Create/Update
 
 ```
 packages/qf-pipeline/src/qf_pipeline/
 ├── tools/
-│   └── session.py          ← NY: start_session, get_session_status
+│   └── session.py          ← NEW: start_session, get_session_status
 ├── utils/
-│   └── session_manager.py  ← NY: SessionManager klass
-└── server.py               ← UPPDATERA: registrera nya verktyg
+│   └── session_manager.py  ← NEW: SessionManager class
+└── server.py               ← UPDATE: register new tools
 ```
 
-### Prioritet
+### Priority
 
-Del av Fas 1.5 (efter grundläggande MCP fungerar, före PostgreSQL-loggning)
+Part of Phase 1.5 (after basic MCP works, before PostgreSQL logging)
 
-## Relaterade dokument
+## Related Documents
 
 - [ADR-005: MCP Integration](ADR-005-mcp-integration.md)
 - [qf-pipeline-spec.md](../specs/qf-pipeline-spec.md)
-- [qf-logging-specification.md](../specs/qf-logging-specification.md) - Session-loggning integreras här senare
+- [qf-logging-specification.md](../specs/qf-logging-specification.md) - Session logging integrates here later
 
 ---
 
-*Dokumenterat 2026-01-05 som del av ACDM IMPLEMENT-fasen*
+*Documented 2026-01-05 as part of ACDM IMPLEMENT phase*

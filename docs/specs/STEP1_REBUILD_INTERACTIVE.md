@@ -1,20 +1,20 @@
 # STEP 1 REBUILD: Interactive Guide
 
-**Problem:** Step 1 blev auto-batch, inte interaktiv guide  
-**Lösning:** Ändra flow till fråga-för-fråga med lärar-beslut  
-**Datum:** 2026-01-08
+**Problem:** Step 1 became auto-batch, not interactive guide  
+**Solution:** Change flow to question-by-question with teacher decisions  
+**Date:** 2026-01-08
 
 ---
 
-## NUVARANDE FLOW (FEL)
+## CURRENT FLOW (WRONG)
 
 ```
-step1_start → step1_transform (alla frågor på en gång) → klart
+step1_start → step1_transform (all questions at once) → done
                     ↑
-                    Inget lärar-involvement!
+                    No teacher involvement!
 ```
 
-## NY FLOW (RÄTT)
+## NEW FLOW (CORRECT)
 
 ```
 step1_start
@@ -22,54 +22,54 @@ step1_start
 ┌─────────────────────────────────────────────────────────────┐
 │                    QUESTION LOOP                             │
 │                                                              │
-│  step1_analyze (visa issues för DENNA fråga)                │
+│  step1_analyze (show issues for THIS question)              │
 │       ↓                                                      │
-│  CLAUDE PRESENTERAR:                                         │
-│  "Q001 har 3 problem:                                        │
-│   1. [AUTO] Gammal syntax @question: → ^question            │
-│   2. [AUTO] Saknar @end_field                               │
-│   3. [FRÅGA] Saknar Bloom-nivå i labels"                    │
+│  CLAUDE PRESENTS:                                            │
+│  "Q001 has 3 problems:                                       │
+│   1. [AUTO] Old syntax @question: → ^question               │
+│   2. [AUTO] Missing @end_field                              │
+│   3. [ASK] Missing Bloom level in labels"                   │
 │       ↓                                                      │
-│  CLAUDE FRÅGAR:                                              │
-│  "Vilken Bloom-nivå? [Remember] [Understand] [Apply]..."    │
+│  CLAUDE ASKS:                                                │
+│  "Which Bloom level? [Remember] [Understand] [Apply]..."    │
 │       ↓                                                      │
-│  LÄRAREN SVARAR: "Remember"                                 │
+│  TEACHER ANSWERS: "Remember"                                │
 │       ↓                                                      │
 │  step1_fix_auto + step1_fix_manual                          │
 │       ↓                                                      │
-│  step1_next → nästa fråga                                   │
+│  step1_next → next question                                 │
 │       ↓                                                      │
 │  (repeat until all questions done)                          │
 └─────────────────────────────────────────────────────────────┘
     ↓
-step1_finish → rapport
+step1_finish → report
 ```
 
 ---
 
-## ÄNDRADE MCP TOOLS
+## CHANGED MCP TOOLS
 
-### 1. step1_transform → TA BORT eller ÄNDRA
+### 1. step1_transform → REMOVE or CHANGE
 
 ```python
-# GAMMALT (fel):
+# OLD (wrong):
 def step1_transform(question_id=None):
-    """Transformera alla frågor automatiskt"""
-    # Kör alla transforms på alla frågor
-    # Ingen interaktion
+    """Transform all questions automatically"""
+    # Run all transforms on all questions
+    # No interaction
     
-# NYTT (rätt):
+# NEW (correct):
 def step1_transform(question_id=None):
     """
-    Transformera ENDAST syntax-fixes som är 100% säkra.
-    Returnerar lista av vad som INTE kunde fixas automatiskt.
+    Transform ONLY syntax fixes that are 100% safe.
+    Returns list of what COULD NOT be fixed automatically.
     """
-    # BARA syntax-transforms:
+    # ONLY syntax transforms:
     # - @question: → ^question
     # - {{BLANK-1}} → {{blank_1}}
-    # - Lägg till @end_field
+    # - Add @end_field
     
-    # RETURNERA issues som kräver input:
+    # RETURN issues that require input:
     return {
         "auto_fixed": ["Syntax converted", "Added @end_field"],
         "needs_input": [
@@ -79,51 +79,51 @@ def step1_transform(question_id=None):
     }
 ```
 
-### 2. step1_analyze → BEHÅLL men FÖRBÄTTRA
+### 2. step1_analyze → KEEP but IMPROVE
 
 ```python
 def step1_analyze(question_id=None):
     """
-    Analysera EN fråga och returnera issues KATEGORISERADE.
+    Analyse ONE question and return issues CATEGORISED.
     """
     return {
         "question_id": "Q001",
         "question_type": "text_entry",
         
-        # Kategorisera issues
+        # Categorise issues
         "auto_fixable": [
-            {"id": 1, "message": "Gammal syntax @question:"},
-            {"id": 2, "message": "Saknar @end_field"}
+            {"id": 1, "message": "Old syntax @question:"},
+            {"id": 2, "message": "Missing @end_field"}
         ],
         "needs_input": [
             {
                 "id": 3, 
                 "field": "^labels",
-                "message": "Saknar Bloom-nivå",
+                "message": "Missing Bloom level",
                 "prompt_type": "select_bloom",
                 "options": ["Remember", "Understand", "Apply", "Analyze"]
             },
             {
                 "id": 4,
                 "field": "partial_feedback", 
-                "message": "Saknar partial_feedback",
+                "message": "Missing partial_feedback",
                 "prompt_type": "suggest_feedback",
-                "suggestion": "Kopiera från correct_feedback?"
+                "suggestion": "Copy from correct_feedback?"
             }
         ],
         
-        # Instruktion till Claude
-        "instruction": "Fixa auto_fixable, fråga användaren om needs_input"
+        # Instruction to Claude
+        "instruction": "Fix auto_fixable, ask user about needs_input"
     }
 ```
 
-### 3. step1_fix → SEPARERA auto och manual
+### 3. step1_fix → SEPARATE auto and manual
 
 ```python
 def step1_fix_auto(question_id=None):
     """
-    Applicera BARA automatiska fixes.
-    Returnera vad som fixades och vad som återstår.
+    Apply ONLY automatic fixes.
+    Return what was fixed and what remains.
     """
     return {
         "fixed": ["Syntax converted", "Added @end_field"],
@@ -135,9 +135,9 @@ def step1_fix_auto(question_id=None):
 
 def step1_fix_manual(question_id: str, field: str, value: str):
     """
-    Applicera EN manuell fix baserat på lärar-input.
+    Apply ONE manual fix based on teacher input.
     """
-    # Exempel: field="^labels", value="^labels #EXAMPLE_COURSE #Remember #Easy"
+    # Example: field="^labels", value="^labels #EXAMPLE_COURSE #Remember #Easy"
     return {
         "fixed": True,
         "field": field,
@@ -145,119 +145,119 @@ def step1_fix_manual(question_id: str, field: str, value: str):
     }
 ```
 
-### 4. NYTT: step1_suggest
+### 4. NEW: step1_suggest
 
 ```python
 def step1_suggest(question_id: str, field: str):
     """
-    Generera förslag för ett fält baserat på kontext.
-    Användaren kan acceptera, modifiera, eller skriva eget.
+    Generate suggestion for a field based on context.
+    User can accept, modify, or write their own.
     """
     if field == "partial_feedback":
-        # Kopiera från correct_feedback
+        # Copy from correct_feedback
         correct = get_field(question_id, "correct_feedback")
         return {
             "field": field,
             "suggestion": correct,
             "options": [
-                ("accept", "Acceptera förslaget"),
-                ("modify", "Modifiera"),
-                ("custom", "Skriv egen"),
-                ("skip", "Hoppa över")
+                ("accept", "Accept suggestion"),
+                ("modify", "Modify"),
+                ("custom", "Write own"),
+                ("skip", "Skip")
             ]
         }
     
     if field == "^labels":
-        # Generera baserat på frågetyp och innehåll
+        # Generate based on question type and content
         return {
             "field": field,
-            "suggestion": "^labels #EXAMPLE_COURSE #Matsmältning #Remember #Easy",
+            "suggestion": "^labels #EXAMPLE_COURSE #Digestion #Remember #Easy",
             "needs_confirmation": True
         }
 ```
 
 ---
 
-## HUR CLAUDE ANVÄNDER TOOLS
+## HOW CLAUDE USES TOOLS
 
-### Nuvarande (fel):
+### Current (wrong):
 ```
-User: "Kör Step 1 på filen"
+User: "Run Step 1 on the file"
 Claude: 
   1. step1_start() 
-  2. step1_transform()  ← Allt på en gång!
-  3. "Klart, 19 fel kvar"
+  2. step1_transform()  ← Everything at once!
+  3. "Done, 19 errors remaining"
 ```
 
-### Nytt (rätt):
+### New (correct):
 ```
-User: "Kör Step 1 på filen"
+User: "Run Step 1 on the file"
 
 Claude:
   1. step1_start()
-  → "27 frågor hittades i v6.3 format"
+  → "27 questions found in v6.3 format"
   
   2. step1_analyze()
-  → "Q001 har 4 issues: 2 auto-fixable, 2 behöver input"
+  → "Q001 has 4 issues: 2 auto-fixable, 2 need input"
   
   3. step1_fix_auto()
-  → "Fixade syntax. Kvar: Bloom-nivå, partial_feedback"
+  → "Fixed syntax. Remaining: Bloom level, partial_feedback"
   
-  4. Claude till användaren:
-  "Q001 saknar Bloom-nivå. Vilken kognitiv nivå testar frågan?
+  4. Claude to user:
+  "Q001 is missing Bloom level. Which cognitive level does the question test?
    [Remember] [Understand] [Apply] [Analyze]"
   
-  5. Användaren: "Remember"
+  5. User: "Remember"
   
   6. step1_fix_manual(field="bloom", value="Remember")
   
-  7. Claude till användaren:
-  "Q001 saknar partial_feedback. Ska jag kopiera från correct_feedback?
-   [Ja] [Nej, jag skriver] [Hoppa över]"
+  7. Claude to user:
+  "Q001 is missing partial_feedback. Should I copy from correct_feedback?
+   [Yes] [No, I'll write] [Skip]"
   
-  8. Användaren: "Ja"
+  8. User: "Yes"
   
-  9. step1_fix_manual(field="partial_feedback", value=<kopierat>)
+  9. step1_fix_manual(field="partial_feedback", value=<copied>)
   
   10. step1_next()
-  → "Q002 (2 av 27)"
+  → "Q002 (2 of 27)"
   
-  ... repeat för varje fråga ...
+  ... repeat for each question ...
   
   27. step1_finish()
-  → Rapport
+  → Report
 ```
 
 ---
 
-## BATCH-APPLY (VIKTIGT!)
+## BATCH-APPLY (IMPORTANT!)
 
-När samma issue finns i flera frågor:
+When the same issue exists in multiple questions:
 
 ```python
 def step1_batch_preview(issue_type: str):
     """
-    Visa alla frågor med samma issue.
+    Show all questions with the same issue.
     """
     return {
-        "issue": "Saknar partial_feedback",
+        "issue": "Missing partial_feedback",
         "affected_questions": ["Q001", "Q005", "Q006", "Q007", "Q009", ...],
         "count": 11,
         "preview": {
-            "Q001": "Peristaltik är de vågrörelser...",
-            "Q005": "Enzymer är proteiner som...",
-            # ... första 3 som preview
+            "Q001": "Peristalsis is the wave movements...",
+            "Q005": "Enzymes are proteins that...",
+            # ... first 3 as preview
         }
     }
 
 def step1_batch_apply(issue_type: str, fix_type: str, questions: list = None):
     """
-    Applicera samma fix på flera frågor.
+    Apply the same fix to multiple questions.
     
     Args:
         issue_type: "missing_partial_feedback"
-        fix_type: "copy_from_correct" eller "custom"
-        questions: Lista av frågor, eller None för alla
+        fix_type: "copy_from_correct" or "custom"
+        questions: List of questions, or None for all
     """
     return {
         "applied_to": ["Q001", "Q005", "Q006", ...],
@@ -266,20 +266,20 @@ def step1_batch_apply(issue_type: str, fix_type: str, questions: list = None):
     }
 ```
 
-### Claude använder batch:
+### Claude uses batch:
 ```
-Claude: "11 frågor saknar partial_feedback:
+Claude: "11 questions are missing partial_feedback:
 Q001, Q005, Q006, Q007, Q009, Q017, Q018, Q020, Q023, Q025
 
-Vill du:
-1. Kopiera från correct_feedback för alla 11
-2. Gå igenom en i taget
-3. Hoppa över alla"
+Do you want to:
+1. Copy from correct_feedback for all 11
+2. Go through one by one
+3. Skip all"
 
-Användaren: "1"
+User: "1"
 
 Claude: step1_batch_apply("missing_partial_feedback", "copy_from_correct")
-→ "Fixade 11 frågor"
+→ "Fixed 11 questions"
 ```
 
 ---
@@ -287,23 +287,23 @@ Claude: step1_batch_apply("missing_partial_feedback", "copy_from_correct")
 ## IMPLEMENTATION PRIORITY
 
 ```
-1. ÄNDRA step1_transform
-   - Endast syntax-fixes
-   - Returnera "needs_input" lista
+1. CHANGE step1_transform
+   - Only syntax fixes
+   - Return "needs_input" list
    
-2. FÖRBÄTTRA step1_analyze  
-   - Kategorisera: auto_fixable vs needs_input
-   - Inkludera prompt_type och options
+2. IMPROVE step1_analyze  
+   - Categorise: auto_fixable vs needs_input
+   - Include prompt_type and options
    
-3. LÄGG TILL step1_suggest
-   - Generera förslag för saknade fält
+3. ADD step1_suggest
+   - Generate suggestions for missing fields
    
-4. LÄGG TILL step1_batch_preview + step1_batch_apply
-   - Effektivisera repetitiva fixes
+4. ADD step1_batch_preview + step1_batch_apply
+   - Streamline repetitive fixes
    
-5. UPPDATERA prompts.py
-   - Använd faktiskt PROMPTS-dictionary
-   - Format för Claude att presentera
+5. UPDATE prompts.py
+   - Actually use PROMPTS dictionary
+   - Format for Claude to present
 ```
 
 ---
@@ -359,91 +359,91 @@ Claude: step1_batch_apply("missing_partial_feedback", "copy_from_correct")
 
 ---
 
-## EXEMPEL: Komplett Session
+## EXAMPLE: Complete Session
 
 ```
-USER: Kör Step 1 på EXAMPLE_COURSE_Fys_v63.md
+USER: Run Step 1 on EXAMPLE_COURSE_Fys_v63.md
 
 CLAUDE: [step1_start]
-📁 Session startad!
-- Fil: EXAMPLE_COURSE_Fys_v63.md
-- Format: v6.3 (behöver uppgradering till v6.5)
-- Frågor: 27 st
+📁 Session started!
+- File: EXAMPLE_COURSE_Fys_v63.md
+- Format: v6.3 (needs upgrade to v6.5)
+- Questions: 27
 
-Ska jag börja med Q001?
+Shall I start with Q001?
 
-USER: Ja
+USER: Yes
 
 CLAUDE: [step1_analyze(Q001)]
-**Q001: Muskelrörelse i mag-tarmkanalen**
-Typ: text_entry
+**Q001: Muscle movement in the gastrointestinal tract**
+Type: text_entry
 
-Hittade 4 issues:
-✅ AUTO: Konvertera @question: → ^question
-✅ AUTO: Konvertera @tags: → ^labels  
-✅ AUTO: Lägg till @end_field
-❓ INPUT: Saknar partial_feedback
+Found 4 issues:
+✅ AUTO: Convert @question: → ^question
+✅ AUTO: Convert @tags: → ^labels  
+✅ AUTO: Add @end_field
+❓ INPUT: Missing partial_feedback
 
 [step1_fix_auto]
-Fixade 3 syntax-issues.
+Fixed 3 syntax issues.
 
-Kvar: Q001 saknar partial_feedback.
+Remaining: Q001 is missing partial_feedback.
 
-Vill du:
-1. Kopiera från correct_feedback
-2. Skriva egen
-3. Hoppa över
+Do you want to:
+1. Copy from correct_feedback
+2. Write your own
+3. Skip
 
 USER: 1
 
-CLAUDE: [step1_fix_manual(field="partial_feedback", value=<kopierat>)]
-✅ Q001 klar!
+CLAUDE: [step1_fix_manual(field="partial_feedback", value=<copied>)]
+✅ Q001 done!
 
 [step1_next]
-**Q002: Var produceras galla** (2 av 27)
+**Q002: Where is bile produced** (2 of 27)
 ...
 
---- EFTER 5 FRÅGOR ---
+--- AFTER 5 QUESTIONS ---
 
-CLAUDE: Jag ser att 9 frågor till saknar partial_feedback.
-Vill du applicera samma fix (kopiera från correct) på alla?
+CLAUDE: I see that 9 more questions are missing partial_feedback.
+Do you want to apply the same fix (copy from correct) to all?
 
 [step1_batch_preview("missing_partial_feedback")]
-Påverkade frågor: Q005, Q006, Q007, Q009, Q017, Q018, Q020, Q023, Q025
+Affected questions: Q005, Q006, Q007, Q009, Q017, Q018, Q020, Q023, Q025
 
-1. Ja, fixa alla 9
-2. Nej, gå igenom en i taget
-3. Hoppa över alla
+1. Yes, fix all 9
+2. No, go through one by one
+3. Skip all
 
 USER: 1
 
 CLAUDE: [step1_batch_apply(...)]
-✅ Fixade partial_feedback för 9 frågor
+✅ Fixed partial_feedback for 9 questions
 
---- FORTSÄTTER ---
+--- CONTINUES ---
 
 CLAUDE: [step1_finish]
-📊 Step 1 Klar!
+📊 Step 1 Complete!
 
-Resultat:
-- 27 frågor behandlade
-- 24 helt klara
-- 3 med varningar (Q013, Q021, Q023 - match-format)
-- 0 skippade
+Results:
+- 27 questions processed
+- 24 fully complete
+- 3 with warnings (Q013, Q021, Q023 - match format)
+- 0 skipped
 
-Klar för Step 2 validate?
+Ready for Step 2 validate?
 ```
 
 ---
 
-## SAMMANFATTNING
+## SUMMARY
 
-| Gammalt | Nytt |
-|---------|------|
-| Auto-batch allt | Fråga-för-fråga |
-| Ingen interaktion | Claude frågar, läraren svarar |
-| 19 fel kvar som Claude fixar | Alla fel hanteras i loopen |
-| prompts.py oanvänd | prompts.py används aktivt |
+| Old | New |
+|-----|-----|
+| Auto-batch everything | Question-by-question |
+| No interaction | Claude asks, teacher answers |
+| 19 errors left for Claude to fix | All errors handled in the loop |
+| prompts.py unused | prompts.py actively used |
 
 ---
 

@@ -1,106 +1,106 @@
 # STEP 1 REBUILD INSTRUCTIONS
 
-**För:** Code/Developer  
+**For:** Code/Developer  
 **Version:** 2.0 (Interactive Rebuild)  
-**Datum:** 2026-01-08  
-**Status:** Refaktorering av befintlig kod
+**Date:** 2026-01-08  
+**Status:** Refactoring of existing code
 
 ---
 
-## SAMMANFATTNING
+## SUMMARY
 
-Befintlig kod i `step1/` har alla byggblock men `step1_tools.py` använder dem fel.
+Existing code in `step1/` has all building blocks but `step1_tools.py` uses them incorrectly.
 
-**Problem:** `step1_transform()` kör alla transforms på alla frågor utan användarinteraktion.
+**Problem:** `step1_transform()` runs all transforms on all questions without user interaction.
 
-**Lösning:** Ändra tools att returnera "needs_input" till Claude, som frågar användaren.
-
----
-
-## BEFINTLIG KOD - BEHÅLL
-
-| Fil | Status | Kommentar |
-|-----|--------|-----------|
-| `session.py` | ✅ BEHÅLL | Fungerar bra |
-| `detector.py` | ✅ BEHÅLL | Fungerar bra |
-| `parser.py` | ✅ BEHÅLL | Fungerar bra |
-| `analyzer.py` | ✅ BEHÅLL | Har `prompt_key` - behövs! |
-| `transformer.py` | ✅ BEHÅLL | Alla transforms fungerar |
-| `prompts.py` | ✅ BEHÅLL | Har allt - börja ANVÄNDA det! |
+**Solution:** Change tools to return "needs_input" to Claude, which asks the user.
 
 ---
 
-## ÄNDRA: step1_tools.py
+## EXISTING CODE - KEEP
 
-### Nuvarande tools (FEL):
+| File | Status | Comment |
+|------|--------|---------|
+| `session.py` | ✅ KEEP | Works well |
+| `detector.py` | ✅ KEEP | Works well |
+| `parser.py` | ✅ KEEP | Works well |
+| `analyzer.py` | ✅ KEEP | Has `prompt_key` - needed! |
+| `transformer.py` | ✅ KEEP | All transforms work |
+| `prompts.py` | ✅ KEEP | Has everything - start USING it! |
+
+---
+
+## CHANGE: step1_tools.py
+
+### Current tools (WRONG):
 
 ```python
-step1_start()      # OK men meddelandet är fel
+step1_start()      # OK but message is wrong
 step1_status()     # OK
-step1_analyze()    # OK men används inte rätt
-step1_transform()  # ❌ FEL - Kör allt utan frågor
+step1_analyze()    # OK but not used correctly
+step1_transform()  # ❌ WRONG - Runs everything without questions
 step1_next()       # OK
 step1_preview()    # OK  
 step1_finish()     # OK
 ```
 
-### Nya/Ändrade tools (RÄTT):
+### New/Changed tools (CORRECT):
 
 ```python
-step1_start()          # Ändra meddelande
-step1_status()         # Behåll
-step1_analyze()        # Ändra return format
-step1_fix_auto()       # NY - Endast auto-fixable
-step1_fix_manual()     # NY - En fix i taget
-step1_suggest()        # NY - Generera förslag
-step1_batch_preview()  # NY - Visa liknande frågor
-step1_batch_apply()    # NY - Applicera på flera
-step1_skip()           # NY - Hoppa över issue
-step1_next()           # Behåll
-step1_preview()        # Behåll
-step1_finish()         # Behåll
+step1_start()          # Change message
+step1_status()         # Keep
+step1_analyze()        # Change return format
+step1_fix_auto()       # NEW - Only auto-fixable
+step1_fix_manual()     # NEW - One fix at a time
+step1_suggest()        # NEW - Generate suggestions
+step1_batch_preview()  # NEW - Show similar questions
+step1_batch_apply()    # NEW - Apply to multiple
+step1_skip()           # NEW - Skip issue
+step1_next()           # Keep
+step1_preview()        # Keep
+step1_finish()         # Keep
 ```
 
 ---
 
 ## IMPLEMENTATION DETAILS
 
-### 1. ÄNDRA `step1_start()`
+### 1. CHANGE `step1_start()`
 
 ```python
 async def step1_start(...) -> Dict[str, Any]:
-    # ... befintlig kod ...
+    # ... existing code ...
     
-    # ÄNDRA return message:
+    # CHANGE return message:
     return {
-        # ... befintliga fält ...
+        # ... existing fields ...
         
-        # NYTT: Instruktion till Claude om hur processen fungerar
+        # NEW: Instruction to Claude about how the process works
         "instruction": (
-            "Step 1 är interaktiv. För varje fråga:\n"
-            "1. Kör step1_analyze() för att se issues\n"
-            "2. Kör step1_fix_auto() för automatiska fixar\n"
-            "3. För issues med 'needs_input': fråga användaren\n"
-            "4. Kör step1_fix_manual() med användarens svar\n"
-            "5. Kör step1_next() för nästa fråga"
+            "Step 1 is interactive. For each question:\n"
+            "1. Run step1_analyze() to see issues\n"
+            "2. Run step1_fix_auto() for automatic fixes\n"
+            "3. For issues with 'needs_input': ask the user\n"
+            "4. Run step1_fix_manual() with the user's answer\n"
+            "5. Run step1_next() for the next question"
         ),
         
-        # NYTT: Första frågan klar för analys
+        # NEW: First question ready for analysis
         "next_action": "step1_analyze"
     }
 ```
 
-### 2. ÄNDRA `step1_analyze()`
+### 2. CHANGE `step1_analyze()`
 
-Returnera issues kategoriserade:
+Return issues categorised:
 
 ```python
 async def step1_analyze(question_id: Optional[str] = None) -> Dict[str, Any]:
-    # ... befintlig kod för att hitta fråga och analysera ...
+    # ... existing code to find question and analyse ...
     
     issues = analyze_question(question.raw_content, question.detected_type)
     
-    # NYTT: Kategorisera issues
+    # NEW: Categorise issues
     auto_fixable = [i for i in issues if i.auto_fixable]
     needs_input = [i for i in issues if not i.auto_fixable and i.prompt_key]
     
@@ -109,7 +109,7 @@ async def step1_analyze(question_id: Optional[str] = None) -> Dict[str, Any]:
         "question_type": question.detected_type,
         "question_preview": question.raw_content[:200] + "...",
         
-        # NYTT: Separerade kategorier
+        # NEW: Separated categories
         "auto_fixable": [
             {
                 "id": idx,
@@ -126,37 +126,37 @@ async def step1_analyze(question_id: Optional[str] = None) -> Dict[str, Any]:
                 "message": i.message,
                 "prompt_key": i.prompt_key,
                 "current_value": i.current_value,
-                # NYTT: Inkludera prompt-info så Claude kan fråga
+                # NEW: Include prompt info so Claude can ask
                 "prompt": get_prompt(i.prompt_key) if i.prompt_key else None
             }
             for idx, i in enumerate(needs_input)
         ],
         
-        # NYTT: Instruktion till Claude
+        # NEW: Instruction to Claude
         "instruction": (
-            f"{len(auto_fixable)} auto-fixable (kör step1_fix_auto), "
-            f"{len(needs_input)} behöver input (fråga användaren)"
+            f"{len(auto_fixable)} auto-fixable (run step1_fix_auto), "
+            f"{len(needs_input)} need input (ask the user)"
         )
     }
 ```
 
-### 3. NY: `step1_fix_auto()`
+### 3. NEW: `step1_fix_auto()`
 
-Applicera ENDAST automatiska transforms, returnera remaining:
+Apply ONLY automatic transforms, return remaining:
 
 ```python
 async def step1_fix_auto(question_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    Applicera endast auto-fixable transforms på en fråga.
+    Apply only auto-fixable transforms on a question.
     
     Returns:
-        fixed: Lista av vad som fixades
-        remaining: Issues som kräver input
+        fixed: List of what was fixed
+        remaining: Issues that require input
     """
     if not _step1_session:
         return {"error": "No active session"}
     
-    # Läs fil och hitta fråga
+    # Read file and find question
     working_path = Path(_step1_session.working_file)
     content = working_path.read_text(encoding='utf-8')
     questions = parse_file(content)
@@ -167,15 +167,15 @@ async def step1_fix_auto(question_id: Optional[str] = None) -> Dict[str, Any]:
     if not question:
         return {"error": f"Question not found: {target_id}"}
     
-    # Applicera transforms
+    # Apply transforms
     new_content, changes = transformer.apply_all_auto(question.raw_content)
     
     if changes:
-        # Uppdatera fil
+        # Update file
         full_content = content.replace(question.raw_content, new_content)
         working_path.write_text(full_content, encoding='utf-8')
         
-        # Logga ändringar
+        # Log changes
         for change_desc in changes:
             _step1_session.add_change(
                 question_id=target_id,
@@ -185,8 +185,8 @@ async def step1_fix_auto(question_id: Optional[str] = None) -> Dict[str, Any]:
                 change_type='auto'
             )
     
-    # Analysera igen för att se vad som återstår
-    # Läs uppdaterad version
+    # Analyse again to see what remains
+    # Read updated version
     updated_content = working_path.read_text(encoding='utf-8')
     updated_questions = parse_file(updated_content)
     updated_question = get_question_by_id(updated_questions, target_id)
@@ -199,7 +199,7 @@ async def step1_fix_auto(question_id: Optional[str] = None) -> Dict[str, Any]:
         "fixed": changes,
         "fixed_count": len(changes),
         
-        # Vad som återstår och kräver input
+        # What remains and requires input
         "remaining": [
             {
                 "field": i.field,
@@ -211,19 +211,19 @@ async def step1_fix_auto(question_id: Optional[str] = None) -> Dict[str, Any]:
         ],
         "remaining_count": len(needs_input),
         
-        # Instruktion till Claude
+        # Instruction to Claude
         "instruction": (
-            f"Fixade {len(changes)} auto-issues. "
-            f"{len(needs_input)} kräver användarinput."
+            f"Fixed {len(changes)} auto-issues. "
+            f"{len(needs_input)} require user input."
             if needs_input else
-            "Alla issues fixade! Kör step1_next() för nästa fråga."
+            "All issues fixed! Run step1_next() for the next question."
         )
     }
 ```
 
-### 4. NY: `step1_fix_manual()`
+### 4. NEW: `step1_fix_manual()`
 
-Applicera en manuell fix baserat på användarinput:
+Apply a manual fix based on user input:
 
 ```python
 async def step1_fix_manual(
@@ -232,15 +232,15 @@ async def step1_fix_manual(
     value: str
 ) -> Dict[str, Any]:
     """
-    Applicera en manuell fix från användarinput.
+    Apply a manual fix from user input.
     
     Args:
-        question_id: Fråge-ID
-        field: Fält att uppdatera (t.ex. "bloom", "difficulty", "partial_feedback")
-        value: Värde från användaren
+        question_id: Question ID
+        field: Field to update (e.g., "bloom", "difficulty", "partial_feedback")
+        value: Value from user
         
     Returns:
-        Bekräftelse av ändring
+        Confirmation of change
     """
     if not _step1_session:
         return {"error": "No active session"}
@@ -255,31 +255,31 @@ async def step1_fix_manual(
     
     new_content = question.raw_content
     
-    # Hantera olika typer av fixes
+    # Handle different types of fixes
     if field == "bloom":
-        # Lägg till Bloom-nivå i ^tags
+        # Add Bloom level to ^tags
         new_content = _add_to_tags(new_content, f"#{value}")
         
     elif field == "difficulty":
-        # Lägg till difficulty i ^tags
+        # Add difficulty to ^tags
         new_content = _add_to_tags(new_content, f"#{value}")
         
     elif field == "partial_feedback":
-        # Lägg till partial_feedback subfield
+        # Add partial_feedback subfield
         new_content = _add_feedback_subfield(new_content, "partial_feedback", value)
         
     elif field == "correct_answers":
-        # Lägg till correct_answers för multiple_response
+        # Add correct_answers for multiple_response
         new_content = _add_correct_answers(new_content, value)
         
     else:
         return {"error": f"Unknown field: {field}"}
     
-    # Uppdatera fil
+    # Update file
     full_content = content.replace(question.raw_content, new_content)
     working_path.write_text(full_content, encoding='utf-8')
     
-    # Logga ändring
+    # Log change
     _step1_session.add_change(
         question_id=question_id,
         field=field,
@@ -293,12 +293,12 @@ async def step1_fix_manual(
         "field": field,
         "value": value,
         "success": True,
-        "message": f"Uppdaterade {field} för {question_id}"
+        "message": f"Updated {field} for {question_id}"
     }
 
 
 def _add_to_tags(content: str, tag: str) -> str:
-    """Lägg till tag i ^tags rad."""
+    """Add tag to ^tags line."""
     import re
     match = re.search(r'(\^tags\s+.+)$', content, re.MULTILINE)
     if match:
@@ -309,11 +309,11 @@ def _add_to_tags(content: str, tag: str) -> str:
 
 
 def _add_feedback_subfield(content: str, subfield_name: str, value: str) -> str:
-    """Lägg till en feedback subfield."""
-    # Hitta @field: feedback ... @end_field
+    """Add a feedback subfield."""
+    # Find @field: feedback ... @end_field
     import re
     
-    # Hitta sista @@end_field innan @end_field för feedback
+    # Find last @@end_field before @end_field for feedback
     pattern = r'(@@field: \w+_feedback\n.*?@@end_field)\n(@end_field)'
     
     replacement = f'\\1\n\n@@field: {subfield_name}\n{value}\n@@end_field\n\\2'
@@ -321,14 +321,14 @@ def _add_feedback_subfield(content: str, subfield_name: str, value: str) -> str:
 
 
 def _add_correct_answers(content: str, answers: str) -> str:
-    """Lägg till correct_answers section för multiple_response."""
-    # Implementation beror på exakt format
+    """Add correct_answers section for multiple_response."""
+    # Implementation depends on exact format
     pass
 ```
 
-### 5. NY: `step1_suggest()`
+### 5. NEW: `step1_suggest()`
 
-Generera förslag för ett fält:
+Generate suggestion for a field:
 
 ```python
 async def step1_suggest(
@@ -336,14 +336,14 @@ async def step1_suggest(
     field: str
 ) -> Dict[str, Any]:
     """
-    Generera förslag för ett fält baserat på kontext.
+    Generate suggestion for a field based on context.
     
     Args:
-        question_id: Fråge-ID
-        field: Fält att föreslå värde för
+        question_id: Question ID
+        field: Field to suggest value for
         
     Returns:
-        Förslag som användaren kan acceptera/modifiera
+        Suggestion that user can accept/modify
     """
     if not _step1_session:
         return {"error": "No active session"}
@@ -359,7 +359,7 @@ async def step1_suggest(
     suggestion = None
     
     if field == "partial_feedback":
-        # Kopiera från correct_feedback
+        # Copy from correct_feedback
         import re
         match = re.search(r'@@field: correct_feedback\n(.*?)@@end_field', 
                          question.raw_content, re.DOTALL)
@@ -367,7 +367,7 @@ async def step1_suggest(
             suggestion = match.group(1).strip()
     
     elif field == "bloom":
-        # Gissa baserat på frågetyp
+        # Guess based on question type
         if question.detected_type == 'text_entry':
             suggestion = "Remember"
         elif question.detected_type == 'multiple_response':
@@ -383,28 +383,28 @@ async def step1_suggest(
         "field": field,
         "suggestion": suggestion,
         "options": [
-            ("accept", "Acceptera förslaget"),
-            ("modify", "Modifiera"),
-            ("skip", "Hoppa över")
+            ("accept", "Accept suggestion"),
+            ("modify", "Modify"),
+            ("skip", "Skip")
         ],
-        "instruction": f"Förslag för {field}: '{suggestion}'. Acceptera, modifiera, eller hoppa över?"
+        "instruction": f"Suggestion for {field}: '{suggestion}'. Accept, modify, or skip?"
     }
 ```
 
-### 6. NY: `step1_batch_preview()`
+### 6. NEW: `step1_batch_preview()`
 
-Visa frågor med samma issue:
+Show questions with the same issue:
 
 ```python
 async def step1_batch_preview(issue_type: str) -> Dict[str, Any]:
     """
-    Visa alla frågor med samma typ av issue.
+    Show all questions with the same type of issue.
     
     Args:
-        issue_type: T.ex. "missing_partial_feedback", "missing_bloom"
+        issue_type: E.g., "missing_partial_feedback", "missing_bloom"
         
     Returns:
-        Lista av påverkade frågor med preview
+        List of affected questions with preview
     """
     if not _step1_session:
         return {"error": "No active session"}
@@ -429,35 +429,35 @@ async def step1_batch_preview(issue_type: str) -> Dict[str, Any]:
     return {
         "issue_type": issue_type,
         "count": len(affected),
-        "questions": affected[:5],  # Visa max 5 som preview
+        "questions": affected[:5],  # Show max 5 as preview
         "all_ids": [a["question_id"] for a in affected],
         "instruction": (
-            f"{len(affected)} frågor har samma problem. "
-            "Vill du applicera samma fix på alla?"
+            f"{len(affected)} questions have the same problem. "
+            "Do you want to apply the same fix to all?"
         ),
         "options": [
-            ("all", f"Applicera på alla {len(affected)}"),
-            ("select", "Låt mig välja vilka"),
-            ("one", "Bara nuvarande fråga")
+            ("all", f"Apply to all {len(affected)}"),
+            ("select", "Let me choose which ones"),
+            ("one", "Just the current question")
         ]
     }
 
 
 def _matches_issue_type(issue, issue_type: str) -> bool:
-    """Kolla om issue matchar typ."""
+    """Check if issue matches type."""
     type_mapping = {
         "missing_partial_feedback": lambda i: "partial_feedback" in i.message.lower(),
         "missing_bloom": lambda i: "bloom" in i.message.lower(),
-        "missing_difficulty": lambda i: "svårighetsgrad" in i.message.lower(),
+        "missing_difficulty": lambda i: "difficulty" in i.message.lower(),
         "missing_correct_answers": lambda i: "correct_answers" in i.message.lower(),
     }
     check = type_mapping.get(issue_type)
     return check(issue) if check else False
 ```
 
-### 7. NY: `step1_batch_apply()`
+### 7. NEW: `step1_batch_apply()`
 
-Applicera samma fix på flera frågor:
+Apply the same fix to multiple questions:
 
 ```python
 async def step1_batch_apply(
@@ -466,15 +466,15 @@ async def step1_batch_apply(
     question_ids: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
-    Applicera samma fix på flera frågor.
+    Apply the same fix to multiple questions.
     
     Args:
-        issue_type: T.ex. "missing_partial_feedback"
-        fix_type: T.ex. "copy_from_correct", "add_bloom_remember"
-        question_ids: Specifika frågor, eller None för alla
+        issue_type: E.g., "missing_partial_feedback"
+        fix_type: E.g., "copy_from_correct", "add_bloom_remember"
+        question_ids: Specific questions, or None for all
         
     Returns:
-        Resultat av batch-operation
+        Result of batch operation
     """
     if not _step1_session:
         return {"error": "No active session"}
@@ -482,9 +482,9 @@ async def step1_batch_apply(
     working_path = Path(_step1_session.working_file)
     content = working_path.read_text(encoding='utf-8')
     
-    # Hitta påverkade frågor
+    # Find affected questions
     if question_ids is None:
-        # Hitta alla med detta issue
+        # Find all with this issue
         preview = await step1_batch_preview(issue_type)
         question_ids = preview.get("all_ids", [])
     
@@ -493,7 +493,7 @@ async def step1_batch_apply(
     
     for qid in question_ids:
         try:
-            # Applicera fix beroende på typ
+            # Apply fix depending on type
             if issue_type == "missing_partial_feedback" and fix_type == "copy_from_correct":
                 result = await step1_suggest(qid, "partial_feedback")
                 if result.get("suggestion"):
@@ -506,12 +506,12 @@ async def step1_batch_apply(
                 await step1_fix_manual(qid, "bloom", fix_type.replace("add_bloom_", "").capitalize())
                 success.append(qid)
             
-            # ... fler fix types ...
+            # ... more fix types ...
             
         except Exception as e:
             failed.append(qid)
     
-    # Logga batch-change
+    # Log batch change
     _step1_session.add_change(
         question_id="BATCH",
         field=issue_type,
@@ -527,13 +527,13 @@ async def step1_batch_apply(
         "success_count": len(success),
         "failed": failed,
         "failed_count": len(failed),
-        "message": f"Fixade {len(success)} av {len(question_ids)} frågor"
+        "message": f"Fixed {len(success)} of {len(question_ids)} questions"
     }
 ```
 
-### 8. NY: `step1_skip()`
+### 8. NEW: `step1_skip()`
 
-Hoppa över en issue:
+Skip an issue:
 
 ```python
 async def step1_skip(
@@ -542,15 +542,15 @@ async def step1_skip(
     reason: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Hoppa över en issue eller hel fråga.
+    Skip an issue or entire question.
     
     Args:
-        question_id: Fråge-ID (default: aktuell)
-        issue_field: Specifikt fält att hoppa över (None = hoppa hela frågan)
-        reason: Anledning
+        question_id: Question ID (default: current)
+        issue_field: Specific field to skip (None = skip entire question)
+        reason: Reason
         
     Returns:
-        Bekräftelse
+        Confirmation
     """
     if not _step1_session:
         return {"error": "No active session"}
@@ -558,7 +558,7 @@ async def step1_skip(
     target_id = question_id or _step1_session.questions[_step1_session.current_index].question_id
     
     if issue_field:
-        # Hoppa över specifikt issue
+        # Skip specific issue
         _step1_session.add_change(
             question_id=target_id,
             field=f"skip_{issue_field}",
@@ -567,7 +567,7 @@ async def step1_skip(
             change_type="skip"
         )
         
-        # Uppdatera frågestatus
+        # Update question status
         q_status = next((q for q in _step1_session.questions if q.question_id == target_id), None)
         if q_status:
             q_status.issues_skipped += 1
@@ -576,191 +576,191 @@ async def step1_skip(
             "question_id": target_id,
             "skipped_field": issue_field,
             "reason": reason,
-            "message": f"Hoppade över {issue_field} för {target_id}"
+            "message": f"Skipped {issue_field} for {target_id}"
         }
     else:
-        # Hoppa över hela frågan
+        # Skip entire question
         _step1_session.mark_current_skipped(reason)
         
         return {
             "question_id": target_id,
             "skipped": True,
             "reason": reason,
-            "message": f"Hoppade över hela {target_id}",
+            "message": f"Skipped entire {target_id}",
             "next_action": "step1_next"
         }
 ```
 
 ---
 
-## UPPDATERADE TOOL REGISTRATIONS
+## UPDATED TOOL REGISTRATIONS
 
 ```python
 STEP1_TOOLS = [
     {
         "name": "step1_start",
-        "description": "Starta Step 1 interaktiv session.",
+        "description": "Start Step 1 interactive session.",
     },
     {
         "name": "step1_status",
-        "description": "Visa session status.",
+        "description": "Show session status.",
     },
     {
         "name": "step1_analyze",
-        "description": "Analysera en fråga. Returnerar auto_fixable och needs_input.",
+        "description": "Analyse a question. Returns auto_fixable and needs_input.",
     },
     {
         "name": "step1_fix_auto",
-        "description": "Applicera ENDAST automatiska transforms. Returnerar remaining issues.",
+        "description": "Apply ONLY automatic transforms. Returns remaining issues.",
     },
     {
         "name": "step1_fix_manual",
-        "description": "Applicera EN manuell fix baserat på användarinput.",
+        "description": "Apply ONE manual fix based on user input.",
         "parameters": {
-            "question_id": "Fråge-ID",
-            "field": "Fält (bloom, difficulty, partial_feedback, etc.)",
-            "value": "Värde från användaren"
+            "question_id": "Question ID",
+            "field": "Field (bloom, difficulty, partial_feedback, etc.)",
+            "value": "Value from user"
         }
     },
     {
         "name": "step1_suggest",
-        "description": "Generera förslag för ett fält. Användaren kan acceptera/modifiera.",
+        "description": "Generate suggestion for a field. User can accept/modify.",
         "parameters": {
-            "question_id": "Fråge-ID",
-            "field": "Fält att föreslå för"
+            "question_id": "Question ID",
+            "field": "Field to suggest for"
         }
     },
     {
         "name": "step1_batch_preview",
-        "description": "Visa alla frågor med samma issue-typ.",
+        "description": "Show all questions with the same issue type.",
         "parameters": {
-            "issue_type": "T.ex. missing_partial_feedback"
+            "issue_type": "E.g., missing_partial_feedback"
         }
     },
     {
         "name": "step1_batch_apply",
-        "description": "Applicera samma fix på flera frågor.",
+        "description": "Apply the same fix to multiple questions.",
         "parameters": {
-            "issue_type": "Issue-typ",
-            "fix_type": "Hur fixas (copy_from_correct, etc.)",
-            "question_ids": "Lista (optional, None = alla)"
+            "issue_type": "Issue type",
+            "fix_type": "How to fix (copy_from_correct, etc.)",
+            "question_ids": "List (optional, None = all)"
         }
     },
     {
         "name": "step1_skip",
-        "description": "Hoppa över issue eller fråga.",
+        "description": "Skip issue or question.",
         "parameters": {
-            "question_id": "Fråge-ID (optional)",
-            "issue_field": "Specifikt fält, eller None för hel fråga",
-            "reason": "Anledning (optional)"
+            "question_id": "Question ID (optional)",
+            "issue_field": "Specific field, or None for entire question",
+            "reason": "Reason (optional)"
         }
     },
     {
         "name": "step1_next",
-        "description": "Gå till nästa/föregående fråga.",
+        "description": "Go to next/previous question.",
     },
     {
         "name": "step1_preview",
-        "description": "Förhandsgranska working file.",
+        "description": "Preview working file.",
     },
     {
         "name": "step1_finish",
-        "description": "Avsluta och generera rapport.",
+        "description": "Finish and generate report.",
     }
 ]
 ```
 
 ---
 
-## TA BORT eller ÄNDRA
+## REMOVE or CHANGE
 
-### Ta bort helt:
-- `step1_transform()` - Ersätts av `step1_fix_auto()` + interaktiv loop
+### Remove entirely:
+- `step1_transform()` - Replaced by `step1_fix_auto()` + interactive loop
 
-### Ändra:
-- `step1_start()` - Ändra return message
-- `step1_analyze()` - Kategorisera output
-- `step1_finish()` - Inkludera skipped issues i rapport
+### Change:
+- `step1_start()` - Change return message
+- `step1_analyze()` - Categorise output
+- `step1_finish()` - Include skipped issues in report
 
 ---
 
-## EXPECTED FLOW EFTER REBUILD
+## EXPECTED FLOW AFTER REBUILD
 
 ```
 Claude: step1_start()
-        "27 frågor i v6.3 format. Börjar interaktiv genomgång."
+        "27 questions in v6.3 format. Starting interactive walkthrough."
 
 Claude: step1_analyze("Q001")
         → auto_fixable: 3, needs_input: 2
 
 Claude: step1_fix_auto("Q001")  
-        → "Fixade 3. Kvar: bloom, partial_feedback"
+        → "Fixed 3. Remaining: bloom, partial_feedback"
 
-Claude till User: "Q001 saknar Bloom-nivå. Vilken?"
-                  [Remember] [Understand] [Apply] ...
+Claude to User: "Q001 is missing Bloom level. Which one?"
+                [Remember] [Understand] [Apply] ...
 
 User: "Remember"
 
 Claude: step1_fix_manual("Q001", "bloom", "Remember")
-        → "Uppdaterade bloom"
+        → "Updated bloom"
 
 Claude: step1_suggest("Q001", "partial_feedback")
-        → suggestion: "Peristaltik är..."
+        → suggestion: "Peristalsis is..."
 
-Claude till User: "Föreslår partial_feedback: 'Peristaltik är...'
-                   Acceptera, modifiera, eller hoppa över?"
+Claude to User: "Suggesting partial_feedback: 'Peristalsis is...'
+                 Accept, modify, or skip?"
 
-User: "Acceptera"
+User: "Accept"
 
 Claude: step1_fix_manual("Q001", "partial_feedback", "...")
-        → "Uppdaterade partial_feedback"
+        → "Updated partial_feedback"
 
 Claude: step1_next()
-        → "Q002 (2 av 27)"
+        → "Q002 (2 of 27)"
 
---- EFTER 5 FRÅGOR ---
+--- AFTER 5 QUESTIONS ---
 
 Claude: step1_batch_preview("missing_partial_feedback")
-        → "9 frågor har samma problem"
+        → "9 questions have the same problem"
 
-Claude till User: "9 frågor saknar partial_feedback.
-                   Kopiera från correct_feedback för alla?"
+Claude to User: "9 questions are missing partial_feedback.
+                 Copy from correct_feedback for all?"
 
-User: "Ja"
+User: "Yes"
 
 Claude: step1_batch_apply("missing_partial_feedback", "copy_from_correct")
-        → "Fixade 9 frågor"
+        → "Fixed 9 questions"
 
---- TILL SLUT ---
+--- AT THE END ---
 
 Claude: step1_finish()
-        → Rapport
+        → Report
 ```
 
 ---
 
 ## IMPLEMENTATION ORDER
 
-1. **Lägg till nya tool-funktioner** (step1_fix_auto, step1_fix_manual, etc.)
-2. **Uppdatera step1_analyze()** return format
-3. **Ta bort/disable step1_transform()**
-4. **Testa på en fråga**
-5. **Testa batch-flow**
-6. **Testa på hel fil**
+1. **Add new tool functions** (step1_fix_auto, step1_fix_manual, etc.)
+2. **Update step1_analyze()** return format
+3. **Remove/disable step1_transform()**
+4. **Test on one question**
+5. **Test batch flow**
+6. **Test on entire file**
 
 ---
 
 ## TEST CASE
 
-Fil: `EXAMPLE_COURSE_Fys_v63.md` (27 frågor)
+File: `EXAMPLE_COURSE_Fys_v63.md` (27 questions)
 
 Expected:
-- `step1_start()` → Session startad
-- `step1_analyze()` → Visar auto + needs_input
-- `step1_fix_auto()` → Fixar syntax, returnerar remaining
-- `step1_batch_preview()` → Hittar 11 med missing_partial_feedback
-- `step1_batch_apply()` → Fixar alla 11
-- `step1_finish()` → 27 klara, 0 skipped
+- `step1_start()` → Session started
+- `step1_analyze()` → Shows auto + needs_input
+- `step1_fix_auto()` → Fixes syntax, returns remaining
+- `step1_batch_preview()` → Finds 11 with missing_partial_feedback
+- `step1_batch_apply()` → Fixes all 11
+- `step1_finish()` → 27 complete, 0 skipped
 
 ---
 
