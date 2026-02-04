@@ -81,12 +81,12 @@ def create_yaml_frontmatter():
 
     frontmatter = f"""---
 test_metadata:
-  title: "BIOG001X Evolution - Question Bank"
-  identifier: "BIOG001X_EVOLUTION"
+  title: "EXAMPLE_COURSE Evolution - Question Bank"
+  identifier: "EXAMPLE_COURSE_EVOLUTION"
   language: "sv"
-  description: "Evolution question bank for BIOG001X - Biologi nivå 1 (GY25)"
+  description: "Evolution question bank for EXAMPLE_COURSE - Biologi nivå 1 (GY25)"
   subject: "Biology - Evolution"
-  author: "BIOG001X Course Team"
+  author: "EXAMPLE_COURSE Course Team"
   created_date: "{today}"
 
 assessment_configuration:

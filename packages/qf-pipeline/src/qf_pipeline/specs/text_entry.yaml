@@ -199,7 +199,7 @@ complete_example: |
   ^identifier BIOG_FYS_Q001
   ^title Muskelrörelse i mag-tarmkanalen
   ^points 1
-  ^labels #BIOG001X #Matsmältning #Peristaltik #Remember #Easy
+  ^labels #EXAMPLE_COURSE #Matsmältning #Peristaltik #Remember #Easy
   
   @field: question_text
   Den muskelrörelse som pressar maten framåt genom mag-tarmkanalen 
@@ -256,7 +256,7 @@ multiple_blanks_example: |
   ^type text_entry
   ^identifier BIOG_DNA_Q005
   ^points 2
-  ^labels #BIOG001X #Genetik #Remember #Medium
+  ^labels #EXAMPLE_COURSE #Genetik #Remember #Medium
   
   @field: question_text
   DNA är uppbyggt av {{blank_1}} kedjor, medan RNA har {{blank_2}} kedja/kedjor.

@@ -6,7 +6,7 @@ Test script to verify the new filter logic:
 """
 
 import sys
-sys.path.insert(0, '/Users/niklaskarlsson/QTI-Generator-for-Inspera')
+sys.path.insert(0, '/path/to/qti-generator')
 
 from src.generator.assessment_test_generator import AssessmentTestGenerator, SectionConfig
 

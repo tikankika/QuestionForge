@@ -670,7 +670,7 @@ class MarkdownQuizParser:
             fields['labels'] = [label.strip().lstrip('#') for label in label_value.split() if label.strip()]
 
         # Extract ^tags and use as labels if ^labels not present
-        # ^tags format: "#BIOG001X #topic1 #topic2 #Remember #Easy"
+        # ^tags format: "#EXAMPLE_COURSE #topic1 #topic2 #Remember #Easy"
         tags_match = re.search(r'^\^tags\s+(.+)$', header_text, re.MULTILINE)
         if tags_match:
             tags_value = tags_match.group(1).strip()

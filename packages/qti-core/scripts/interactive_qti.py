@@ -93,9 +93,9 @@ def _parse_question_tags(tags) -> List[str]:
     Parse question tags consistently, handling both list and string formats.
 
     Supports:
-    - List format (already parsed): ['Easy', 'Remember', 'BIOG001X']
-    - Comma-separated string: "Easy, Remember, BIOG001X"
-    - Space-separated string: "Easy Remember BIOG001X" or "#Easy #Remember #BIOG001X"
+    - List format (already parsed): ['Easy', 'Remember', 'EXAMPLE_COURSE']
+    - Comma-separated string: "Easy, Remember, EXAMPLE_COURSE"
+    - Space-separated string: "Easy Remember EXAMPLE_COURSE" or "#Easy #Remember #EXAMPLE_COURSE"
 
     Returns:
         List of normalized tag strings (no # prefix)

@@ -79,7 +79,7 @@ def add_folder(config):
     print("=" * 70)
 
     # Get folder name
-    name = input("\nNamn (t.ex. 'Biologi BIOG001X'): ").strip()
+    name = input("\nNamn (t.ex. 'Biologi EXAMPLE_COURSE'): ").strip()
     if not name:
         print("Avbruten - inget namn angivet")
         return

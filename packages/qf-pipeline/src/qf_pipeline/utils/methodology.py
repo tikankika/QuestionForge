@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 # Hardcoded path to QuestionForge methodology (TODO: make configurable)
-METHODOLOGY_SOURCE = Path("/Users/niklaskarlsson/AIED_EdTech_projects/QuestionForge/methodology")
+METHODOLOGY_SOURCE = Path("./methodology")
 
 
 def get_methodology_source() -> Path:

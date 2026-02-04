@@ -215,7 +215,7 @@ complete_example: |
   ^identifier BIOG_FYS_Q013
   ^title Stora och lilla kretsloppet
   ^points 3
-  ^labels #BIOG001X #Cirkulation #Kretslopp #Apply #Medium
+  ^labels #EXAMPLE_COURSE #Cirkulation #Kretslopp #Apply #Medium
   
   @field: question_text
   Matcha varje kretslopp med rätt beskrivning:
@@ -274,7 +274,7 @@ example_with_distractors: |
   ^type match
   ^identifier BIOG_FYS_Q023
   ^points 3
-  ^labels #BIOG001X #Rörelse #Apply #Medium
+  ^labels #EXAMPLE_COURSE #Rörelse #Apply #Medium
   
   @field: question_text
   Matcha varje vävnadstyp med rätt beskrivning:

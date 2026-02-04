@@ -287,9 +287,9 @@ class ResourceManager:
             Path to quiz output directory
 
         Example:
-            quiz_dir = rm.prepare_output_structure("BIOG001X_Evolution_v8")
-            # Creates: output/BIOG001X_Evolution_v8/
-            #          output/BIOG001X_Evolution_v8/resources/
+            quiz_dir = rm.prepare_output_structure("EXAMPLE_COURSE_Evolution_v8")
+            # Creates: output/EXAMPLE_COURSE_Evolution_v8/
+            #          output/EXAMPLE_COURSE_Evolution_v8/resources/
         """
         quiz_dir = self.output_dir / quiz_name
         resources_dir = quiz_dir / "resources"

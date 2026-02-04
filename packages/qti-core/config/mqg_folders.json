@@ -1,10 +1,10 @@
 {
   "folders": [
     {
-      "name": "Biologi BIOG001X (Autumn 2025)",
+      "name": "Biologi EXAMPLE_COURSE (Autumn 2025)",
       "path": "~/Nextcloud/Courses/Biologi/Biog001x_2025/Exams/MQG_folders_biog001x_autmn_2025",
       "default_language": "sv",
-      "description": "Biologifrågor för BIOG001X hösten 2025"
+      "description": "Biologifrågor för EXAMPLE_COURSE hösten 2025"
     },
     {
       "name": "TRA265 LP2 2025",
@@ -14,20 +14,20 @@
     },
     {
       "name": "Mate2b001x Autmn 2025",
-      "path": "/Users/niklaskarlsson/Nextcloud/Courses/Matematik/mate2boox/MQG_folders_mate2b001x_autmn_2025",
+      "path": "/path/to/configure",
       "default_language": "sv"
     },
     {
       "name": "Biog001x Cellbiologi Genetik 4",
-      "path": "/Users/niklaskarlsson/Nextcloud/Courses/Biologi/BIOG001x_2025/Exams/MQG_folders_biog001x_autmn_2025/biog001x_cellbiologi_genetik_4",
+      "path": "/path/to/configure",
       "default_language": "sv"
     },
     {
       "name": "Biog001x Fys",
-      "path": "/Users/niklaskarlsson/Nextcloud/Courses/Biologi/BIOG001x_2025/Exams/MQG_folders_biog001x_autmn_2025/biog001x_fys",
+      "path": "/path/to/configure",
       "default_language": "sv"
     }
   ],
-  "default_output_dir": "/Users/niklaskarlsson/Nextcloud/Inspera/QTI_export_INSPERA",
+  "default_output_dir": "/path/to/configure",
   "remember_last_selection": true
 }

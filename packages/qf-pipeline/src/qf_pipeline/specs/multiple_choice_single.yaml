@@ -50,7 +50,7 @@ required_metadata:
     bloom_values: ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"]
     difficulty_values: ["Easy", "Medium", "Hard"]
     examples: 
-      - "^labels #BIOG001X #Cellbiologi #Remember #Easy"
+      - "^labels #EXAMPLE_COURSE #Cellbiologi #Remember #Easy"
       - "^labels #TRA265 #LCA #Apply #Medium"
     required: true
 
@@ -327,7 +327,7 @@ complete_example: |
   ^identifier BIOG_FYS_Q001
   ^title Vad gör galla i matsmältningen
   ^points 1
-  ^labels #BIOG001X #Matsmältning #Understand #Easy
+  ^labels #EXAMPLE_COURSE #Matsmältning #Understand #Easy
   ^shuffle Yes
   
   @field: question_text

@@ -4,7 +4,7 @@ Test script for parse_selection_input() function.
 """
 
 import sys
-sys.path.insert(0, '/Users/niklaskarlsson/QTI-Generator-for-Inspera')
+sys.path.insert(0, '/path/to/qti-generator')
 
 # Import the function
 import re

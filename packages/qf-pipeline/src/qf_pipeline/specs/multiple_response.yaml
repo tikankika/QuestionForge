@@ -218,7 +218,7 @@ complete_example: |
   ^identifier BIOG_FYS_Q002B
   ^title Leverns viktiga funktioner
   ^points 3
-  ^labels #BIOG001X #Matsmältning #Understand #Medium
+  ^labels #EXAMPLE_COURSE #Matsmältning #Understand #Medium
   
   @field: question_text
   Vilka är leverns funktioner? (Välj alla korrekta alternativ)

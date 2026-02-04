@@ -5,7 +5,7 @@ with both comma-separated and space-separated tag formats.
 """
 
 import sys
-sys.path.insert(0, '/Users/niklaskarlsson/QTI-Generator-for-Inspera')
+sys.path.insert(0, '/path/to/qti-generator')
 
 from src.parser.markdown_parser import MarkdownQuizParser
 
@@ -13,7 +13,7 @@ def test_tag_parsing():
     """Test that tags are correctly parsed and categorized."""
 
     # Test with the interactive test file (space-separated tags)
-    test_file = '/Users/niklaskarlsson/QTI-Generator-for-Inspera/tests/test_interactive_tags.md'
+    test_file = '/path/to/qti-generator/tests/test_interactive_tags.md'
 
     print("=" * 60)
     print("Testing Tag Parsing and Categorization")

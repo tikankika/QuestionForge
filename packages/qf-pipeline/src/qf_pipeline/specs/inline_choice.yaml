@@ -204,7 +204,7 @@ complete_example: |
   ^identifier BIOG_FYS_Q002
   ^title Var produceras och lagras galla
   ^points 2
-  ^labels #BIOG001X #Matsmältning #Galla #Understand #Easy
+  ^labels #EXAMPLE_COURSE #Matsmältning #Galla #Understand #Easy
   
   @field: question_text
   Galla produceras i {{dropdown_1}} och lagras i {{dropdown_2}}.
@@ -270,7 +270,7 @@ complex_example: |
   ^type inline_choice
   ^identifier BIOG_FYS_Q021
   ^points 6
-  ^labels #BIOG001X #Utsöndring #Apply #Hard
+  ^labels #EXAMPLE_COURSE #Utsöndring #Apply #Hard
   
   @field: question_text
   Urinbildningen sker i {{dropdown_1}}. Först bildas {{dropdown_2}} 
