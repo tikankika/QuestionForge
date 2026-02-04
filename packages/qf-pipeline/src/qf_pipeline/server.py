@@ -743,7 +743,7 @@ async def handle_step0_start(arguments: dict) -> List[TextContent]:
                     "  - Transkriptioner\n"
                     "  - Läroböcker/artiklar\n\n"
                     "Exempel:\n"
-                    "  materials_folder='/Users/niklas/Nextcloud/Biologi_VT2025/Föreläsningar'"
+                    "  materials_folder='/Users/username/Nextcloud/Biologi_VT2025/Föreläsningar'"
                 )
             )]
 

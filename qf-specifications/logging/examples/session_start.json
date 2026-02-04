@@ -8,8 +8,8 @@
   "level": "info",
   "data": {
     "entry_point": "m2",
-    "source_file": "/Users/niklas/Courses/ARTI1000X/amnesplan.md",
+    "source_file": "/Users/username/Courses/ARTI1000X/amnesplan.md",
     "project_name": "Entry_check_modul2_hv",
-    "output_folder": "/Users/niklas/Courses/ARTI1000X/Test/Kunskapskontroll"
+    "output_folder": "/Users/username/Courses/ARTI1000X/Test/Kunskapskontroll"
   }
 }

@@ -246,9 +246,9 @@ pwd
         "--rm",
         "-i",
         "-v",
-        "/Users/niklas/Nextcloud/Courses:/courses:ro",
+        "/Users/username/Nextcloud/Courses:/courses:ro",
         "-v",
-        "/Users/niklas/Documents/Teaching:/teaching:ro",
+        "/Users/username/Documents/Teaching:/teaching:ro",
         "markitdown-mcp:latest"
       ]
     }
@@ -368,10 +368,10 @@ which uv
 #### 2. Begränsa Folder Access
 ```bash
 # DÅLIGT - ger access till allt:
-"-v", "/Users/niklas:/workdir:ro"
+"-v", "/Users/username:/workdir:ro"
 
 # BRA - endast kursmaterial:
-"-v", "/Users/niklas/Nextcloud/Courses:/workdir:ro"
+"-v", "/Users/username/Nextcloud/Courses:/workdir:ro"
 ```
 
 #### 3. Localhost Binding
@@ -425,7 +425,7 @@ Skapa loggfil för debugging:
       "command": "uv",
       "args": [...],
       "env": {
-        "MARKITDOWN_LOG_FILE": "/Users/niklas/logs/markitdown.log",
+        "MARKITDOWN_LOG_FILE": "/Users/username/logs/markitdown.log",
         "MARKITDOWN_LOG_LEVEL": "INFO"
       }
     }
@@ -522,7 +522,7 @@ python -c "import markitdown; print(markitdown.__version__)"
 ```bash
 # Verifiera mount path
 # I Docker är filer på: /workdir/filnamn.pdf
-# INTE på: /Users/niklas/Nextcloud/Courses/filnamn.pdf
+# INTE på: /Users/username/Nextcloud/Courses/filnamn.pdf
 
 # Rätt sätt att referera:
 convert_to_markdown("file:///workdir/filnamn.pdf")
@@ -531,7 +531,7 @@ convert_to_markdown("file:///workdir/filnamn.pdf")
 **För Standard:**
 ```bash
 # Använd absolut path
-convert_to_markdown("file:///Users/niklas/Nextcloud/Courses/filnamn.pdf")
+convert_to_markdown("file:///Users/username/Nextcloud/Courses/filnamn.pdf")
 
 # ELLER relativ från hemkatalog
 convert_to_markdown("file://~/Nextcloud/Courses/filnamn.pdf")

@@ -1760,7 +1760,7 @@ step1_progress:
 ```typescript
 // MCP tool call
 step1_start({
-  project_path: "/Users/niklas/Projects/ARTI1000X_Entry_Check",
+  project_path: "/Users/username/Projects/ARTI1000X_Entry_Check",
   source_file: "questions/m5_output.md"
 })
 
