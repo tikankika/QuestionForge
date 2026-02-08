@@ -1,47 +1,47 @@
-# STEP 1: GUIDED BUILD - KOMPLETT SPECIFIKATION
+# STEP 1: GUIDED BUILD - COMPLETE SPECIFICATION
 
 **Version:** 0.1 DRAFT  
-**Datum:** 2026-01-07  
-**Status:** För granskning innan implementation
+**Date:** 2026-01-07  
+**Status:** For review before implementation
 
 ---
 
-## ÖVERSIKT
+## OVERVIEW
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         STEP 1: GUIDED BUILD                             │
 │                                                                          │
-│  INPUT:  Markdown-fil med frågor (various formats)                      │
-│  OUTPUT: Markdown-fil i QFMD format (redo för Step 2)                   │
+│  INPUT:  Markdown file with questions (various formats)                 │
+│  OUTPUT: Markdown file in QFMD format (ready for Step 2)                │
 │                                                                          │
-│  PROCESS: Fråga-för-fråga genomgång med lärar-verifikation              │
-│  KEY: Tydlig spec + Claude guidar + Human verifierar                    │
+│  PROCESS: Question-by-question walkthrough with teacher verification    │
+│  KEY: Clear spec + Claude guides + Human verifies                       │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## PHASE 0: INITIALIZATION (Före fråge-loop)
+## PHASE 0: INITIALIZATION (Before question loop)
 
 ### 0a. Session Management
 
 ```python
 def step1_start(file_path: str, resume: bool = False) -> Session:
     """
-    Starta eller återuppta Step 1 session.
+    Start or resume Step 1 session.
     
     Args:
-        file_path: Sökväg till markdown-fil
-        resume: True = fortsätt tidigare session
+        file_path: Path to markdown file
+        resume: True = continue previous session
     
     Returns:
-        Session med state
+        Session with state
     """
 ```
 
-**State som sparas:**
+**State that is saved:**
 ```yaml
 session:
   id: "uuid"
@@ -69,18 +69,18 @@ changes:
 ```python
 def validate_input_file(file_path: str) -> FileValidation:
     """
-    Kontrollera att filen är en giltig fråge-fil.
+    Check that the file is a valid question file.
     
     Checks:
-    - Fil existerar
-    - Är markdown (.md)
-    - Innehåller minst en fråga
-    - Inte tom
+    - File exists
+    - Is markdown (.md)
+    - Contains at least one question
+    - Not empty
     - Encoding OK (UTF-8)
     """
 ```
 
-**Resultat:**
+**Result:**
 ```yaml
 file_validation:
   exists: true
@@ -88,7 +88,7 @@ file_validation:
   encoding: "utf-8"
   has_questions: true
   question_count: 40
-  has_header: true  # Innehåll före ===QUESTIONS===
+  has_header: true  # Content before ===QUESTIONS===
   errors: []
 ```
 
@@ -97,13 +97,13 @@ file_validation:
 ```python
 def detect_format(content: str) -> FormatLevel:
     """
-    Identifiera vilken input-nivå filen har.
+    Identify which input level the file has.
     
     Returns:
-        FormatLevel.UNSTRUCTURED - behöver qf-scaffolding
+        FormatLevel.UNSTRUCTURED - needs qf-scaffolding
         FormatLevel.SEMI_STRUCTURED - **Type**: format
         FormatLevel.LEGACY_SYNTAX - @question: format
-        FormatLevel.QFMD - redan korrekt
+        FormatLevel.QFMD - already correct
     """
 ```
 
@@ -115,7 +115,7 @@ elif "@question:" in content or "@type:" in content:
     return FormatLevel.LEGACY_SYNTAX
 elif "**Type**:" in content or "## Question Text" in content:
     return FormatLevel.SEMI_STRUCTURED
-elif "**FRÅGA:**" in content or "**RÄTT SVAR:**" in content:
+elif "**QUESTION:**" in content or "**CORRECT ANSWER:**" in content:
     return FormatLevel.UNSTRUCTURED
 else:
     return FormatLevel.UNKNOWN
@@ -135,10 +135,10 @@ UNKNOWN:            → Ask user
 ```python
 def parse_questions(content: str, format_level: FormatLevel) -> List[Question]:
     """
-    Splitta fil till individuella frågor.
+    Split file into individual questions.
     
-    Delimiters (beroende på format):
-    - SEMI_STRUCTURED: "# Question N:" eller "## QN"
+    Delimiters (depending on format):
+    - SEMI_STRUCTURED: "# Question N:" or "## QN"
     - LEGACY_SYNTAX: "# Q001" + @question:
     - QFMD: "# Q001" + ^question
     """
@@ -148,14 +148,14 @@ def parse_questions(content: str, format_level: FormatLevel) -> List[Question]:
 ```yaml
 questions:
   - id: "Q001"
-    title: "Muskelrörelse i mag-tarmkanalen"
-    raw_content: "# Q001 Muskelrörelse...\n@question: Q001\n..."
+    title: "Muscle movement in the gastrointestinal tract"
+    raw_content: "# Q001 Muscle movement...\n@question: Q001\n..."
     line_start: 145
     line_end: 198
-    detected_type: "text_entry"  # eller null om okänt
+    detected_type: "text_entry"  # or null if unknown
     
   - id: "Q002"
-    title: "Var produceras galla"
+    title: "Where is bile produced"
     raw_content: "..."
     line_start: 200
     line_end: 265
@@ -167,12 +167,12 @@ questions:
 ```python
 def check_resources(questions: List[Question], base_path: str) -> ResourceReport:
     """
-    Kontrollera att alla refererade resurser finns.
+    Check that all referenced resources exist.
     
-    Söker efter:
-    - Bildreferenser: ![alt](image.png), @image: file.png
-    - Ljudfiler: @audio: recording.mp3
-    - Andra filer: @resource: data.csv
+    Searches for:
+    - Image references: ![alt](image.png), @image: file.png
+    - Audio files: @audio: recording.mp3
+    - Other files: @resource: data.csv
     """
 ```
 
@@ -184,7 +184,7 @@ resource_check:
   missing: 2
   missing_details:
     - question: Q005
-      resource: "bakterie_struktur.png"
+      resource: "bacteria_structure.png"
       type: "image"
       referenced_at: "line 234"
     - question: Q014
@@ -195,20 +195,20 @@ resource_check:
 
 ---
 
-## PHASE 1: QUESTION LOOP (Huvudprocess)
+## PHASE 1: QUESTION LOOP (Main process)
 
 ### 1. READ Question
 
 ```python
 def get_current_question(session: Session) -> QuestionContext:
     """
-    Hämta aktuell fråga med kontext.
+    Get current question with context.
     
     Returns:
-        QuestionContext med:
+        QuestionContext with:
         - question: Question object
-        - position: "12 av 40"
-        - previous_fixes: relevanta tidigare fixar
+        - position: "12 of 40"
+        - previous_fixes: relevant previous fixes
     """
 ```
 
@@ -217,7 +217,7 @@ def get_current_question(session: Session) -> QuestionContext:
 ```python
 def identify_type(question: Question) -> TypeIdentification:
     """
-    Identifiera frågetyp.
+    Identify question type.
     
     Strategy:
     1. Explicit type field (^type, @type:, **Type**:)
@@ -229,27 +229,27 @@ def identify_type(question: Question) -> TypeIdentification:
 **Output:**
 ```yaml
 type_identification:
-  source: "explicit"  # eller "inferred" eller "user_provided"
+  source: "explicit"  # or "inferred" or "user_provided"
   type: "multiple_choice_single"
   confidence: "high"  # high/medium/low
-  alternatives: []    # om low confidence
+  alternatives: []    # if low confidence
   issues:
-    - "Type specified as 'MCQ', normalized to 'multiple_choice_single'"
+    - "Type specified as 'MCQ', normalised to 'multiple_choice_single'"
 ```
 
 **Type inference rules:**
 ```python
 TYPE_INFERENCE = {
     # Pattern → Type
-    r"## Options\n.*\n[A-F][.)]": "multiple_choice_*",  # MC eller MR
+    r"## Options\n.*\n[A-F][.)]": "multiple_choice_*",  # MC or MR
     r"\{\{blank_?\d+\}\}": "text_entry",
     r"\{\{dropdown_?\d+\}\}": "inline_choice",
-    r"## Pairs|Matcha": "match",
-    r"Sant.*Falskt|True.*False": "true_false",
+    r"## Pairs|Match": "match",
+    r"True.*False|True.*False": "true_false",
     r"## Scoring Rubric": "text_area",  # essay
 }
 
-# MC vs MR: kolla answer field
+# MC vs MR: check answer field
 # "A" = single, "A, B, C" = multiple
 ```
 
@@ -258,13 +258,13 @@ TYPE_INFERENCE = {
 ```python
 def load_type_spec(question_type: str) -> TypeSpecification:
     """
-    Ladda specifikation för frågetypen.
+    Load specification for the question type.
     
     Location: /packages/qf-pipeline/src/qf_pipeline/specs/
     """
 ```
 
-**Spec structure (se separat dokument för alla typer):**
+**Spec structure (see separate document for all types):**
 ```yaml
 # specs/multiple_choice_single.yaml
 name: "Multiple Choice (Single Answer)"
@@ -318,10 +318,10 @@ required_fields:
 ```python
 def compare_to_spec(question: Question, spec: TypeSpecification) -> ComparisonResult:
     """
-    Jämför fråga mot specifikation.
+    Compare question against specification.
     
     Returns:
-        Lista av issues med severity och suggested fix
+        List of issues with severity and suggested fix
     """
 ```
 
@@ -332,36 +332,36 @@ comparison_result:
   question_type: "multiple_choice_single"
   
   issues:
-    - severity: "critical"  # critical = kan inte exportera
+    - severity: "critical"  # critical = cannot export
       category: "missing_metadata"
       field: "^labels"
-      message: "Saknar ^labels metadata"
+      message: "Missing ^labels metadata"
       current: null
       suggestion: "^labels #EXAMPLE_COURSE #Remember #Easy"
-      auto_fixable: false  # behöver user input för Bloom/Difficulty
+      auto_fixable: false  # needs user input for Bloom/Difficulty
       
     - severity: "critical"
       category: "wrong_format"
       field: "options"
-      message: "Alternativ numrerade 1-4 istället för A-D"
-      current: "1. Alternativ ett\n2. Alternativ två"
-      suggestion: "A. Alternativ ett\nB. Alternativ två"
+      message: "Options numbered 1-4 instead of A-D"
+      current: "1. Option one\n2. Option two"
+      suggestion: "A. Option one\nB. Option two"
       auto_fixable: true
       
-    - severity: "warning"  # warning = kan exportera men suboptimal
+    - severity: "warning"  # warning = can export but suboptimal
       category: "missing_field"
       field: "feedback.unanswered_feedback"
-      message: "Saknar unanswered_feedback"
+      message: "Missing unanswered_feedback"
       current: null
-      suggestion: "Besvara frågan för att få feedback."
+      suggestion: "Answer the question to receive feedback."
       auto_fixable: true
       
     - severity: "info"  # info = observation
       category: "style"
       field: "question_text"
-      message: "Frågetext slutar inte med frågetecken"
-      current: "Vad är mitokondrien"
-      suggestion: "Vad är mitokondrien?"
+      message: "Question text does not end with question mark"
+      current: "What is the mitochondrion"
+      suggestion: "What is the mitochondrion?"
       auto_fixable: true
       
   summary:
@@ -376,40 +376,40 @@ comparison_result:
 ```python
 def format_suggestions(comparison: ComparisonResult) -> str:
     """
-    Formatera förslag för Claude att presentera.
+    Format suggestions for Claude to present.
     
     Returns:
-        Markdown-formaterad text för presentation
+        Markdown-formatted text for presentation
     """
 ```
 
-**Output format för Claude:**
+**Output format for Claude:**
 ```markdown
-## Q001: Muskelrörelse i mag-tarmkanalen
+## Q001: Muscle movement in the gastrointestinal tract
 
-**Status:** ❌ Kan inte exporteras (2 kritiska problem)
+**Status:** ❌ Cannot be exported (2 critical problems)
 
-### Kritiska problem (måste fixas):
+### Critical problems (must be fixed):
 
-1. **Saknar ^labels metadata**
-   - Nuvarande: (saknas)
-   - Förslag: `^labels #EXAMPLE_COURSE #[BLOOM] #[DIFFICULTY]`
-   - ❓ Vilken Bloom-nivå? [Remember] [Understand] [Apply] [Analyze]
-   - ❓ Vilken svårighetsgrad? [Easy] [Medium] [Hard]
+1. **Missing ^labels metadata**
+   - Current: (missing)
+   - Suggestion: `^labels #EXAMPLE_COURSE #[BLOOM] #[DIFFICULTY]`
+   - ❓ Which Bloom level? [Remember] [Understand] [Apply] [Analyze]
+   - ❓ Which difficulty? [Easy] [Medium] [Hard]
 
-2. **Fel format på alternativ**
-   - Nuvarande: `1. Alternativ ett`
-   - Förslag: `A. Alternativ ett`
-   - ✅ Kan fixas automatiskt
+2. **Wrong format on options**
+   - Current: `1. Option one`
+   - Suggestion: `A. Option one`
+   - ✅ Can be fixed automatically
 
-### Varningar (rekommenderas):
+### Warnings (recommended):
 
-3. **Saknar unanswered_feedback**
-   - Förslag: "Besvara frågan för att få feedback."
-   - ✅ Kan fixas automatiskt
+3. **Missing unanswered_feedback**
+   - Suggestion: "Answer the question to receive feedback."
+   - ✅ Can be fixed automatically
 
 ---
-**Åtgärder:** [Fixa alla auto] [Hoppa över] [Gå tillbaka]
+**Actions:** [Fix all auto] [Skip] [Go back]
 ```
 
 ### 6. TEACHER Decides
@@ -417,14 +417,14 @@ def format_suggestions(comparison: ComparisonResult) -> str:
 ```python
 def get_teacher_decision(question_id: str, issues: List[Issue]) -> Decision:
     """
-    Invänta lärarens beslut.
+    Await teacher's decision.
     
     Decisions:
-    - ACCEPT_ALL: Applicera alla förslag
-    - ACCEPT_AUTO: Applicera bara auto-fixable
-    - MODIFY: Läraren anger egna värden
-    - SKIP: Hoppa över denna fråga (loggas som warning)
-    - BACK: Gå tillbaka till föregående fråga
+    - ACCEPT_ALL: Apply all suggestions
+    - ACCEPT_AUTO: Apply only auto-fixable
+    - MODIFY: Teacher specifies own values
+    - SKIP: Skip this question (logged as warning)
+    - BACK: Go back to previous question
     """
 ```
 
@@ -434,8 +434,8 @@ decision:
   action: "modify"
   modifications:
     - field: "^labels"
-      value: "^labels #EXAMPLE_COURSE #Cellbiologi #Remember #Easy"
-  accept_auto: true  # applicera auto-fixable issues också
+      value: "^labels #EXAMPLE_COURSE #CellBiology #Remember #Easy"
+  accept_auto: true  # apply auto-fixable issues too
 ```
 
 ### 7. APPLY Fix to Current Question
@@ -447,7 +447,7 @@ def apply_fixes(
     fixes: List[Fix]
 ) -> ApplyResult:
     """
-    Applicera fixar på aktuell fråga.
+    Apply fixes to current question.
     
     Process:
     1. Backup current state
@@ -465,7 +465,7 @@ change:
   fixes_applied:
     - field: "^labels"
       old: null
-      new: "^labels #EXAMPLE_COURSE #Cellbiologi #Remember #Easy"
+      new: "^labels #EXAMPLE_COURSE #CellBiology #Remember #Easy"
       source: "user_input"
     - field: "options"
       old: "1. Alt\n2. Alt"
@@ -482,40 +482,40 @@ def find_similar_questions(
     question_type: str
 ) -> List[SimilarQuestion]:
     """
-    Hitta frågor där samma fix kan appliceras.
+    Find questions where the same fix can be applied.
     
-    "Similar" definieras som:
-    - Samma frågetyp OCH
-    - Samma typ av issue (missing_labels, wrong_option_format, etc.)
+    "Similar" is defined as:
+    - Same question type AND
+    - Same type of issue (missing_labels, wrong_option_format, etc.)
     """
 ```
 
-**Dialog för batch-apply:**
+**Dialogue for batch-apply:**
 ```markdown
-## Applicera på liknande frågor?
+## Apply to similar questions?
 
-Fix: **Ändra alternativ-format från 1-4 till A-D**
+Fix: **Change option format from 1-4 to A-D**
 
-Hittade **8 frågor** med samma problem:
-- Q003: Vad gör galla... (alternativ 1-4)
-- Q008: Typ av nedbrytning... (alternativ 1-4)
-- Q010: Sur vätska... (alternativ 1-4)
-- ... och 5 till
+Found **8 questions** with the same problem:
+- Q003: What does bile do... (options 1-4)
+- Q008: Type of digestion... (options 1-4)
+- Q010: Acidic liquid... (options 1-4)
+- ... and 5 more
 
-**Förhandsgranskning Q003:**
+**Preview Q003:**
 ```
-Nuvarande:
-1. Bryter ner proteiner
-2. Emulgerar fetter
-3. Neutraliserar magsyra
+Current:
+1. Breaks down proteins
+2. Emulsifies fats
+3. Neutralises stomach acid
 
-Efter fix:
-A. Bryter ner proteiner
-B. Emulgerar fetter
-C. Neutraliserar magsyra
+After fix:
+A. Breaks down proteins
+B. Emulsifies fats
+C. Neutralises stomach acid
 ```
 
-[Applicera på alla 8] [Välj vilka] [Hoppa över batch]
+[Apply to all 8] [Choose which] [Skip batch]
 ```
 
 ```python
@@ -525,10 +525,10 @@ def apply_batch_fix(
     target_questions: List[str]
 ) -> BatchResult:
     """
-    Applicera samma fix på flera frågor.
+    Apply the same fix to multiple questions.
     
     Returns:
-        Resultat per fråga (success/failure)
+        Result per question (success/failure)
     """
 ```
 
@@ -544,7 +544,7 @@ batch_result:
       status: "success"
     - question: "Q012"
       status: "failed"
-      reason: "Frågan har redan A-D format"
+      reason: "Question already has A-D format"
 ```
 
 ### 9. MOVE to Next Question
@@ -552,7 +552,7 @@ batch_result:
 ```python
 def next_question(session: Session, direction: str = "forward") -> QuestionContext:
     """
-    Gå till nästa fråga.
+    Go to next question.
     
     Args:
         direction: "forward", "back", or question_id
@@ -563,22 +563,22 @@ def next_question(session: Session, direction: str = "forward") -> QuestionConte
 ```yaml
 progress:
   current: "Q002"
-  position: "2 av 40"
+  position: "2 of 40"
   completed: ["Q001"]
   remaining: 39
-  estimated_time: "~35 min"  # baserat på snitt per fråga
+  estimated_time: "~35 min"  # based on average per question
 ```
 
 ---
 
-## PHASE 2: COMPLETION (Efter fråge-loop)
+## PHASE 2: COMPLETION (After question loop)
 
 ### 2a. Summary Report
 
 ```python
 def generate_summary(session: Session) -> SummaryReport:
     """
-    Generera sammanfattning av Step 1.
+    Generate summary of Step 1.
     """
 ```
 
@@ -601,22 +601,22 @@ summary:
     batch_fixes: 84  # 12 batch operations
     
   by_category:
-    missing_labels: 40  # alla frågor
+    missing_labels: 40  # all questions
     wrong_option_format: 8
     missing_feedback: 15
     missing_identifier: 40
     
   skipped_questions:
     - id: "Q005"
-      reason: "Bild saknas: bakterie.png"
+      reason: "Image missing: bacteria.png"
     - id: "Q014"
-      reason: "Läraren valde att hoppa över"
+      reason: "Teacher chose to skip"
       
   warnings:
     - id: "Q003"
-      warning: "Feedback identical för correct/incorrect"
+      warning: "Feedback identical for correct/incorrect"
     - id: "Q007"
-      warning: "Endast 2 alternativ (minimum 3)"
+      warning: "Only 2 options (minimum 3)"
 ```
 
 ### 2b. Ready for Step 2?
@@ -624,7 +624,7 @@ summary:
 ```python
 def check_ready_for_step2(session: Session) -> ReadinessCheck:
     """
-    Kontrollera om filen är redo för validering.
+    Check if the file is ready for validation.
     """
 ```
 
@@ -633,10 +633,10 @@ def check_ready_for_step2(session: Session) -> ReadinessCheck:
 readiness:
   ready: false
   blocking_issues:
-    - "2 frågor har kritiska problem (Q005, Q014)"
+    - "2 questions have critical problems (Q005, Q014)"
   warnings:
-    - "3 frågor har varningar som kan påverka kvalitet"
-  recommendation: "Fixa Q005 och Q014 innan Step 2"
+    - "3 questions have warnings that may affect quality"
+  recommendation: "Fix Q005 and Q014 before Step 2"
 ```
 
 ### 2c. Transition to Step 2
@@ -644,12 +644,12 @@ readiness:
 ```python
 def transition_to_step2(session: Session) -> Step2Session:
     """
-    Avsluta Step 1 och förbered för Step 2.
+    End Step 1 and prepare for Step 2.
     
     Actions:
-    - Spara final working file
-    - Generera changelog
-    - Skapa Step 2 session
+    - Save final working file
+    - Generate changelog
+    - Create Step 2 session
     """
 ```
 
@@ -658,7 +658,7 @@ def transition_to_step2(session: Session) -> Step2Session:
 ## MCP TOOL INTERFACE
 
 ```python
-# Tools som exponeras via MCP
+# Tools exposed via MCP
 
 @tool
 def step1_start(
@@ -667,18 +667,18 @@ def step1_start(
     resume_session: str = None
 ) -> dict:
     """
-    Starta eller återuppta Step 1 session.
+    Start or resume Step 1 session.
     
     Args:
-        source_file: Sökväg till fråge-fil
-        output_folder: Var output ska sparas
-        resume_session: Session ID för att återuppta
+        source_file: Path to question file
+        output_folder: Where output should be saved
+        resume_session: Session ID to resume
     """
 
 @tool
 def step1_status() -> dict:
     """
-    Hämta status för aktiv session.
+    Get status for active session.
     
     Returns:
         Progress, current question, statistics
@@ -687,16 +687,16 @@ def step1_status() -> dict:
 @tool
 def step1_get_question(question_id: str = None) -> dict:
     """
-    Hämta fråga för granskning.
+    Get question for review.
     
     Args:
-        question_id: Specifik fråga eller None för aktuell
+        question_id: Specific question or None for current
     """
 
 @tool
 def step1_compare() -> dict:
     """
-    Jämför aktuell fråga mot specifikation.
+    Compare current question against specification.
     
     Returns:
         Issues with severity and suggestions
@@ -708,17 +708,17 @@ def step1_apply_fix(
     batch_apply: bool = False
 ) -> dict:
     """
-    Applicera fixar.
+    Apply fixes.
     
     Args:
-        fixes: Lista av fixar att applicera
-        batch_apply: Om True, applicera på liknande frågor
+        fixes: List of fixes to apply
+        batch_apply: If True, apply to similar questions
     """
 
 @tool
 def step1_next(direction: str = "forward") -> dict:
     """
-    Gå till nästa fråga.
+    Go to next question.
     
     Args:
         direction: "forward", "back", or question_id
@@ -727,19 +727,19 @@ def step1_next(direction: str = "forward") -> dict:
 @tool
 def step1_skip(reason: str = None) -> dict:
     """
-    Hoppa över aktuell fråga.
+    Skip current question.
     """
 
 @tool
 def step1_finish() -> dict:
     """
-    Avsluta Step 1 och generera rapport.
+    End Step 1 and generate report.
     """
 ```
 
 ---
 
-## FIL-STRUKTUR FÖR SPECS
+## FILE STRUCTURE FOR SPECS
 
 ```
 /packages/qf-pipeline/src/qf_pipeline/
@@ -755,7 +755,7 @@ def step1_finish() -> dict:
 │   ├── text_area.yaml       # essay/short_response
 │   ├── audio_record.yaml
 │   ├── hotspot.yaml
-│   └── ... (alla 17 typer)
+│   └── ... (all 17 types)
 │
 ├── step1/
 │   ├── __init__.py
@@ -773,29 +773,29 @@ def step1_finish() -> dict:
 
 ---
 
-## ÖPPNA FRÅGOR
+## OPEN QUESTIONS
 
-1. **Ska Step 1 kunna SKAPA saknade feedback?**
-   - Om general_feedback saknas, ska Claude föreslå text?
-   - Eller bara markera som "saknas"?
+1. **Should Step 1 be able to CREATE missing feedback?**
+   - If general_feedback is missing, should Claude suggest text?
+   - Or just mark as "missing"?
 
-2. **Hur hantera bilder som saknas?**
-   - Skip frågan?
-   - Fråga var bilden finns?
-   - Acceptera utan bild (varning)?
+2. **How to handle missing images?**
+   - Skip the question?
+   - Ask where the image is?
+   - Accept without image (warning)?
 
-3. **Hur strikt ska batch-apply vara?**
-   - Kräva exakt samma pattern?
-   - Tillåta "fuzzy" matching?
+3. **How strict should batch-apply be?**
+   - Require exact same pattern?
+   - Allow "fuzzy" matching?
 
 4. **Session timeout?**
-   - Hur länge sparas session state?
-   - Auto-save intervall?
+   - How long is session state saved?
+   - Auto-save interval?
 
-5. **Undo-djup?**
-   - Hur många steg tillbaka?
-   - Per-fråga eller global?
+5. **Undo depth?**
+   - How many steps back?
+   - Per-question or global?
 
 ---
 
-*Step 1 Specifikation v0.1 DRAFT | 2026-01-07*
+*Step 1 Specification v0.1 DRAFT | 2026-01-07*

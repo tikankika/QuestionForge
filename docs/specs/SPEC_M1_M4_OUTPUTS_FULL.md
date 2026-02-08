@@ -1,14 +1,14 @@
 # FULL OUTPUT SPECIFICATION: 10 Methodology Files
 
-## Decision: FULL Implementation (10 filer)
+## Decision: FULL Implementation (10 files)
 
 **Rationale:**
-- Primary user: Gymnasielärare
-- Goal: Högkvalitativa frågor till pipeline
-- Priority: Pedagogisk kvalitet
-- Requirement: Kollegor ska förstå
+- Primary user: Upper secondary school teachers
+- Goal: High-quality questions for the pipeline
+- Priority: Pedagogical quality
+- Requirement: Colleagues should be able to understand
 
-**Strategy:** Maximal transparens och dokumentation från start
+**Strategy:** Maximum transparency and documentation from the start
 
 ---
 
@@ -62,7 +62,7 @@ session_id: abc-123-def
 
 ---
 
-## M1 OUTPUT FILES (5 filer)
+## M1 OUTPUT FILES (5 files)
 
 ### 1. m1_learning_objectives.md (MANDATORY)
 
@@ -902,7 +902,7 @@ completeness:
 
 ---
 
-## M2 OUTPUT FILES (2 filer)
+## M2 OUTPUT FILES (2 files)
 
 ### 6. m2_blueprint.md (MANDATORY)
 
@@ -1422,7 +1422,7 @@ These 5 additions + 15 existing = 20 total questions matching M2 blueprint:
 
 ---
 
-## M3 OUTPUT FILE (1 fil)
+## M3 OUTPUT FILE (1 file)
 
 ### 8. m3_generation_log.md (DOCUMENTATION)
 
@@ -1693,7 +1693,7 @@ quality_notes:
 
 ---
 
-## M4 OUTPUT FILES (2 filer)
+## M4 OUTPUT FILES (2 files)
 
 ### 9. m4_qa_report.md (MANDATORY)
 

@@ -29,8 +29,8 @@ Each stage produces a **complete document** that can be saved atomically:
 ### M3 Pattern (Needs Something Different)
 
 ```
-Claude proposes Q01-Q04 → Teacher: "Q1 inte bra! 2-4 ok" →
-Claude revises Q01 → Teacher: "bra" →
+Claude proposes Q01-Q04 → Teacher: "Q1 not good! 2-4 ok" →
+Claude revises Q01 → Teacher: "good" →
 Claude proposes Q05-Q08 → Teacher feedback →
 ... repeat for 40 questions ...
 ```
@@ -165,7 +165,7 @@ tiers:
 questions:
   Q01: { status: approved, saved_at: "2026-01-21T10:15:00Z" }
   Q02: { status: approved, saved_at: "2026-01-21T10:15:00Z" }
-  Q03: { status: needs_revision, note: "Distraktorer för svaga" }
+  Q03: { status: needs_revision, note: "Distractors too weak" }
   # ...
 ```
 

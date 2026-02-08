@@ -8,9 +8,9 @@
 
 ## Prerequisites
 
-- [ ] Verifiera att qti-core scripts fungerar i terminal
-- [ ] Bekräfta path till qti-core: `./packages/qti-core`
-- [ ] Testa subprocess isolation lokalt
+- [ ] Verify that qti-core scripts work in terminal
+- [ ] Confirm path to qti-core: `./packages/qti-core`
+- [ ] Test subprocess isolation locally
 
 ---
 
@@ -18,41 +18,41 @@
 
 ### 1. Update server.py - step2_validate (30 min)
 
-- [ ] Lägg till subprocess import
-- [ ] Implementera `handle_step2_validate()` enligt RFC-012
-- [ ] Lägg till timeout (60s)
-- [ ] Parse exit code för validation status
+- [ ] Add subprocess import
+- [ ] Implement `handle_step2_validate()` per RFC-012
+- [ ] Add timeout (60s)
+- [ ] Parse exit code for validation status
 - [ ] Update session state
-- [ ] Logga action
+- [ ] Log action
 
 **Test:**
 ```python
-# Kör step2_validate på test file
-# Verifiera output matchar manual run
+# Run step2_validate on test file
+# Verify output matches manual run
 ```
 
 ---
 
 ### 2. Update server.py - step4_export (60 min)
 
-- [ ] Implementera `handle_step4_export()` enligt RFC-012
-- [ ] Definiera alla 5 scripts i array
-- [ ] Loop genom scripts med subprocess
-- [ ] Samla all output
-- [ ] Error handling för varje steg
+- [ ] Implement `handle_step4_export()` per RFC-012
+- [ ] Define all 5 scripts in array
+- [ ] Loop through scripts with subprocess
+- [ ] Collect all output
+- [ ] Error handling for each step
 - [ ] Timeout (120s per script)
-- [ ] Logga framgång/fel
+- [ ] Log success/failure
 
 **Test:**
 ```python
-# Kör step4_export på test file med bilder
-# Verifiera alla 5 steg körs
-# Kontrollera att ZIP innehåller bilder med korrekta paths
+# Run step4_export on test file with images
+# Verify all 5 steps run
+# Check that ZIP contains images with correct paths
 ```
 
 ---
 
-### 3. Testing (2-3 timmar)
+### 3. Testing (2-3 hours)
 
 #### Test 1: Validation
 ```bash
@@ -60,16 +60,16 @@
 cd /path/to/qti-core
 python scripts/step1_validate.py test.md > manual.txt
 
-# Desktop - kör step2_validate
-# Spara output till desktop.txt
+# Desktop - run step2_validate
+# Save output to desktop.txt
 
-# Jämför
+# Compare
 diff manual.txt desktop.txt
 ```
 
 #### Test 2: Full Export
 ```bash
-# Terminal - kör alla scripts manuellt
+# Terminal - run all scripts manually
 cd /path/to/qti-core
 python scripts/step1_validate.py test.md
 python scripts/step2_create_folder.py test.md
@@ -77,54 +77,54 @@ python scripts/step3_copy_resources.py
 python scripts/step4_generate_xml.py
 python scripts/step5_create_zip.py
 
-# Desktop - kör step4_export
-# Jämför ZIPs
+# Desktop - run step4_export
+# Compare ZIPs
 ```
 
-#### Test 3: Bildhantering (KRITISK!)
+#### Test 3: Image Handling (CRITICAL!)
 ```bash
-# Test med quiz som har bilder
-# Verifiera att XML innehåller: resources/Q001_image.png
-# INTE: image.png
+# Test with quiz that has images
+# Verify that XML contains: resources/Q001_image.png
+# NOT: image.png
 ```
 
 ---
 
 ### 4. Documentation (30 min)
 
-- [ ] Uppdatera WORKFLOW.md med subprocess approach
-- [ ] Lägg till exempel på hur man kör via Desktop
-- [ ] Dokumentera directory structure
-- [ ] Notera att Phase 2 kommer senare
+- [ ] Update WORKFLOW.md with subprocess approach
+- [ ] Add examples of how to run via Desktop
+- [ ] Document directory structure
+- [ ] Note that Phase 2 comes later
 
 ---
 
 ## Success Criteria
 
-✅ step2_validate ger samma output som step1_validate.py
-✅ step4_export kör alla 5 steg utan fel
-✅ Bilder har korrekta paths i XML (`resources/Q001_image.png`)
-✅ ZIP kan importeras i Inspera utan fel
-✅ Output i Desktop matchar Terminal output
+✅ step2_validate gives same output as step1_validate.py
+✅ step4_export runs all 5 steps without errors
+✅ Images have correct paths in XML (`resources/Q001_image.png`)
+✅ ZIP can be imported in Inspera without errors
+✅ Output in Desktop matches Terminal output
 
 ---
 
 ## Rollback Plan
 
-Om subprocess inte fungerar:
-1. Kommentera ut ny kod
-2. Återställ till gamla wrappers
-3. Dokumentera vad som gick fel
-4. Omvärdera approach
+If subprocess doesn't work:
+1. Comment out new code
+2. Restore to old wrappers
+3. Document what went wrong
+4. Re-evaluate approach
 
 ---
 
 ## Next Steps (Phase 2)
 
-Efter Phase 1 lyckad:
-- Skapa RFC för script refactoring
-- Planera migration från subprocess → import
-- Definiera testplan för Phase 2
+After Phase 1 succeeds:
+- Create RFC for script refactoring
+- Plan migration from subprocess → import
+- Define test plan for Phase 2
 
 ---
 

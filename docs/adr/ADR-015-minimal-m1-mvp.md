@@ -115,17 +115,17 @@ packages/qf-scaffolding/
 ### Usage Example
 
 ```
-User: "Jag vill analysera mitt kursmaterial"
-Claude (qf-pipeline): init → visar A/B/C/D → user väljer A
+User: "I want to analyse my course materials"
+Claude (qf-pipeline): init → shows A/B/C/D → user chooses A
 Claude (qf-pipeline): step0_start(entry_point="materials")
 Claude (qf-scaffolding): load_stage(module="m1", stage=0)
    ↳ Returns bb1a content
-Claude: Visar Introduction, ber om bekräftelse
-User: "Ok, fortsätt"
+Claude: Shows Introduction, asks for confirmation
+User: "Ok, continue"
 Claude: load_stage(module="m1", stage=1)
    ↳ Returns bb1b Stage 0 content
-Claude: Faciliterar Stage 0 dialog enligt bb1b instruktioner
-... fortsätter genom alla stages ...
+Claude: Facilitates Stage 0 dialogue according to bb1b instructions
+... continues through all stages ...
 ```
 
 ---
@@ -134,37 +134,37 @@ Claude: Faciliterar Stage 0 dialog enligt bb1b instruktioner
 
 ### Positive
 
-- ✅ M1 fungerar idag (4-6 timmar)
-- ✅ Entry point A blir användbar
-- ✅ User kan köra material analysis
-- ✅ Liten kodbas = lätt att underhålla
-- ✅ Kan utökas inkrementellt (M2-M4 senare)
+- ✅ M1 works today (4-6 hours)
+- ✅ Entry point A becomes usable
+- ✅ User can run material analysis
+- ✅ Small codebase = easy to maintain
+- ✅ Can be expanded incrementally (M2-M4 later)
 
 ### Negative
 
-- ❌ Ingen progress tracking (måste köras i en session)
-- ❌ Claude måste själv hålla reda på vilket stage user är på
-- ❌ Ingen automatisk guidance mellan stages
-- ❌ User kan inte "fortsätta senare" (ingen state saved)
+- ❌ No progress tracking (must run in one session)
+- ❌ Claude must keep track of which stage user is on
+- ❌ No automatic guidance between stages
+- ❌ User cannot "continue later" (no state saved)
 
 ### Mitigations
 
-**Workaround för progress tracking:**
+**Workaround for progress tracking:**
 - Claude Desktop conversation = session state
-- User säger "fortsätt där vi slutade"
-- Claude kollar chat history för senaste stage
+- User says "continue where we left off"
+- Claude checks chat history for most recent stage
 
-**När expandera till Full Version:**
-- Efter Step 3 (Decision) klar i qf-pipeline
-- Lägg till session tracking
-- Lägg till init, list_modules, module_status
-- Lägg till M2-M4
+**When to expand to Full Version:**
+- After Step 3 (Decision) complete in qf-pipeline
+- Add session tracking
+- Add init, list_modules, module_status
+- Add M2-M4
 
 ---
 
 ## Alternatives Considered
 
-### A: Full qf-scaffolding nu (rejected)
+### A: Full qf-scaffolding now (rejected)
 
 **Scope:** All 4 tools, all 4 modules, full session tracking
 

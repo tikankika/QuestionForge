@@ -271,13 +271,13 @@ async def handle_list_projects(arguments: dict) -> List[TextContent]:
     except ConfigError as e:
         return [TextContent(type="text", text=f"Config error: {e}")]
     
-    lines = [f"MQG Projekt ({result['count']} st):\n"]
+    lines = [f"MQG Projects ({result['count']}):\n"]
     for p in result['projects']:
         status = "✅" if p['exists'] else "❌"
         lines.append(f"  {p['index']}. {status} {p['name']}")
         lines.append(f"     Path: {p['path']}")
         if p.get('md_file_count'):
-            lines.append(f"     Filer: {p['md_file_count']} markdown")
+            lines.append(f"     Files: {p['md_file_count']} markdown")
         lines.append("")
     
     return [TextContent(type="text", text="\n".join(lines))]

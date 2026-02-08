@@ -141,7 +141,7 @@ and materials folder: /path/to/your/materials/
 ```
 
 Claude will guide you through:
-1. **M1**: Analyzing your materials
+1. **M1**: Analysing your materials
 2. **M2**: Designing the assessment
 3. **M3**: Generating questions
 4. **M4**: Quality assurance
@@ -226,17 +226,17 @@ QFMD (QuestionForge Markdown) is the structured markdown format used for questio
 ```markdown
 ---
 # Q001A
-^question Vad är huvudfunktionen hos mitokondrier?
+^question What is the main function of mitochondria?
 ^type multiple_choice_single
 ^identifier BIO_MC_001
 ^points 1
-^labels cellfunktion, mitokondrier
+^labels cell-function, mitochondria
 
 @field: options
-A) Proteinsyntes
-B) Energiproduktion (ATP)
-C) Celldelning
-D) DNA-lagring
+A) Protein synthesis
+B) Energy production (ATP)
+C) Cell division
+D) DNA storage
 @end_field
 
 @field: answer

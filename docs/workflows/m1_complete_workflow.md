@@ -23,11 +23,11 @@
 
 ### Why This Matters
 
-**Claude Desktop har bättre PDF-läsning** än MCP:ens enkla textextraktion. MCP:ens `read_materials(filename="X.pdf")` är endast en **fallback** om Claude inte kan läsa filen direkt.
+**Claude Desktop has better PDF reading** than MCP's simple text extraction. MCP's `read_materials(filename="X.pdf")` is only a **fallback** if Claude cannot read the file directly.
 
 ```
-❌ FEL:  MCP läser PDF → Claude analyserar text → MCP sparar
-✅ RÄTT: MCP listar filer → CLAUDE läser PDF → Claude analyserar → MCP sparar
+❌ WRONG: MCP reads PDF → Claude analyses text → MCP saves
+✅ CORRECT: MCP lists files → CLAUDE reads PDF → Claude analyses → MCP saves
 ```
 
 ---
@@ -236,21 +236,21 @@ total_materials: 5
 │                                                                 │
 │ 1. load_stage(module="m1", stage=0, project_path="...")         │
 │    → Returns: How to analyze materials, tier definitions        │
-│    → Claude läser och förstår metodologin                       │
+│    → Claude reads and understands the methodology               │
 │                                                                 │
 │ 2. read_materials(project_path="...", filename=null)  [MCP]     │
 │    → Returns: List of files in 00_materials/                    │
-│    Claude: "Jag ser N filer. Börjar med första?"                │
+│    Claude: "I see N files. Shall I start with the first one?"  │
 │                                                                 │
 │ 3. read_reference(project_path="...")  [MCP]                    │
 │    → Returns: Kursplan content                                  │
 │                                                                 │
 │ 4. FOR EACH material file:                                      │
 │                                                                 │
-│    a. ⭐ CLAUDE LÄSER PDF DIREKT (INTE MCP!)                    │
-│       → Claude Desktop har bättre PDF-läsning                   │
-│       → Filsökväg: {project_path}/00_materials/{filename}       │
-│       → Fallback: read_materials(filename="X.pdf") om nödvändigt│
+│    a. ⭐ CLAUDE READS PDF DIRECTLY (NOT MCP!)                   │
+│       → Claude Desktop has better PDF reading                   │
+│       → File path: {project_path}/00_materials/{filename}       │
+│       → Fallback: read_materials(filename="X.pdf") if needed   │
 │                                                                 │
 │    b. Claude analyzes (3-8 min):                                │
 │       → Identifies topics                                       │
@@ -259,7 +259,7 @@ total_materials: 5
 │       → Spots potential misconceptions                          │
 │                                                                 │
 │    c. Claude presents to teacher:                               │
-│       "Topics: [...], Tiers: [...], Exempel: [...]"             │
+│       "Topics: [...], Tiers: [...], Examples: [...]"             │
 │                                                                 │
 │    d. Teacher validates/corrects (1-2 min)                      │
 │                                                                 │
@@ -272,7 +272,7 @@ total_materials: 5
 │       → Updates YAML: materials_analyzed: N                     │
 │       → Session can resume if interrupted!                      │
 │                                                                 │
-│    f. Claude: "✅ Material N/M klar. Nästa?"                    │
+│    f. Claude: "✅ Material N/M complete. Next?"                 │
 │                                                                 │
 │ 5. After ALL materials:                                         │
 │    save_m1_progress(  [MCP]                                     │
@@ -293,13 +293,13 @@ total_materials: 5
 | Tool | Calls | Purpose |
 |------|-------|---------|
 | `load_stage` | 1× | Load methodology |
-| `read_materials` | 1× | **List mode only** - visa tillgängliga filer |
+| `read_materials` | 1× | **List mode only** - show available files |
 | `read_reference` | 1× | Load kursplan |
 | `save_m1_progress` | N+1× | Save after each material (N×) + stage complete (1×) |
 
 **Total MCP calls:** ~(N + 4) where N = number of materials
 
-**OBS:** Claude läser PDF-filerna direkt, inte via MCP!
+**NOTE:** Claude reads PDF files directly, not via MCP!
 
 ---
 
@@ -322,10 +322,10 @@ total_materials: 5
 │ 2. Claude reads Stage 0 from m1_analysis.md                     │
 │                                                                 │
 │ 3. Claude presents complete tier structure:                     │
-│    "Här är sammanställningen av alla Tier 1 ämnen..."           │
+│    "Here is the summary of all Tier 1 topics..."           │
 │                                                                 │
 │ 4. Teacher validates or requests changes:                       │
-│    "Flytta X från Tier 2 → Tier 1"                              │
+│    "Move X from Tier 2 → Tier 1"                              │
 │                                                                 │
 │ 5. Claude documents validated structure                         │
 │                                                                 │
@@ -360,7 +360,7 @@ total_materials: 5
 │ 2. Claude reads validated tiers from m1_analysis.md             │
 │                                                                 │
 │ 3. FOR EACH Tier 1 topic:                                       │
-│    Claude: "Varför är [topic] Tier 1?"                          │
+│    Claude: "Why is [topic] Tier 1?"                          │
 │    Teacher: Explains pedagogical rationale                      │
 │    Claude: Documents reasoning                                  │
 │                                                                 │
@@ -390,7 +390,7 @@ total_materials: 5
 │ 2. Claude presents examples found in Stage 0                    │
 │                                                                 │
 │ 3. Teacher selects most effective examples                      │
-│    Teacher: "Exempel A är bra för nybörjare, Exempel B..."      │
+│    Teacher: "Example A is good for beginners, Example B..."      │
 │                                                                 │
 │ 4. Claude catalogs with effectiveness notes                     │
 │                                                                 │
@@ -479,7 +479,7 @@ total_materials: 5
 | Tool | Package | Purpose |
 |------|---------|---------|
 | `load_stage` | qf-scaffolding | Load methodology for stage N |
-| `read_materials` | qf-scaffolding | **Lista filer** (primärt), läs fil (fallback) |
+| `read_materials` | qf-scaffolding | **List files** (primary), read file (fallback) |
 | `read_reference` | qf-scaffolding | Read kursplan etc. |
 | `save_m1_progress` | qf-scaffolding | **NEW** Save to m1_analysis.md |
 
@@ -493,36 +493,36 @@ total_materials: 5
 
 ### `read_materials` Modes
 
-| Parameter | Mode | Returns | När användas? |
+| Parameter | Mode | Returns | When to use? |
 |-----------|------|---------|---------------|
-| `filename=null` | **List** | File names + metadata (no content) | ✅ **Alltid** - se vilka filer som finns |
-| `filename="X.pdf"` | Read | Content of ONE specific file | ⚠️ **Fallback** - endast om Claude inte kan läsa filen direkt |
+| `filename=null` | **List** | File names + metadata (no content) | ✅ **Always** - see which files exist |
+| `filename="X.pdf"` | Read | Content of ONE specific file | ⚠️ **Fallback** - only if Claude cannot read the file directly |
 
-### ⚠️ PDF-läsning: Claude vs MCP
+### ⚠️ PDF Reading: Claude vs MCP
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ REKOMMENDERAT FLÖDE                                             │
+│ RECOMMENDED FLOW                                                │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  1. MCP: read_materials(filename=null)                          │
-│     → Returnerar: ["file1.pdf", "file2.pdf", ...]               │
+│     → Returns: ["file1.pdf", "file2.pdf", ...]                  │
 │                                                                 │
-│  2. CLAUDE DESKTOP läser PDF direkt:                            │
-│     → Sökväg: {project_path}/00_materials/file1.pdf             │
-│     → Claude har native PDF-läsning (bättre kvalitet!)          │
+│  2. CLAUDE DESKTOP reads PDF directly:                          │
+│     → Path: {project_path}/00_materials/file1.pdf               │
+│     → Claude has native PDF reading (better quality!)           │
 │                                                                 │
 │  3. MCP: save_m1_progress(action="add_material", ...)           │
-│     → Sparar analysen                                           │
+│     → Saves the analysis                                        │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│ FALLBACK (endast om Claude inte kan läsa filen)                 │
+│ FALLBACK (only if Claude cannot read the file)                  │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  MCP: read_materials(filename="problematic.pdf")                │
-│  → Returnerar: Extraherad text (enklare extraktion)             │
+│  → Returns: Extracted text (simpler extraction)                 │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -625,23 +625,23 @@ methodology:
 
 ### Issue: "PDF text extraction fails"
 
-**Symptom:** Claude kan inte läsa PDF direkt
+**Symptom:** Claude cannot read PDF directly
 
 **Solution:**
-1. **Först:** Låt Claude Desktop försöka läsa filen direkt (native PDF)
-2. **Fallback:** Använd `read_materials(filename="X.pdf")` via MCP
-3. **Sista utväg:** Teacher kopierar text manuellt
-4. **Dokumentera:** Notera i analysen om text tillhandahölls manuellt
+1. **First:** Let Claude Desktop try to read the file directly (native PDF)
+2. **Fallback:** Use `read_materials(filename="X.pdf")` via MCP
+3. **Last resort:** Teacher copies text manually
+4. **Document:** Note in the analysis if text was provided manually
 
-### Issue: "MCP används för att läsa PDF istället för Claude"
+### Issue: "MCP used to read PDF instead of Claude"
 
-**Symptom:** `read_materials(filename="X.pdf")` anropas för varje fil
+**Symptom:** `read_materials(filename="X.pdf")` called for every file
 
 **Solution:**
-1. MCP ska endast **lista** filer: `read_materials(filename=null)`
-2. Claude Desktop ska läsa PDF-filer direkt
-3. Filsökväg: `{project_path}/00_materials/{filename}`
-4. MCP:ens read-mode är endast **fallback** för problematiska filer
+1. MCP should only **list** files: `read_materials(filename=null)`
+2. Claude Desktop should read PDF files directly
+3. File path: `{project_path}/00_materials/{filename}`
+4. MCP's read mode is only a **fallback** for problematic files
 
 ### Issue: "Working memory overflow in Stage 0"
 
@@ -671,7 +671,7 @@ methodology:
 - ✅ ALL stages save to SAME document
 - ✅ Logs track progress for audit trail
 - ✅ `save_m1_progress` handles all saving
-- ✅ **Claude läser PDF direkt** - MCP endast för lista/spara
+- ✅ **Claude reads PDF directly** - MCP only for listing/saving
 
 ### Output
 

@@ -16,7 +16,7 @@ M3 → M5 → Step2 → Step3 → Step4   (runs continuously, no stops)
 
 Teacher sees final result but has no chance to verify/correct at each step.
 
-When something fails (like "0 frågor hittades"), the whole chain has already run.
+When something fails (like "0 questions found"), the whole chain has already run.
 
 ---
 
@@ -29,29 +29,29 @@ M3 output ready
     │
     ▼
 ┌──────────────────────────────────────────┐
-│ STOP 1: "Här är N frågor från M3"        │
-│ - Visa sammanfattning                     │
-│ - Vänta på: godkänn / ändra / avbryt     │
+│ STOP 1: "Here are N questions from M3"   │
+│ - Show summary                            │
+│ - Wait for: approve / change / cancel     │
 └──────────────────────────────────────────┘
     │
     ▼
-M5 (en fråga i taget)
+M5 (one question at a time)
     │
     ▼
 ┌──────────────────────────────────────────┐
-│ STOP 2a: "Fråga 1 av 5 (essay)"          │
-│ - Visa tolkad QFMD                        │
-│ - Vänta på: godkänn / ändra / hoppa      │
+│ STOP 2a: "Question 1 of 5 (essay)"       │
+│ - Show interpreted QFMD                   │
+│ - Wait for: approve / change / skip       │
 └──────────────────────────────────────────┘
     │
     ▼
-(repeat för varje fråga...)
+(repeat for each question...)
     │
     ▼
 ┌──────────────────────────────────────────┐
-│ STOP 2b: "M5 klar - alla N frågor"       │
-│ - Visa sammanfattning                     │
-│ - Vänta på: fortsätt till validering     │
+│ STOP 2b: "M5 complete - all N questions" │
+│ - Show summary                            │
+│ - Wait for: continue to validation        │
 └──────────────────────────────────────────┘
     │
     ▼
@@ -59,10 +59,10 @@ Step 2 Validator
     │
     ▼
 ┌──────────────────────────────────────────┐
-│ STOP 3: "Validering klar"                │
-│ - N frågor validerade                     │
-│ - X fel hittade (visa lista)             │
-│ - Vänta på: fortsätt / fixa fel          │
+│ STOP 3: "Validation complete"            │
+│ - N questions validated                   │
+│ - X errors found (show list)              │
+│ - Wait for: continue / fix errors         │
 └──────────────────────────────────────────┘
     │
     ▼
@@ -70,10 +70,10 @@ Step 3 Router
     │
     ▼
 ┌──────────────────────────────────────────┐
-│ STOP 4: "Router rekommenderar..."        │
-│ - Question Set (N frågor)                 │
-│ - ELLER Individual Questions              │
-│ - Vänta på: godkänn / ändra val          │
+│ STOP 4: "Router recommends..."           │
+│ - Question Set (N questions)              │
+│ - OR Individual Questions                 │
+│ - Wait for: approve / change selection    │
 └──────────────────────────────────────────┘
     │
     ▼
@@ -81,10 +81,10 @@ Step 4 Export
     │
     ▼
 ┌──────────────────────────────────────────┐
-│ STOP 5: "Export klar"                    │
-│ - Visa: filename.zip                      │
-│ - Visa: antal frågor exporterade          │
-│ - Klart!                                  │
+│ STOP 5: "Export complete"                │
+│ - Show: filename.zip                      │
+│ - Show: number of exported questions      │
+│ - Done!                                   │
 └──────────────────────────────────────────┘
 ```
 
@@ -98,21 +98,21 @@ Step 4 Export
 **Display:**
 ```
 ══════════════════════════════════════════
-M3 KLAR - Granskning innan M5
+M3 COMPLETE - Review before M5
 ══════════════════════════════════════════
 
-Genererade frågor: 5
-Frågetyper:
-  - essay: 3 st
-  - multiple_choice_single: 2 st
+Generated questions: 5
+Question types:
+  - essay: 3
+  - multiple_choice_single: 2
 
-Fil: questions/m3_output.md
+File: questions/m3_output.md
 
-Vad vill du göra?
-  [1] Godkänn → Fortsätt till M5
-  [2] Visa frågorna först
-  [3] Ändra i filen manuellt
-  [4] Avbryt
+What do you want to do?
+  [1] Approve → Continue to M5
+  [2] Show questions first
+  [3] Edit file manually
+  [4] Cancel
 ══════════════════════════════════════════
 ```
 
@@ -126,33 +126,33 @@ Vad vill du göra?
 **Display:**
 ```
 ══════════════════════════════════════════
-M5 - FRÅGA 1 av 5 (essay)
+M5 - QUESTION 1 of 5 (essay)
 ══════════════════════════════════════════
 
-TOLKAT FRÅN M3:
-  Title: Grundbegrepp inom AI
+INTERPRETED FROM M3:
+  Title: Basic concepts in AI
   Type: essay
   Points: 3
   Tags: #understand #easy #elements_of_AI_chapter1
 
-FRÅGETEXT:
-  I materialet introduceras flera viktiga begrepp...
+QUESTION TEXT:
+  The material introduces several important concepts...
 
-KONVERTERAD TILL QFMD:
+CONVERTED TO QFMD:
   ^type essay
   ^identifier Q001
   ^points 3
   ^labels #understand #easy #elements_of_AI_chapter1
 
   @field: question_text
-  I materialet introduceras...
+  The material introduces...
   @end_field
 
-Vad vill du göra?
-  [1] Godkänn → Spara & nästa fråga
-  [2] Ändra något (öppnar editor)
-  [3] Hoppa över denna fråga
-  [4] Radera denna fråga
+What do you want to do?
+  [1] Approve → Save & next question
+  [2] Edit something (opens editor)
+  [3] Skip this question
+  [4] Delete this question
 ══════════════════════════════════════════
 ```
 
@@ -167,20 +167,20 @@ Vad vill du göra?
 **Display:**
 ```
 ══════════════════════════════════════════
-M5 KLAR - Sammanfattning
+M5 COMPLETE - Summary
 ══════════════════════════════════════════
 
-Bearbetade: 5 frågor
-  - Godkända: 4
-  - Hoppade: 1
-  - Raderade: 0
+Processed: 5 questions
+  - Approved: 4
+  - Skipped: 1
+  - Deleted: 0
 
-Fil sparad: questions/m5_output.md
+File saved: questions/m5_output.md
 
-Vad vill du göra?
-  [1] Fortsätt → Kör Step 2 (validering)
-  [2] Granska filen först
-  [3] Avbryt
+What do you want to do?
+  [1] Continue → Run Step 2 (validation)
+  [2] Review file first
+  [3] Cancel
 ══════════════════════════════════════════
 ```
 
@@ -192,39 +192,39 @@ Vad vill du göra?
 **Display:**
 ```
 ══════════════════════════════════════════
-STEP 2 KLAR - Valideringsresultat
+STEP 2 COMPLETE - Validation Results
 ══════════════════════════════════════════
 
-Validerade frågor: 4
-Status: ✅ REDO FÖR EXPORT
+Validated questions: 4
+Status: ✅ READY FOR EXPORT
 
-Inga fel hittades.
+No errors found.
 
-Vad vill du göra?
-  [1] Fortsätt → Step 3 Router
-  [2] Granska filen
-  [3] Avbryt
+What do you want to do?
+  [1] Continue → Step 3 Router
+  [2] Review file
+  [3] Cancel
 ══════════════════════════════════════════
 ```
 
 OR if errors:
 ```
 ══════════════════════════════════════════
-STEP 2 KLAR - Valideringsresultat
+STEP 2 COMPLETE - Validation Results
 ══════════════════════════════════════════
 
-Validerade frågor: 4
-Status: ⚠️ FEL HITTADE
+Validated questions: 4
+Status: ⚠️ ERRORS FOUND
 
-Fel:
+Errors:
   Q002: Missing ^identifier
   Q004: Unknown question type "essai"
 
-Vad vill du göra?
-  [1] Fixa felen (öppnar Step 1)
-  [2] Exportera ändå (hoppa över felaktiga)
-  [3] Granska filen
-  [4] Avbryt
+What do you want to do?
+  [1] Fix errors (opens Step 1)
+  [2] Export anyway (skip invalid)
+  [3] Review file
+  [4] Cancel
 ══════════════════════════════════════════
 ```
 
@@ -236,22 +236,22 @@ Vad vill du göra?
 **Display:**
 ```
 ══════════════════════════════════════════
-STEP 3 - ROUTER BESLUT
+STEP 3 - ROUTER DECISION
 ══════════════════════════════════════════
 
-Analyserade frågor: 4
+Analysed questions: 4
 
-REKOMMENDATION: Question Set
-  Anledning: Fler än 3 frågor av samma typ
+RECOMMENDATION: Question Set
+  Reason: More than 3 questions of same type
 
-Alternativ:
-  [1] Question Set (rekommenderat)
-      → 1 QTI-fil med alla 4 frågorna
+Options:
+  [1] Question Set (recommended)
+      → 1 QTI file with all 4 questions
 
   [2] Individual Questions
-      → 4 separata QTI-filer
+      → 4 separate QTI files
 
-Välj exportformat:
+Select export format:
 ══════════════════════════════════════════
 ```
 
@@ -263,14 +263,14 @@ Välj exportformat:
 **Display:**
 ```
 ══════════════════════════════════════════
-STEP 4 KLAR - Export färdig!
+STEP 4 COMPLETE - Export finished!
 ══════════════════════════════════════════
 
-✅ Exporterat: 4 frågor
+✅ Exported: 4 questions
    Format: Question Set
-   Fil: output/entry_check_2026-01-28.zip
+   File: output/entry_check_2026-01-28.zip
 
-Filen kan nu importeras till Inspera.
+The file can now be imported into Inspera.
 
 ══════════════════════════════════════════
 ```
@@ -298,7 +298,7 @@ Each tool returns `requires_approval: true`:
 return {
   success: true,
   requires_approval: true,
-  approval_message: "M5 klar - 5 frågor bearbetade. Fortsätt?",
+  approval_message: "M5 complete - 5 questions processed. Continue?",
   next_step: "step2_validate"
 };
 ```

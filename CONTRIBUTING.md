@@ -10,7 +10,7 @@ Thank you for your interest in contributing to QuestionForge!
 2. If not, create a new issue with:
    - Clear description of the problem
    - Steps to reproduce
-   - Expected vs actual behavior
+   - Expected vs actual behaviour
    - Environment (OS, Python/Node version, Claude Desktop version)
 
 ### Suggesting Features
@@ -93,7 +93,7 @@ Documentation improvements are always welcome:
 
 ## Architecture Overview
 
-Before contributing code, familiarize yourself with:
+Before contributing code, familiarise yourself with:
 
 - **ADR-001**: Two-MCP architecture (qf-scaffolding + qf-pipeline)
 - **ADR-014**: Shared session management

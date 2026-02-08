@@ -29,11 +29,11 @@
 | Save progress | MCP | `save_m1_progress` |
 | Load methodology | MCP | `load_stage` |
 
-**Varför?** Claude Desktop har bättre PDF-läsning än MCP:ens enkla textextraktion. MCP:ens `read_materials(filename="X.pdf")` är endast en **fallback** om Claude inte kan läsa filen direkt.
+**Why?** Claude Desktop has better PDF reading than MCP's simple text extraction. MCP's `read_materials(filename="X.pdf")` is only a **fallback** if Claude cannot read the file directly.
 
 ```
-❌ FEL:  MCP läser PDF → Claude analyserar text → MCP sparar
-✅ RÄTT: MCP listar filer → CLAUDE läser PDF → Claude analyserar → MCP sparar
+❌ WRONG: MCP reads PDF → Claude analyses text → MCP saves
+✅ CORRECT: MCP lists files → CLAUDE reads PDF → Claude analyses → MCP saves
 ```
 
 ## Summary
@@ -227,14 +227,14 @@ interface ReadMaterialsResult {
 }
 ```
 
-**Purpose:** ⚠️ Primärt för att **lista** filer i 00_materials/ - Claude Desktop ska läsa PDF:er direkt!
+**Purpose:** ⚠️ Primarily for **listing** files in 00_materials/ - Claude Desktop should read PDFs directly!
 
 | Mode | Usage | When to use |
 |------|-------|-------------|
-| **List** (`filename=null`) | Returns file metadata, no content | ✅ **Alltid** - för att se vilka filer som finns |
-| **Read** (`filename="X.pdf"`) | Extracts text from ONE file | ⚠️ **Fallback** - endast om Claude inte kan läsa direkt |
+| **List** (`filename=null`) | Returns file metadata, no content | ✅ **Always** - to see which files exist |
+| **Read** (`filename="X.pdf"`) | Extracts text from ONE file | ⚠️ **Fallback** - only if Claude cannot read directly |
 
-**Varför?** Claude Desktop har bättre native PDF-läsning än MCP:ens `pdf-parse` textextraktion.
+**Why?** Claude Desktop has better native PDF reading than MCP's `pdf-parse` text extraction.
 
 - Supports PDF text extraction (built-in via `pdf-parse`) - but Claude Desktop is better!
 - Supports markdown, text, and other formats
@@ -244,15 +244,15 @@ interface ReadMaterialsResult {
 **Usage pattern for Stage 0:**
 ```
 1. read_materials(filename=null)       → List all files in 00_materials/  [MCP]
-2. Claude reads "A.pdf" directly       → Claude Desktop läser PDF         [CLAUDE]
-3. Claude analyzes content             → Identifierar topics, tiers, etc. [CLAUDE]
-4. save_m1_progress(action="add_material")  → Spara analysen              [MCP]
-5. Claude reads "B.pdf" directly       → Nästa fil                        [CLAUDE]
+2. Claude reads "A.pdf" directly       → Claude Desktop reads PDF          [CLAUDE]
+3. Claude analyzes content             → Identifies topics, tiers, etc.   [CLAUDE]
+4. save_m1_progress(action="add_material")  → Save the analysis            [MCP]
+5. Claude reads "B.pdf" directly       → Next file                       [CLAUDE]
 6. Claude analyzes content                                                [CLAUDE]
 7. save_m1_progress(action="add_material")                                [MCP]
 ... repeat for each material
 
-OBS: read_materials(filename="X.pdf") är endast FALLBACK om Claude inte kan läsa filen!
+NOTE: read_materials(filename="X.pdf") is only a FALLBACK if Claude cannot read the file!
 ```
 
 #### 2. `read_reference` - Read reference documents (kursplan, etc.)
@@ -554,10 +554,10 @@ project/
 │                                                                 │
 │ 4. FOR EACH material file:                                      │
 │                                                                 │
-│    a. ⭐ CLAUDE LÄSER PDF DIREKT (INTE MCP!)                    │
-│       → Claude Desktop har bättre PDF-läsning                   │
+│    a. ⭐ CLAUDE READS PDF DIRECTLY (NOT MCP!)                    │
+│       → Claude Desktop has better PDF reading                   │
 │       → Path: {project_path}/00_materials/{filename}            │
-│       → Fallback: read_materials(filename="X.pdf") om nödvändigt│
+│       → Fallback: read_materials(filename="X.pdf") if needed   │
 │                                                                 │
 │    b. Claude analyzes (identifies topics, tiers, examples)      │
 │                                                                 │

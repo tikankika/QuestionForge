@@ -261,7 +261,7 @@ async def handle_step3_question_set(arguments: dict) -> List[TextContent]:
     if not session:
         return [TextContent(
             type="text",
-            text="Ingen aktiv session. Kör step0_start först."
+            text="No active session. Run step0_start first."
         )]
     
     # Parse questions from working file
@@ -269,7 +269,7 @@ async def handle_step3_question_set(arguments: dict) -> List[TextContent]:
     questions = data.get("questions", [])
     
     if not questions:
-        return [TextContent(type="text", text="Inga frågor hittades.")]
+        return [TextContent(type="text", text="No questions found.")]
     
     # Build Question Set
     from .wrappers.question_set import build_question_set
@@ -288,23 +288,23 @@ async def handle_step3_question_set(arguments: dict) -> List[TextContent]:
     # Build preview
     preview_lines = [
         f"Question Set: {result['set_name']}",
-        f"Labels: {'Inkluderade' if result['include_labels'] else 'Borttagna'}",
+        f"Labels: {'Included' if result['include_labels'] else 'Removed'}",
         "",
-        "Sektioner:"
+        "Sections:"
     ]
     
     for s in result["sections"]:
         preview_lines.append(
-            f"  • {s['name']}: {s['selected_questions']} frågor "
-            f"(av {s['matched_questions']} matchande)"
+            f"  • {s['name']}: {s['selected_questions']} questions "
+            f"(of {s['matched_questions']} matching)"
             f"{' [shuffle]' if s['shuffle'] else ''}"
         )
     
     preview_lines.extend([
         "",
-        f"Totalt: {result['total_questions']} frågor",
+        f"Total: {result['total_questions']} questions",
         "",
-        "Nästa steg: step4_export för att skapa QTI-paket"
+        "Next step: step4_export to create QTI package"
     ])
     
     return [TextContent(type="text", text="\n".join(preview_lines))]
@@ -315,48 +315,48 @@ async def handle_step3_question_set(arguments: dict) -> List[TextContent]:
 ## Dialogue Example
 
 ```
-Teacher: "Skapa en Question Set för min biologi-tenta"
+Teacher: "Create a Question Set for my biology exam"
 
-Claude: "Jag hjälper dig skapa en Question Set. Först behöver jag veta:
+Claude: "I'll help you create a Question Set. First I need to know:
 
-1. Vad ska setet heta?
-2. Ska labels (Bloom, svårighetsgrad) vara med i exporten?
-   - Ja: Bra för frågebanker, lärare kan se kategorisering
-   - Nej: Renare för sluttentor, studenter ser inte kategorier
+1. What should the set be called?
+2. Should labels (Bloom, difficulty) be included in the export?
+   - Yes: Good for question banks, teachers can see categorisation
+   - No: Cleaner for final exams, students don't see categories
 
-3. Hur många sektioner vill du ha?"
+3. How many sections do you want?"
 
-Teacher: "Kalla det 'Cellbiologi Tenta VT26'. Ta bort labels. 
-          Två sektioner: en med lätta frågor, en med svåra."
+Teacher: "Call it 'Cell Biology Exam Spring 26'. Remove labels.
+          Two sections: one with easy questions, one with hard."
 
-Claude: "Bra! Låt mig konfigurera:
+Claude: "Good! Let me configure:
 
-Sektion 1: Lätta frågor
-- Filtrerar på: Difficulty = Easy
-- Hur många frågor ska slumpas ut? (av 12 lätta frågor tillgängliga)"
+Section 1: Easy questions
+- Filtering on: Difficulty = Easy
+- How many questions should be randomly selected? (of 12 easy questions available)"
 
-Teacher: "8 stycken"
+Teacher: "8"
 
-Claude: "Sektion 2: Svåra frågor  
-- Filtrerar på: Difficulty = Hard
-- Hur många frågor ska slumpas ut? (av 7 svåra frågor tillgängliga)"
+Claude: "Section 2: Hard questions
+- Filtering on: Difficulty = Hard
+- How many questions should be randomly selected? (of 7 hard questions available)"
 
-Teacher: "5 stycken"
+Teacher: "5"
 
 Claude: [Calls step3_question_set with config]
 
-"Question Set konfigurerat!
+"Question Set configured!
 
-Cellbiologi Tenta VT26
-Labels: Borttagna
+Cell Biology Exam Spring 26
+Labels: Removed
 
-Sektioner:
-  • Lätta frågor: 8 frågor (av 12 matchande) [shuffle]
-  • Svåra frågor: 5 frågor (av 7 matchande) [shuffle]
+Sections:
+  • Easy questions: 8 questions (of 12 matching) [shuffle]
+  • Hard questions: 5 questions (of 7 matching) [shuffle]
 
-Totalt: 13 frågor
+Total: 13 questions
 
-Vill du exportera nu? (step4_export)"
+Would you like to export now? (step4_export)"
 ```
 
 ---

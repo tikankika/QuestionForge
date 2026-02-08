@@ -1,27 +1,27 @@
-# STEP 1 IMPLEMENTATION SPEC (Förenklad)
+# STEP 1 IMPLEMENTATION SPEC (Simplified)
 
 **Version:** 2.0  
-**Datum:** 2026-01-07  
-**Approach:** XML templates + generell fix-logik
+**Date:** 2026-01-07  
+**Approach:** XML templates + general fix logic
 
 ---
 
-## ARKITEKTUR
+## ARCHITECTURE
 
 ```
 qf-pipeline/src/qf_pipeline/
 ├── step1/
 │   ├── __init__.py
 │   ├── session.py          # Session management
-│   ├── parser.py           # Parse markdown till frågor
-│   ├── detector.py         # Identifiera format/typ
-│   ├── analyzer.py         # Jämför mot krav (använder XML templates)
-│   ├── fixer.py            # Applicera fixar
-│   └── transforms.py       # GENERELLA syntax-transformationer
+│   ├── parser.py           # Parse markdown to questions
+│   ├── detector.py         # Identify format/type
+│   ├── analyzer.py         # Compare against requirements (uses XML templates)
+│   ├── fixer.py            # Apply fixes
+│   └── transforms.py       # GENERAL syntax transformations
 │
 ├── shared/
-│   ├── field_map.py        # Mappa XML placeholder → markdown field
-│   └── user_prompts.py     # Frågor att ställa användaren
+│   ├── field_map.py        # Map XML placeholder → markdown field
+│   └── user_prompts.py     # Questions to ask the user
 │
 └── tools/
     └── step1_tools.py      # MCP tool definitions
@@ -29,12 +29,12 @@ qf-pipeline/src/qf_pipeline/
 
 ---
 
-## FIL 1: transforms.py (Generella fixar)
+## FILE 1: transforms.py (General fixes)
 
 ```python
 """
-Generella syntax-transformationer.
-Gäller ALLA frågetyper.
+General syntax transformations.
+Applies to ALL question types.
 """
 
 import re
@@ -86,7 +86,7 @@ PLACEHOLDER_TRANSFORMS = [
 # ════════════════════════════════════════════════════════════════════
 
 def transform_numbered_options(text: str) -> str:
-    """Konvertera 1. 2. 3. till A. B. C."""
+    """Convert 1. 2. 3. to A. B. C."""
     lines = text.split('\n')
     result = []
     number_to_letter = {
@@ -104,7 +104,7 @@ def transform_numbered_options(text: str) -> str:
     return '\n'.join(result)
 
 def transform_lowercase_options(text: str) -> str:
-    """Konvertera a. b. c. till A. B. C."""
+    """Convert a. b. c. to A. B. C."""
     lines = text.split('\n')
     result = []
     for line in lines:
@@ -120,14 +120,14 @@ def transform_lowercase_options(text: str) -> str:
 # ════════════════════════════════════════════════════════════════════
 
 def ensure_end_fields(text: str) -> str:
-    """Lägg till @end_field där det saknas."""
-    # Komplex logik - behöver parse field-struktur
-    # TODO: Implementera
+    """Add @end_field where missing."""
+    # Complex logic - needs to parse field structure
+    # TODO: Implement
     pass
 
 def convert_nested_fields(text: str) -> str:
-    """Konvertera @field: inne i @field: till @@field:"""
-    # TODO: Implementera
+    """Convert @field: inside @field: to @@field:"""
+    # TODO: Implement
     pass
 
 # ════════════════════════════════════════════════════════════════════
@@ -135,14 +135,14 @@ def convert_nested_fields(text: str) -> str:
 # ════════════════════════════════════════════════════════════════════
 
 def apply_regex_transforms(text: str, transforms: List[Tuple[str, str]]) -> str:
-    """Applicera lista av regex-transformationer."""
+    """Apply list of regex transformations."""
     for pattern, replacement in transforms:
         text = re.sub(pattern, replacement, text, flags=re.MULTILINE)
     return text
 
 def apply_all_transforms(text: str) -> Tuple[str, List[str]]:
     """
-    Applicera alla generella transformationer.
+    Apply all general transformations.
     
     Returns:
         (transformed_text, list_of_changes_made)
@@ -153,38 +153,38 @@ def apply_all_transforms(text: str) -> Tuple[str, List[str]]:
     # Metadata
     text = apply_regex_transforms(text, METADATA_TRANSFORMS)
     if text != original:
-        changes.append("Konverterade metadata-syntax (@key: → ^key)")
+        changes.append("Converted metadata syntax (@key: → ^key)")
         original = text
     
     # In-field metadata
     text = apply_regex_transforms(text, INFIELD_TRANSFORMS)
     if text != original:
-        changes.append("Konverterade in-field metadata (**Key:** → ^Key)")
+        changes.append("Converted in-field metadata (**Key:** → ^Key)")
         original = text
     
     # Placeholders
     text = apply_regex_transforms(text, PLACEHOLDER_TRANSFORMS)
     if text != original:
-        changes.append("Konverterade placeholder-syntax ({{BLANK-1}} → {{blank_1}})")
+        changes.append("Converted placeholder syntax ({{BLANK-1}} → {{blank_1}})")
         original = text
     
-    # Options (behöver kontext-medveten transform)
-    # Appliceras bara inom @field: options
+    # Options (needs context-aware transform)
+    # Applied only within @field: options
     
     return text, changes
 ```
 
 ---
 
-## FIL 2: field_map.py (XML placeholder → Markdown field)
+## FILE 2: field_map.py (XML placeholder → Markdown field)
 
 ```python
 """
-Mappa XML template placeholders till markdown fields.
-Härledd från qti-core/templates/xml/*.xml
+Map XML template placeholders to markdown fields.
+Derived from qti-core/templates/xml/*.xml
 """
 
-# Genererad från XML templates
+# Generated from XML templates
 PLACEHOLDER_TO_FIELD = {
     # Metadata
     '{{IDENTIFIER}}': '^identifier',
@@ -205,7 +205,7 @@ PLACEHOLDER_TO_FIELD = {
     '{{FEEDBACK_PARTIALLY_CORRECT}}': '@@field: partial_feedback',
 }
 
-# Type-specifika fields (härledd från XML templates)
+# Type-specific fields (derived from XML templates)
 TYPE_REQUIRED_FIELDS = {
     'multiple_choice_single': [
         'question_text', 'options', 'answer', 'feedback'
@@ -225,19 +225,19 @@ TYPE_REQUIRED_FIELDS = {
     'text_area': [
         'question_text', 'scoring_rubric', 'feedback'
     ],
-    # ... resten härledda från XML templates
+    # ... rest derived from XML templates
 }
 
-# Required metadata (samma för ALLA typer)
+# Required metadata (same for ALL types)
 REQUIRED_METADATA = [
     '^question',
     '^type', 
     '^identifier',
     '^points',
-    '^labels',  # måste innehålla Bloom + Difficulty
+    '^labels',  # must contain Bloom + Difficulty
 ]
 
-# Feedback subfields per kategori
+# Feedback subfields per category
 FEEDBACK_SUBFIELDS = {
     'auto_graded': [
         'general_feedback',
@@ -262,57 +262,57 @@ FEEDBACK_SUBFIELDS = {
 
 ---
 
-## FIL 3: user_prompts.py (Vad fråga användaren)
+## FILE 3: user_prompts.py (What to ask the user)
 
 ```python
 """
-Prompts för interaktiv dialog med användaren.
+Prompts for interactive dialogue with the user.
 """
 
 PROMPTS = {
     'missing_bloom': {
-        'question': "Vilken Bloom-nivå har frågan?",
+        'question': "Which Bloom level does the question have?",
         'options': ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create'],
-        'help': "Remember=faktakunskap, Understand=förklara, Apply=tillämpa..."
+        'help': "Remember=factual knowledge, Understand=explain, Apply=apply..."
     },
     
     'missing_difficulty': {
-        'question': "Vilken svårighetsgrad har frågan?",
+        'question': "Which difficulty level does the question have?",
         'options': ['Easy', 'Medium', 'Hard'],
-        'help': "Easy=grundläggande, Medium=kräver förståelse, Hard=komplex"
+        'help': "Easy=basic, Medium=requires understanding, Hard=complex"
     },
     
     'missing_identifier': {
-        'question': "Generera identifier automatiskt?",
+        'question': "Generate identifier automatically?",
         'auto_value': "{COURSE}_{TYPE}_{QNUM}",
         'example': "BIOG_MC_Q001"
     },
     
     'missing_feedback': {
-        'question': "Saknar feedback. Vill du att jag föreslår?",
-        'options': ['Ja, föreslå', 'Nej, jag skriver själv', 'Hoppa över'],
+        'question': "Missing feedback. Would you like me to suggest?",
+        'options': ['Yes, suggest', 'No, I will write myself', 'Skip'],
     },
     
     'ambiguous_type': {
-        'question': "Kan inte avgöra frågetyp. Vilket är det?",
-        'options': ['multiple_choice_single', 'multiple_response', 'text_entry', 'inline_choice', 'match', 'Annan'],
+        'question': "Cannot determine question type. Which is it?",
+        'options': ['multiple_choice_single', 'multiple_response', 'text_entry', 'inline_choice', 'match', 'Other'],
     },
     
     'image_missing': {
-        'question': "Bildfil '{filename}' hittades inte. Var finns den?",
+        'question': "Image file '{filename}' not found. Where is it?",
         'allow_path_input': True,
         'allow_skip': True,
     },
     
     'batch_apply': {
-        'question': "Samma fix kan appliceras på {count} liknande frågor. Applicera på alla?",
-        'options': ['Ja, alla', 'Låt mig välja', 'Nej, bara denna'],
+        'question': "Same fix can be applied to {count} similar questions. Apply to all?",
+        'options': ['Yes, all', 'Let me choose', 'No, this one only'],
         'show_preview': True,
     }
 }
 
 def get_prompt(prompt_id: str, **kwargs) -> dict:
-    """Hämta prompt med interpolerade värden."""
+    """Get prompt with interpolated values."""
     prompt = PROMPTS[prompt_id].copy()
     prompt['question'] = prompt['question'].format(**kwargs)
     return prompt
@@ -320,11 +320,11 @@ def get_prompt(prompt_id: str, **kwargs) -> dict:
 
 ---
 
-## FIL 4: analyzer.py (Hitta problem)
+## FILE 4: analyzer.py (Find problems)
 
 ```python
 """
-Analysera fråga och hitta vad som saknas/är fel.
+Analyse question and find what is missing/wrong.
 """
 
 from .field_map import REQUIRED_METADATA, TYPE_REQUIRED_FIELDS, FEEDBACK_SUBFIELDS
@@ -341,26 +341,26 @@ class Issue:
         self.current = current
         self.suggestion = suggestion
         self.auto_fixable = auto_fixable
-        self.prompt_id = prompt_id  # för user_prompts
+        self.prompt_id = prompt_id  # for user_prompts
 
-def analyze_question(question_text: str, question_type: str = None) -> List[Issue]:
+def analyse_question(question_text: str, question_type: str = None) -> List[Issue]:
     """
-    Analysera en fråga och returnera lista av issues.
+    Analyse a question and return list of issues.
     """
     issues = []
     
-    # 1. Kontrollera metadata
+    # 1. Check metadata
     for meta in REQUIRED_METADATA:
         pattern = f"^\\{meta}\\s+" if meta.startswith('^') else f"^{meta}\\s+"
         if not re.search(pattern, question_text, re.MULTILINE):
-            # Kolla om gammal syntax finns
+            # Check if old syntax exists
             old_pattern = meta.replace('^', '@') + ':'
             if re.search(old_pattern, question_text):
                 issues.append(Issue(
                     severity='critical',
                     category='old_syntax',
                     field=meta,
-                    message=f"Gammal syntax '{old_pattern}' ska vara '{meta}'",
+                    message=f"Old syntax '{old_pattern}' should be '{meta}'",
                     auto_fixable=True
                 ))
             else:
@@ -374,12 +374,12 @@ def analyze_question(question_text: str, question_type: str = None) -> List[Issu
                     severity='critical',
                     category='missing_metadata',
                     field=meta,
-                    message=f"Saknar {meta}",
+                    message=f"Missing {meta}",
                     auto_fixable=(meta == '^identifier'),
                     prompt_id=prompt_id
                 ))
     
-    # 2. Kontrollera Bloom + Difficulty i labels
+    # 2. Check Bloom + Difficulty in labels
     labels_match = re.search(r'\^labels\s+(.+)$', question_text, re.MULTILINE)
     if labels_match:
         labels = labels_match.group(1)
@@ -394,7 +394,7 @@ def analyze_question(question_text: str, question_type: str = None) -> List[Issu
                 severity='critical',
                 category='incomplete_labels',
                 field='^labels',
-                message="Labels saknar Bloom-nivå",
+                message="Labels missing Bloom level",
                 prompt_id='missing_bloom'
             ))
         if not has_diff:
@@ -402,11 +402,11 @@ def analyze_question(question_text: str, question_type: str = None) -> List[Issu
                 severity='critical',
                 category='incomplete_labels', 
                 field='^labels',
-                message="Labels saknar svårighetsgrad",
+                message="Labels missing difficulty",
                 prompt_id='missing_difficulty'
             ))
     
-    # 3. Kontrollera type-specifika fields
+    # 3. Check type-specific fields
     if question_type and question_type in TYPE_REQUIRED_FIELDS:
         for field in TYPE_REQUIRED_FIELDS[question_type]:
             if not re.search(f"@field:\\s*{field}", question_text):
@@ -414,10 +414,10 @@ def analyze_question(question_text: str, question_type: str = None) -> List[Issu
                     severity='critical',
                     category='missing_field',
                     field=field,
-                    message=f"Saknar @field: {field}"
+                    message=f"Missing @field: {field}"
                 ))
     
-    # 4. Kontrollera options-format (numrerade istället för bokstäver)
+    # 4. Check options format (numbered instead of letters)
     if re.search(r'@field:\s*options', question_text):
         options_section = extract_field(question_text, 'options')
         if options_section and re.search(r'^\d+[.)]\s', options_section, re.MULTILINE):
@@ -425,11 +425,11 @@ def analyze_question(question_text: str, question_type: str = None) -> List[Issu
                 severity='critical',
                 category='wrong_format',
                 field='options',
-                message="Alternativ numrerade (1,2,3) istället för bokstäver (A,B,C)",
+                message="Options numbered (1,2,3) instead of letters (A,B,C)",
                 auto_fixable=True
             ))
     
-    # 5. Kontrollera @end_field
+    # 5. Check @end_field
     field_starts = len(re.findall(r'@field:', question_text))
     field_ends = len(re.findall(r'@end_field', question_text))
     if field_starts > field_ends:
@@ -437,14 +437,14 @@ def analyze_question(question_text: str, question_type: str = None) -> List[Issu
             severity='critical',
             category='structure',
             field='@end_field',
-            message=f"Saknar {field_starts - field_ends} st @end_field",
+            message=f"Missing {field_starts - field_ends} @end_field marker(s)",
             auto_fixable=True
         ))
     
     return issues
 
 def extract_field(text: str, field_name: str) -> str:
-    """Extrahera innehåll av ett field."""
+    """Extract content of a field."""
     pattern = f"@field:\\s*{field_name}\\s*\\n(.*?)(?=@end_field|@field:|$)"
     match = re.search(pattern, text, re.DOTALL)
     return match.group(1) if match else None
@@ -452,26 +452,26 @@ def extract_field(text: str, field_name: str) -> str:
 
 ---
 
-## SAMMANFATTNING: Mindre kod, samma funktionalitet
+## SUMMARY: Less code, same functionality
 
-| Tidigare (TYPE REQUIREMENTS) | Nu (Förenklad) |
-|------------------------------|----------------|
-| 5 stora YAML-filer (500+ rader var) | 4 Python-filer (~150 rader var) |
-| Duplicerar info från XML | Använder XML som källa |
-| Svårt att underhålla | En plats för varje sak |
-| Complete examples i YAML | Examples i XML templates |
+| Previously (TYPE REQUIREMENTS) | Now (Simplified) |
+|--------------------------------|------------------|
+| 5 large YAML files (500+ lines each) | 4 Python files (~150 lines each) |
+| Duplicates info from XML | Uses XML as source |
+| Difficult to maintain | One place for each thing |
+| Complete examples in YAML | Examples in XML templates |
 
-**Total kod: ~600 rader istället för ~3000 rader**
+**Total code: ~600 lines instead of ~3000 lines**
 
 ---
 
-## NÄSTA STEG
+## NEXT STEPS
 
-1. ✅ Design klar (detta dokument)
-2. ⏳ Implementera transforms.py
-3. ⏳ Implementera analyzer.py  
-4. ⏳ Implementera MCP tools
-5. ⏳ Testa på EXAMPLE_COURSE_Fys_v63.md
+1. ✅ Design complete (this document)
+2. ⏳ Implement transforms.py
+3. ⏳ Implement analyzer.py  
+4. ⏳ Implement MCP tools
+5. ⏳ Test on EXAMPLE_COURSE_Fys_v63.md
 
 ---
 

@@ -1,20 +1,20 @@
 # RFC-012 Image Path Verification
 
-**Datum:** 2026-01-24
-**Testat av:** Claude Code (Opus 4.5)
-**Status:** ✅ VERIFIED - Scripts löser RFC-012 buggen
+**Date:** 2026-01-24
+**Tested by:** Claude Code (Opus 4.5)
+**Status:** ✅ VERIFIED - Scripts solve the RFC-012 bug
 
 ---
 
-## Syfte
+## Purpose
 
-Verifiera att manuella scripts (`qti-core/scripts/`) korrekt tillämpar `apply_resource_mapping()` för att lösa den kritiska buggen i RFC-012.
+Verify that manual scripts (`qti-core/scripts/`) correctly apply `apply_resource_mapping()` to solve the critical bug in RFC-012.
 
 ---
 
 ## Test Setup
 
-**Testfil:** `tests/fixtures/v65/image_test.md`
+**Test file:** `tests/fixtures/v65/image_test.md`
 
 ```markdown
 @field: question_text
@@ -26,7 +26,7 @@ What color is the pixel?
 @end_field
 ```
 
-**Bilder:**
+**Images:**
 - `test_image.png` (1x1 pixel PNG)
 - `feedback_image.png` (1x1 pixel PNG)
 
@@ -66,7 +66,7 @@ python3 scripts/step5_create_zip.py
 
 ## Critical Verification
 
-### XML Content (rad 35 i IMG_TEST_Q001-item.xml)
+### XML Content (line 35 in IMG_TEST_Q001-item.xml)
 
 ```xml
 <img src="resources/IMG_TEST_Q001_test_image.png" alt="Test Diagram"/>
@@ -99,28 +99,28 @@ image_test.zip
 
 ## Conclusion
 
-### ✅ VERIFIED: Scripts löser RFC-012 buggen
+### ✅ VERIFIED: Scripts solve the RFC-012 bug
 
-**Vad scripts gör korrekt:**
-1. `step3_copy_resources.py` - Kopierar och döper om bilder med question ID prefix
-2. `step4_generate_xml.py` - Kör `apply_resource_mapping()` som uppdaterar alla bildpaths i XML
+**What scripts do correctly:**
+1. `step3_copy_resources.py` - Copies and renames images with question ID prefix
+2. `step4_generate_xml.py` - Runs `apply_resource_mapping()` which updates all image paths in XML
 
-**Vad MCP pipeline saknar (buggen):**
-- Pipeline anropar ALDRIG `apply_resource_mapping()` efter `copy_resources()`
-- Därför har XML fortfarande gamla paths (`test_image.png` istället för `resources/IMG_TEST_Q001_test_image.png`)
+**What MCP pipeline is missing (the bug):**
+- Pipeline NEVER calls `apply_resource_mapping()` after `copy_resources()`
+- Therefore XML still has old paths (`test_image.png` instead of `resources/IMG_TEST_Q001_test_image.png`)
 
 ### Recommendation
 
-**Implementera RFC-012 Phase 1:** Låt MCP pipeline köra scripts via subprocess.
-- Detta garanterar att `apply_resource_mapping()` körs
-- Inga kodändringar i scripts krävs
-- Output blir identisk med manuell körning
+**Implement RFC-012 Phase 1:** Let MCP pipeline run scripts via subprocess.
+- This guarantees that `apply_resource_mapping()` runs
+- No code changes required in scripts
+- Output becomes identical to manual execution
 
 ---
 
 ## Files Created During Test
 
-- `tests/fixtures/v65/image_test.md` - Testfil med bildref
+- `tests/fixtures/v65/image_test.md` - Test file with image reference
 - `tests/fixtures/v65/test_image.png` - Test PNG
 - `tests/fixtures/v65/feedback_image.png` - Test PNG
 - `output/image_test/` - Generated output (can be deleted)

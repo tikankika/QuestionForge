@@ -2,6 +2,18 @@
 
 All notable changes to QuestionForge will be documented in this file.
 
+## [0.1.1] - 2026-02-08
+
+### Changed
+
+#### Language Review: Swedish to British English
+- **Scope:** Reviewed ~80 files across docs/, CLAUDE.md, CONTRIBUTING.md, README.md
+- **Translated:** 24 files from Swedish to British English (996 lines changed)
+- **Files include:** ADRs, RFCs, specs, workflows, guides, and project root docs
+- **Convention:** British English throughout (analyse, behaviour, organise)
+- **Preserved:** Swedish UI strings marked with `(Swedish UI)` kept as-is
+- **Remaining:** Code comments (low priority), archived workflows, methodology/ (separate project)
+
 ## [0.1.0] - 2026-02-03
 
 First public release.
@@ -58,7 +70,7 @@ First public release.
 - **Fallback chain:**
   1. Explicit `output_name` parameter (e.g., "Ma2b_Prov_VT2025")
   2. Project folder name (if session active)
-  3. Input file stem (original behavior)
+  3. Input file stem (original behaviour)
 - **Purpose:** Control ZIP filename and name shown in Inspera
 - **Files:** `packages/qf-pipeline/src/qf_pipeline/server.py`
 
@@ -886,7 +898,7 @@ M5 → Step 2 → Router → Step 3 → Step 4
 - A.7: Manual testing commands
 
 #### Roadmap: qti-core Refactoring (Future RFC)
-- **Added:** "Teknisk Skuld / Framtida Förbättringar" section to ROADMAP.md
+- **Added:** "Technical Debt / Future Improvements" section to ROADMAP.md
 - **RFC-XXX:** Plan for cleaning up qti-core internal structure
   - Currently: Files loose in root (`validate_mqg_format.py`, `main.py`)
   - Proposed: Organized under `src/` (validator/, parser/, generator/, packager/)
@@ -1115,9 +1127,9 @@ M5 → Step 2 → Router → Step 3 → Step 4
 - **Status:** RFC-001 Phase 2 marked complete
 
 #### RFC-001: Unified Logging - IMPLEMENTED
-- **Status:** RFC-001 markerad som Implemented (alla faser klara)
-- **Removed:** Phase 3 (Migration) - behövs inte för nya projekt
-- **Final structure:** 3 faser (Python Logger, TypeScript Logger, Schema Validation)
+- **Status:** RFC-001 marked as Implemented (all phases complete)
+- **Removed:** Phase 3 (Migration) - not needed for new projects
+- **Final structure:** 3 phases (Python Logger, TypeScript Logger, Schema Validation)
 
 #### RFC-002: QFMD Naming - IMPLEMENTED
 - **Renamed:** FormatLevel enum values in `detector.py`

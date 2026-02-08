@@ -38,14 +38,14 @@ Current entry points assume a specific workflow:
 ```python
 step0_start(
     entry_point="questions",
-    source_file="source_converted.md",    # Markdown (efter MarkItDown-konvertering)
+    source_file="source_converted.md",    # Markdown (after MarkItDown conversion)
     resources_folder="/path/to/images/",  # Optional: accompanying resources
     output_folder="/path/to/projects",
     project_name="Matematik_Prov1"        # Optional
 )
 ```
 
-**OBS:** `source_file` ska vara markdown. Claude konverterar via MarkItDown MCP FÖRE step0_start.
+**NOTE:** `source_file` should be markdown. Claude converts via MarkItDown MCP BEFORE step0_start.
 
 ### Supported Formats
 
@@ -84,36 +84,36 @@ Matematik_Prov1_abc123/
 
 ### Decision 1: Input Format & Conversion
 
-**DECIDED:** QuestionForge tar emot **markdown**. För andra format, använd befintliga verktyg.
+**DECIDED:** QuestionForge accepts **markdown**. For other formats, use existing tools.
 
 **Input:**
 ```
-questions entry point → tar emot markdown-fil
+questions entry point → accepts markdown file
 ```
 
-**Har läraren PDF/docx?** Använd `qf-scaffolding:read_materials`:
+**Does the teacher have PDF/docx?** Use `qf-scaffolding:read_materials`:
 
 ```python
-# Steg 1: Läs PDF/docx med read_materials
-content = read_materials(project_path, filename="prov.pdf")
-# → Returnerar extraherad text
+# Step 1: Read PDF/docx with read_materials
+content = read_materials(project_path, filename="exam.pdf")
+# → Returns extracted text
 
-# Steg 2: Spara som markdown
+# Step 2: Save as markdown
 write_project_file(project_path, "questions/source.md", content)
 
-# Steg 3: Starta questions workflow
+# Step 3: Start questions workflow
 step0_start(entry_point="questions", source_file="questions/source.md")
 ```
 
-**Alternativt:** Använd `markitdown` CLI i terminal:
+**Alternatively:** Use `markitdown` CLI in terminal:
 ```bash
-markitdown prov.docx > source.md
+markitdown exam.docx > source.md
 ```
 
-**Fördelar:**
-- Återanvänder befintligt verktyg (`read_materials`)
-- Inga nya dependencies
-- Enkelt och fungerar idag
+**Benefits:**
+- Reuses existing tool (`read_materials`)
+- No new dependencies
+- Simple and works today
 
 ### Decision 2: Resource Linking in QFMD
 
@@ -140,11 +140,11 @@ Se på diagrammet nedan och identifiera delen märkt X:
 | Type | Syntax | Example |
 |------|--------|---------|
 | Image | `![alt](resources/file.png)` | `![Diagram](resources/fig1.png)` |
-| Audio | `[audio](resources/file.mp3)` | `[Lyssna](resources/question5.mp3)` |
-| Video | `[video](resources/file.mp4)` | `[Se klipp](resources/experiment.mp4)` |
-| PDF ref | `[pdf](resources/file.pdf)` | `[Referens](resources/table.pdf)` |
+| Audio | `[audio](resources/file.mp3)` | `[Listen](resources/question5.mp3)` |
+| Video | `[video](resources/file.mp4)` | `[Watch clip](resources/experiment.mp4)` |
+| PDF ref | `[pdf](resources/file.pdf)` | `[Reference](resources/table.pdf)` |
 
-**Export behavior:**
+**Export behaviour:**
 - QTI exporter resolves paths relative to `questions/resources/`
 - Resources embedded in QTI package
 - Validates resource existence before export
@@ -156,7 +156,7 @@ Se på diagrammet nedan och identifiera delen märkt X:
 | Parameter | PDF Interpretation |
 |-----------|-------------------|
 | `source_file="questions.pdf"` | Questions document → `questions/source_original.pdf` |
-| `resources_folder="./bilder/"` containing `ref.pdf` | Resource → `questions/resources/ref.pdf` |
+| `resources_folder="./images/"` containing `ref.pdf` | Resource → `questions/resources/ref.pdf` |
 
 **Rule:** `source_file` is ALWAYS questions. Files in `resources_folder` are ALWAYS resources.
 
@@ -173,7 +173,7 @@ Se på diagrammet nedan och identifiera delen märkt X:
 │  ───────────────         ───────────            ────────        │
 │  docx → markdown         markdown → QFMD        QFMD → QTI      │
 │  xlsx → markdown         format detection       validation      │
-│  pdf  → markdown         field normalization    export          │
+│  pdf  → markdown         field normalisation    export          │
 │                          self-learning                          │
 │                                                                 │
 │  [Technical conversion]  [Format recognition]   [Export]        │
@@ -188,17 +188,17 @@ Se på diagrammet nedan och identifiera delen märkt X:
 
 ### Error Scenarios
 
-| Scenario | Behavior | User Message |
+| Scenario | Behaviour | User Message |
 |----------|----------|--------------|
-| Source file not found | ABORT | `"Källfil hittades inte: {path}"` |
-| Source file unreadable | ABORT | `"Kan inte läsa källfil: åtkomst nekad"` |
-| Source file not markdown | WARNING | `"⚠️ Källfil är inte markdown. Claude bör konvertera via MarkItDown MCP först."` |
-| Resources folder not found | CONTINUE (warning) | `"⚠️ Resursmapp hittades inte, fortsätter utan resurser"` |
-| Resource file too large (>50MB) | SKIP file (warning) | `"⚠️ Hoppade över 'video.mp4' (85MB > 50MB gräns)"` |
-| Total resources too large (>500MB) | ABORT | `"Totala resurser 650MB överskrider 500MB gräns"` |
-| Duplicate resource names | ABORT | `"Dublett: 'fig1.png' finns redan i resursmappen"` |
+| Source file not found | ABORT | `"Source file not found: {path}"` |
+| Source file unreadable | ABORT | `"Cannot read source file: access denied"` |
+| Source file not markdown | WARNING | `"⚠️ Source file is not markdown. Claude should convert via MarkItDown MCP first."` |
+| Resources folder not found | CONTINUE (warning) | `"⚠️ Resources folder not found, continuing without resources"` |
+| Resource file too large (>50MB) | SKIP file (warning) | `"⚠️ Skipped 'video.mp4' (85MB > 50MB limit)"` |
+| Total resources too large (>500MB) | ABORT | `"Total resources 650MB exceeds 500MB limit"` |
+| Duplicate resource names | ABORT | `"Duplicate: 'fig1.png' already exists in resources folder"` |
 
-**OBS:** Konverteringsfel hanteras av Claude + MarkItDown MCP, inte av qf-pipeline.
+**NOTE:** Conversion errors are handled by Claude + MarkItDown MCP, not by qf-pipeline.
 
 ### Resource Limits
 
@@ -243,72 +243,72 @@ except Exception as e:
 
 ## Workflow
 
-### Komplett Workflow (Claude Orkestrerar)
+### Complete Workflow (Claude Orchestrates)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  STEG 1: Lärare ber om hjälp                                                │
+│  STEP 1: Teacher requests help                                              │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  Lärare: "Jag har ett prov i PDF-format som jag vill göra om till Inspera" │
-│          📎 Fil: /Nextcloud/Courses/Matematik/prov.pdf                      │
-│          📎 Bilder: /Nextcloud/Courses/Matematik/bilder/                    │
+│  Teacher: "I have an exam in PDF format I want to convert to Inspera"       │
+│          📎 File: /Nextcloud/Courses/Mathematics/exam.pdf                   │
+│          📎 Images: /Nextcloud/Courses/Mathematics/images/                  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  STEG 2: Claude läser PDF med read_materials                                │
+│  STEP 2: Claude reads PDF with read_materials                               │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  Claude: "Jag läser PDF-filen..."                                           │
+│  Claude: "Reading the PDF file..."                                          │
 │                                                                             │
-│  → qf-scaffolding: read_materials(project_path, filename="prov.pdf")       │
-│  → Får tillbaka extraherad text                                             │
-│  → Sparar till: questions/source.md                                         │
+│  → qf-scaffolding: read_materials(project_path, filename="exam.pdf")        │
+│  → Returns extracted text                                                   │
+│  → Saves to: questions/source.md                                            │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  STEG 3: Claude skapar QF-projekt med qf-pipeline MCP                       │
+│  STEP 3: Claude creates QF project with qf-pipeline MCP                     │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│  → Anropar qf-pipeline: step0_start(                                        │
+│  → Calls qf-pipeline: step0_start(                                          │
 │        entry_point="questions",                                             │
 │        source_file="questions/source.md",                                   │
-│        resources_folder="/Nextcloud/.../bilder/"                            │
+│        resources_folder="/Nextcloud/.../images/"                            │
 │     )                                                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  STEG 4: qf-pipeline returnerar projektinfo                                 │
+│  STEP 4: qf-pipeline returns project info                                   │
 │  ─────────────────────────────────────────────────────────────────────────  │
-│ ✅ PROJEKT SKAPAT                                                           │
-│ 📁 Projekt: Matematik_Prov1_abc123/                                         │
-│ 📄 Frågor:  questions/source_converted.md                                   │
-│ 🖼️  Resurser: questions/resources/ (8 filer, 2.3 MB)                        │
+│ ✅ PROJECT CREATED                                                          │
+│ 📁 Project: Matematik_Prov1_abc123/                                         │
+│ 📄 Questions: questions/source_converted.md                                 │
+│ 🖼️  Resources: questions/resources/ (8 files, 2.3 MB)                       │
 │                                                                             │
 │ ════════════════════════════════════════════════════════════════════════   │
-│ 📋 VAD VILL DU GÖRA MED FRÅGORNA?                                           │
+│ 📋 WHAT DO YOU WANT TO DO WITH THE QUESTIONS?                               │
 │ ────────────────────────────────────────────────────────────────────────── │
 │                                                                             │
 │ ┌─────────────────────────────────────────────────────────────────────┐    │
-│ │ 1️⃣  DEFINIERA TAXONOMI (→ M2)                                       │    │
-│ │     Välj detta om frågorna saknar taggar/kategorier                 │    │
+│ │ 1️⃣  DEFINE TAXONOMY (→ M2)                                          │    │
+│ │     Choose this if questions lack tags/categories                   │    │
 │ ├─────────────────────────────────────────────────────────────────────┤    │
-│ │ 2️⃣  GRANSKA & METADATA (→ M4)                                       │    │
-│ │     Välj detta om frågorna behöver Bloom-nivåer, svårighetsgrad     │    │
+│ │ 2️⃣  REVIEW & METADATA (→ M4)                                        │    │
+│ │     Choose this if questions need Bloom levels, difficulty          │    │
 │ ├─────────────────────────────────────────────────────────────────────┤    │
-│ │ 3️⃣  KONVERTERA DIREKT (→ M5 → Pipeline)                             │    │
-│ │     Välj detta om frågorna redan har all metadata                   │    │
+│ │ 3️⃣  CONVERT DIRECTLY (→ M5 → Pipeline)                              │    │
+│ │     Choose this if questions already have all metadata              │    │
 │ └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                             │
-│ 💡 Tips: Berätta vad som finns i dina frågor så hjälper jag dig välja!     │
+│ 💡 Tip: Tell me what your questions contain and I will help you choose!    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Decision Criteria
 
-| Fråga | Om JA → | Om NEJ → |
-|-------|---------|----------|
-| Har frågorna taggar/kategorier? | Fortsätt | → M2 (definiera taxonomi) |
-| Har frågorna Bloom-nivåer? | Fortsätt | → M4 (lägg till) |
-| Har frågorna svårighetsgrad? | Fortsätt | → M4 (lägg till) |
-| Är formatet korrekt (QFMD-liknande)? | → M5 → Pipeline | → M5 (format-konvertering) |
+| Question | If YES → | If NO → |
+|----------|----------|----------|
+| Do questions have tags/categories? | Continue | → M2 (define taxonomy) |
+| Do questions have Bloom levels? | Continue | → M4 (add them) |
+| Do questions have difficulty levels? | Continue | → M4 (add them) |
+| Is format correct (QFMD-like)? | → M5 → Pipeline | → M5 (format conversion) |
 
 ### Decision Flow
 
@@ -327,8 +327,8 @@ except Exception as e:
                     ↓           ↓           ↓
              ┌──────────┐ ┌──────────┐ ┌──────────┐
              │   M2     │ │   M4     │ │   M5     │
-             │ Taxonomi │ │   QA     │ │  Format  │
-             │ saknas   │ │ granska  │ │ convert  │
+             │ Taxonomy │ │   QA     │ │  Format  │
+             │ missing  │ │ review   │ │ convert  │
              └────┬─────┘ └────┬─────┘ └────┬─────┘
                   │            │            │
                   └────────────┼────────────┘
@@ -367,7 +367,7 @@ except Exception as e:
     "type": "string",
     "description": "Path to folder with resources (images, audio) for questions",
 },
-# OBS: Ingen auto_convert parameter - Claude konverterar via MarkItDown MCP först
+# NOTE: No auto_convert parameter - Claude converts via MarkItDown MCP first
 ```
 
 **File:** `packages/qf-pipeline/src/qf_pipeline/utils/session_manager.py`
@@ -381,21 +381,21 @@ def create_session_for_questions(
 ) -> Session:
     """Create session for 'questions' entry point.
 
-    OBS: source_file ska vara markdown (Claude konverterar via MarkItDown MCP först).
+    NOTE: source_file should be markdown (Claude converts via MarkItDown MCP first).
     """
 
     # Validate source file exists
     if not source_file.exists():
-        raise FileNotFoundError(f"Källfil hittades inte: {source_file}")
+        raise FileNotFoundError(f"Source file not found: {source_file}")
 
     if not source_file.is_file():
-        raise ValueError(f"Källfil är inte en fil: {source_file}")
+        raise ValueError(f"Source file is not a file: {source_file}")
 
     # Warn if not markdown (Claude should have converted first)
     if source_file.suffix.lower() not in [".md", ".markdown"]:
         log_warning("non_markdown_source",
-            f"source_file '{source_file.name}' är inte markdown. "
-            "Claude bör konvertera via MarkItDown MCP först.")
+            f"source_file '{source_file.name}' is not markdown. "
+            "Claude should convert via MarkItDown MCP first.")
 
     project_path = None
     try:
@@ -503,7 +503,7 @@ def copy_resources(src_folder: Path, dest_folder: Path) -> dict:
 
         # Check for duplicates
         if file.name.lower() in seen_names:
-            raise ValueError(f"Dublett: '{file.name}' finns redan")
+            raise ValueError(f"Duplicate: '{file.name}' already exists")
         seen_names.add(file.name.lower())
 
         # Check extension
@@ -516,16 +516,16 @@ def copy_resources(src_folder: Path, dest_folder: Path) -> dict:
 
         if file_size_mb > RESOURCE_LIMITS["max_file_mb"]:
             skipped.append(file.name)
-            warnings.append(f"Hoppade över '{file.name}' ({file_size_mb:.1f}MB > {RESOURCE_LIMITS['max_file_mb']}MB)")
+            warnings.append(f"Skipped '{file.name}' ({file_size_mb:.1f}MB > {RESOURCE_LIMITS['max_file_mb']}MB)")
             continue
 
         if file_size_mb > RESOURCE_LIMITS["warn_file_mb"]:
-            warnings.append(f"'{file.name}' är {file_size_mb:.1f}MB (stor fil)")
+            warnings.append(f"'{file.name}' is {file_size_mb:.1f}MB (large file)")
 
         # Check total size
         if total_size + file.stat().st_size > RESOURCE_LIMITS["max_total_mb"] * 1024 * 1024:
             raise ValueError(
-                f"Totala resurser överskrider {RESOURCE_LIMITS['max_total_mb']}MB gräns"
+                f"Total resources exceed {RESOURCE_LIMITS['max_total_mb']}MB limit"
             )
 
         # Copy file
@@ -543,33 +543,33 @@ def copy_resources(src_folder: Path, dest_folder: Path) -> dict:
     }
 ```
 
-### Phase 3: Dokumentkonvertering (Befintliga verktyg)
+### Phase 3: Document Conversion (Existing Tools)
 
-**Ingen ny installation krävs.** Använd befintliga verktyg:
+**No new installation required.** Use existing tools:
 
-| Format | Verktyg | Kommentar |
-|--------|---------|-----------|
-| PDF | `qf-scaffolding:read_materials` | Redan implementerat |
-| DOCX | `markitdown` CLI (terminal) | Installeras separat om behövs |
-| Markdown | Direkt input | Ingen konvertering |
+| Format | Tool | Comment |
+|--------|------|---------|
+| PDF | `qf-scaffolding:read_materials` | Already implemented |
+| DOCX | `markitdown` CLI (terminal) | Install separately if needed |
+| Markdown | Direct input | No conversion |
 
-**Exempel med read_materials:**
+**Example with read_materials:**
 ```python
-# Claude läser PDF
-content = read_materials(project_path, filename="prov.pdf")
+# Claude reads PDF
+content = read_materials(project_path, filename="exam.pdf")
 
-# Claude sparar som markdown
+# Claude saves as markdown
 write_project_file(project_path, "questions/source.md", content.text_content)
 
-# Claude startar questions workflow
+# Claude starts questions workflow
 step0_start(entry_point="questions", source_file="questions/source.md")
 ```
 
-**Alternativ: markitdown CLI** (om docx eller bättre formatering behövs)
+**Alternative: markitdown CLI** (if docx or better formatting is needed)
 ```bash
-# I terminal
+# In terminal
 pip install markitdown[all]
-markitdown prov.docx > source.md
+markitdown exam.docx > source.md
 ```
 
 ---
@@ -584,10 +584,10 @@ session:
   created_at: "2026-01-29T15:30:00Z"
 
   source:
-    # OBS: Filen är redan markdown (Claude konverterade via MarkItDown MCP)
+    # NOTE: File is already markdown (Claude converted via MarkItDown MCP)
     file: "questions/source_converted.md"
     original_format: "md"
-    # Original-filen (docx/pdf) ligger kvar i Nextcloud, inte kopierad hit
+    # Original file (docx/pdf) remains in Nextcloud, not copied here
 
   resources:
     folder: "questions/resources/"
@@ -599,7 +599,7 @@ session:
       - "notes.txt"
       - "backup.zip"
     warnings:
-      - "video.mp4 är 45MB (stor fil)"
+      - "video.mp4 is 45MB (large file)"
     files:  # First 20 shown
       - "figur1.png"
       - "figur2.png"
@@ -623,20 +623,20 @@ session:
 ## User Stories (Updated)
 
 ### US-1: Teacher with Word Document
-> "Jag har ett prov i Word-format med 20 frågor. Frågorna har svar men saknar Bloom-nivåer."
+> "I have an exam in Word format with 20 questions. The questions have answers but lack Bloom levels."
 
-1. `step0_start(entry_point="questions", source_file="prov.docx")`
+1. `step0_start(entry_point="questions", source_file="exam.docx")`
 2. System auto-converts docx → markdown
-3. System analyzes and detects: "20 frågor, saknar Bloom-nivåer"
-4. System suggests: "Frågorna behöver metadata → Använd M4"
+3. System analyses and detects: "20 questions, missing Bloom levels"
+4. System suggests: "Questions need metadata → Use M4"
 5. Teacher CHOOSES M4 (or can override to M2 or M5)
 6. Teacher runs M4 to add Bloom levels
 7. Then M5 → Pipeline → QTI export
 
 ### US-2: Teacher with Excel + Images
-> "Jag har en frågebank i Excel och en mapp med bilder som används i frågorna."
+> "I have a question bank in Excel and a folder with images used in the questions."
 
-1. `step0_start(entry_point="questions", source_file="bank.xlsx", resources_folder="./bilder/")`
+1. `step0_start(entry_point="questions", source_file="bank.xlsx", resources_folder="./images/")`
 2. System copies and converts:
    - `questions/source_original.xlsx`
    - `questions/source_converted.md`
@@ -645,12 +645,12 @@ session:
 4. Then M5 → Pipeline → QTI export (resources embedded)
 
 ### US-3: Teacher with Complete Markdown Questions
-> "Jag har frågor i markdown-format med all metadata. Vill bara exportera."
+> "I have questions in markdown format with all metadata. Just want to export."
 
-1. `step0_start(entry_point="questions", source_file="fragor.md")`
+1. `step0_start(entry_point="questions", source_file="questions.md")`
 2. System detects markdown, skips conversion
-3. System analyzes: "Frågorna ser kompletta ut (har Bloom, difficulty, tags)"
-4. System suggests: "Direkt till M5 för format-validering"
+3. System analyses: "Questions appear complete (have Bloom, difficulty, tags)"
+4. System suggests: "Direct to M5 for format validation"
 5. M5 validates → Pipeline Step 2 → Step 3 → Step 4 → QTI export
 
 ---
@@ -747,7 +747,7 @@ mkdir -p $TEST_DIR
 
 # Create realistic test markdown (simulating converted content)
 cat > $TEST_DIR/questions.md << 'MARKDOWN'
-# Prov: Matematik Grund
+# Exam: Mathematics Basics
 
 ---
 
@@ -757,7 +757,7 @@ cat > $TEST_DIR/questions.md << 'MARKDOWN'
 ^difficulty medium
 
 # Stem
-Vad är 2 + 2?
+What is 2 + 2?
 
 # Options
 * 3
@@ -773,7 +773,7 @@ Vad är 2 + 2?
 ^difficulty easy
 
 # Stem
-Beräkna arean av en rektangel med sidorna 3 och 4.
+Calculate the area of a rectangle with sides 3 and 4.
 
 # Options
 * 7
@@ -791,7 +791,7 @@ echo "=== Step 1: Create project ==="
 echo "=== Step 2: M5 processing ==="
 # m5_start(project_path="...")
 # m5_detect_format()  → Detects QFMD-like format
-# m5_analyze()        → Parses 2 questions
+# m5_analyse()        → Parses 2 questions
 # m5_approve()        → Teacher approves
 # m5_finish()         → Saves m5_output.md
 
@@ -815,10 +815,10 @@ echo "✅ Test 3 workflow documented"
 | 4 | Error handling + rollback | 0.5h |
 | 5 | Integration testing | 1h |
 | **Subtotal qf-pipeline** | | **5h** |
-| 6 | MarkItDown MCP installation (separat) | 1h |
+| 6 | MarkItDown MCP installation (separate) | 1h |
 | **Total** | | **6h** |
 
-**OBS:** Konverteringslogik är nu i MarkItDown MCP (separat), inte i qf-pipeline.
+**NOTE:** Conversion logic is now in MarkItDown MCP (separate), not in qf-pipeline.
 
 ---
 
@@ -827,19 +827,19 @@ echo "✅ Test 3 workflow documented"
 RFC-017 introduces:
 1. **New entry point `questions`** for existing questions (markdown format)
 2. **`resources_folder` parameter** for accompanying images/audio
-3. **Återanvändning av `read_materials`** för PDF-läsning (ingen ny kod)
+3. **Reuse of `read_materials`** for PDF reading (no new code)
 4. **Flexible routing** to M2, M4, or M5 based on teacher needs
 5. **`questions/resources/` folder** in project structure
 6. **Resource linking syntax** in QFMD: `![](resources/filename)`
 7. **Comprehensive error handling** with rollback on failure
 
-**Arkitektur:**
-- `qf-scaffolding:read_materials`: läser PDF → text (befintligt verktyg)
-- `markitdown` CLI (valfritt): docx/xlsx → markdown (extern, terminal)
-- qf-pipeline: tar emot markdown, hanterar resurser, kör M5 → Pipeline
+**Architecture:**
+- `qf-scaffolding:read_materials`: reads PDF → text (existing tool)
+- `markitdown` CLI (optional): docx/xlsx → markdown (external, terminal)
+- qf-pipeline: accepts markdown, handles resources, runs M5 → Pipeline
 
 This fills the gap for teachers who have existing questions but don't fit the current M1→M2→M3→M4→Pipeline workflow.
 
 ---
 
-*RFC-017 created 2026-01-29, updated 2026-01-31 (Förenklad: återanvänd read_materials, markitdown valfritt)*
+*RFC-017 created 2026-01-29, updated 2026-01-31 (Simplified: reuse read_materials, markitdown optional)*

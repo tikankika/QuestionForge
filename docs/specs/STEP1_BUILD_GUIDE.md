@@ -1,25 +1,25 @@
 # STEP 1: GUIDED BUILD - BUILD GUIDE
 
-**START HERE** - Detta dokument är ingångspunkten för att bygga Step 1.
+**START HERE** - This document is the entry point for building Step 1.
 
 ---
 
 ## WHAT TO BUILD
 
-Ett Python MCP-verktyg som hjälper lärare transformera quiz-frågor från olika format till valid v6.5 markdown genom interaktiv dialog.
+A Python MCP tool that helps teachers transform quiz questions from various formats to valid v6.5 markdown through interactive dialogue.
 
 ```
-INPUT:  Markdown med frågor (varierade format)
+INPUT:  Markdown with questions (various formats)
         └── v6.3 syntax (@question:, **Correct:**)
         └── Semi-structured (## Headers, **Type**:)
         
-OUTPUT: Valid v6.5 markdown (redo för export)
+OUTPUT: Valid v6.5 markdown (ready for export)
         └── ^metadata syntax
-        └── @field: struktur
+        └── @field: structure
         └── @end_field markers
 
-METHOD: Fråga-för-fråga med lärar-verifikation
-        └── Detektera → Analysera → Fixa → Bekräfta
+METHOD: Question-by-question with teacher verification
+        └── Detect → Analyse → Fix → Confirm
 ```
 
 ---

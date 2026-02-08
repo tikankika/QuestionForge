@@ -35,15 +35,15 @@ qf-scaffolding is a methodology guidance MCP that helps teachers create assessme
 │                                                                              │
 │  qf-pipeline (Python)              qf-scaffolding (TypeScript)              │
 │  ──────────────────────            ─────────────────────────────            │
-│  init ←─────────────────────────→  init (SAMMA output)                      │
-│  step0_start (skapar session)      (läser session.yaml)                     │
+│  init ←─────────────────────────→  init (SAME output)                      │
+│  step0_start (creates session)      (reads session.yaml)                     │
 │  step0_status                      module_status                            │
 │  step1_* (guided build)            list_modules                             │
 │  step2_* (validate)                load_stage                               │
 │  step4_* (export)                                                           │
 │                                                                              │
 │          ↓                                   ↓                               │
-│     session.yaml ←───── DELAD ──────→ session.yaml                          │
+│     session.yaml ←───── SHARED ──────→ session.yaml                          │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -52,24 +52,24 @@ qf-scaffolding is a methodology guidance MCP that helps teachers create assessme
 
 ```
 project_name/
-├── 00_materials/           ← INPUT för M1 (undervisningsmaterial)
-├── 01_source/              ← Original markdown (från M3 eller extern)
-├── 02_working/             ← Working copy för pipeline
+├── 00_materials/           ← INPUT for M1 (instructional materials)
+├── 01_source/              ← Original markdown (from M3 or external)
+├── 02_working/             ← Working copy for pipeline
 ├── 03_output/              ← QTI export
 ├── methodology/            ← M1-M4 outputs
-│   ├── m1_objectives.md    ← Lärandemål från M1
-│   ├── m1_examples.md      ← Exempelkatalog
+│   ├── m1_objectives.md    ← Learning objectives from M1
+│   ├── m1_examples.md      ← Example catalog
 │   ├── m1_misconceptions.md
-│   ├── m2_blueprint.md     ← Blueprint från M2
-│   └── m3_questions.md     ← Genererade frågor (kopieras till 01_source)
-├── session.yaml            ← Utökad med methodology progress
+│   ├── m2_blueprint.md     ← Blueprint from M2
+│   └── m3_questions.md     ← Generated questions (copied to 01_source)
+├── session.yaml            ← Extended with methodology progress
 └── logs/                   ← Action logs
 ```
 
 ### session.yaml (Extended)
 
 ```yaml
-# ===== QF-PIPELINE (befintlig) =====
+# ===== QF-PIPELINE (existing) =====
 session_id: "abc123"
 created_at: "2026-01-14T10:30:00"
 source_file: "/path/to/questions.md"
@@ -79,7 +79,7 @@ validation_status: "pending"
 question_count: 0
 exports: []
 
-# ===== QF-SCAFFOLDING (ny) =====
+# ===== QF-SCAFFOLDING (new) =====
 methodology:
   entry_point: "materials"  # materials | objectives | blueprint | questions
   active_module: "m1"
@@ -116,93 +116,93 @@ methodology:
 ### Step 1: Common Init
 
 ```
-User: "Jag vill skapa quiz-frågor"
+User: "I want to create quiz questions"
 
-Claude: Kör init (qf-pipeline ELLER qf-scaffolding - samma output)
+Claude: Runs init (qf-pipeline OR qf-scaffolding - same output)
         ↓
-        "Vad har du att börja med?"
+        "What do you have to start with?"
         
-        A) Material (föreläsningar, slides, transkriberingar)
-           → Skapa frågor från scratch med M1-M4
+        A) Materials (lectures, slides, transcriptions)
+           → Create questions from scratch with M1-M4
            
-        B) Lärandemål / Kursplan
-           → Hoppa till M2 (Assessment Planning)
+        B) Learning Objectives / Course Plan
+           → Skip to M2 (Assessment Planning)
            
         C) Blueprint / Plan
-           → Hoppa till M3 (Question Generation)
+           → Skip to M3 (Question Generation)
            
-        D) Markdown-fil med frågor
-           → Direkt till Pipeline (validera → exportera)
+        D) Markdown file with questions
+           → Direct to Pipeline (validate → export)
 ```
 
 ### Step 2: Create Session
 
 ```
-User: Svarar A, B, C eller D
+User: Answers A, B, C or D
 
-Claude: Kör step0_start
-        - För A: materials_folder = input
-        - För B: objectives_file = input  
-        - För C: blueprint_file = input
-        - För D: source_file = markdown med frågor
+Claude: Runs step0_start
+        - For A: materials_folder = input
+        - For B: objectives_file = input  
+        - For C: blueprint_file = input
+        - For D: source_file = markdown with questions
 
-        → Session skapad!
+        → Session created!
 ```
 
 ### Step 3: Route Based on Choice
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  VAL A: Material → M1-M4 → Pipeline                                         │
+│  OPTION A: Materials → M1-M4 → Pipeline                                         │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  list_modules → Visar M1-M4                                                 │
-│  "Börja med M1?"                                                            │
+│  list_modules → Shows M1-M4                                                 │
+│  "Start with M1?"                                                            │
 │  load_stage(m1, 0) → intro                                                  │
 │  load_stage(m1, 1) → stage0 material analysis                               │
 │  ... M1 stages ...                                                          │
 │  → Output: m1_objectives.md                                                 │
 │                                                                              │
-│  "M1 klar! Fortsätt till M2?"                                               │
+│  "M1 complete! Continue to M2?"                                               │
 │  load_stage(m2, 0) → intro                                                  │
 │  ... M2 stages ...                                                          │
 │  → Output: m2_blueprint.md                                                  │
 │                                                                              │
 │  ... M3 → m3_questions.md ...                                               │
-│  ... M4 → validerade frågor ...                                             │
+│  ... M4 → validated questions ...                                             │
 │                                                                              │
-│  → Kopierar till 01_source/                                                 │
+│  → Copies to 01_source/                                                 │
 │  → step2_validate → step4_export                                            │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  VAL B: Objectives → M2-M4 → Pipeline                                       │
+│  OPTION B: Objectives → M2-M4 → Pipeline                                       │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  Hoppar M1                                                                  │
-│  load_stage(m2, 0) → börjar M2                                              │
-│  ... fortsätter som ovan ...                                                │
+│  Skips M1                                                                  │
+│  load_stage(m2, 0) → starts M2                                              │
+│  ...                                                │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  VAL C: Blueprint → M3-M4 → Pipeline                                        │
+│  OPTION C: Blueprint → M3-M4 → Pipeline                                        │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  Hoppar M1, M2                                                              │
-│  load_stage(m3, 0) → börjar M3                                              │
-│  ... fortsätter som ovan ...                                                │
+│  Skips M1, M2                                                              │
+│  load_stage(m3, 0) → starts M3                                              │
+│  ...                                                │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  VAL D: Frågor → Pipeline direkt                                            │
+│  OPTION D: Questions → Pipeline directly                                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  Hoppar M1-M4                                                               │
-│  step2_validate → validerar markdown                                        │
-│  step4_export → exporterar till QTI                                         │
+│  Skips M1-M4                                                               │
+│  step2_validate → validates markdown                                        │
+│  step4_export → exports to QTI                                         │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -214,46 +214,46 @@ Claude: Kör step0_start
 Both qf-pipeline and qf-scaffolding return the SAME init output:
 
 ```markdown
-# QuestionForge - Kritiska Instruktioner
+# QuestionForge - Critical Instructions
 
-## STEG 1: FRÅGA VAD ANVÄNDAREN HAR
+## STEP 1: ASK WHAT THE USER HAS
 
-"Vad har du att börja med?"
+"What do you have to start with?"
 
-A) **Material** (föreläsningar, slides, transkriberingar)
-   → Du vill SKAPA frågor från scratch
-   → Använd M1-M4 metodologi (qf-scaffolding)
+A) **Materials** (lectures, slides, transcriptions)
+   → You want to CREATE questions from scratch
+   → Use M1-M4 methodology (qf-scaffolding)
 
-B) **Lärandemål / Kursplan**
-   → Du har redan mål, vill planera assessment
-   → Börja M2 (qf-scaffolding)
+B) **Learning Objectives / Course Plan**
+   → You already have objectives, want to plan assessment
+   → Start M2 (qf-scaffolding)
 
 C) **Blueprint / Plan**
-   → Du har redan plan, vill generera frågor
-   → Börja M3 (qf-scaffolding)
+   → You already have a plan, want to generate questions
+   → Start M3 (qf-scaffolding)
 
-D) **Markdown-fil med frågor**
-   → Du vill VALIDERA eller EXPORTERA
-   → Använd Pipeline direkt (step2 → step4)
+D) **Markdown file with questions**
+   → You want to VALIDATE or EXPORT
+   → Use Pipeline directly (step2 → step4)
 
-## STEG 2: SKAPA SESSION
+## STEP 2: CREATE SESSION
 
-EFTER användaren svarat, kör step0_start:
-- Fråga om output_folder
-- Fråga om project_name (valfritt)
+AFTER user responds, run step0_start:
+- Ask for output_folder
+- Ask for project_name (optional)
 
-## STEG 3: VÄG BASERAT PÅ VAL
+## STEP 3: ROUTE BASED ON CHOICE
 
 A) → list_modules → load_stage(m1, 0)
 B) → list_modules → load_stage(m2, 0)  
 C) → list_modules → load_stage(m3, 0)
 D) → step2_validate → step4_export
 
-## VIKTIGT
+## IMPORTANT
 
-- VÄNTA på svar innan du fortsätter
-- GISSA INTE sökvägar
-- FRÅGA alltid vilken modul om A/B/C
+- WAIT for response before continuing
+- Do NOT guess paths
+- ALWAYS ask which module for A/B/C
 ```
 
 ---
@@ -402,8 +402,8 @@ interface LoadStageResult {
     total_stages: number;
     remaining: string[];
   };
-  requires_approval: boolean;  // true = STOP och vänta på lärare
-  approval_prompt: string;     // "Bekräfta innan nästa stage"
+  requires_approval: boolean;  // true = STOP and wait for teacher
+  approval_prompt: string;     // "Confirm before next stage"
   next_action: string;
 }
 ```
@@ -471,8 +471,8 @@ Decision pending after M4 methodology review.
 ```typescript
 // list_modules or load_stage without session:
 {
-  error: "Ingen aktiv session",
-  instruction: "Kör step0_start först (qf-pipeline)",
+  error: "No active session",
+  instruction: "Run step0_start first (qf-pipeline)",
   example: "step0_start source_file=/path output_folder=/path"
 }
 ```

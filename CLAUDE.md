@@ -80,44 +80,44 @@ QuestionForge/
 
 ## Pipeline Workflow - MANDATORY STOPS (RFC-015)
 
-**VIKTIGT:** Pipelinen har obligatoriska lärar-verifieringspunkter.
+**IMPORTANT:** The pipeline has mandatory teacher verification points.
 
-Efter VARJE steg MÅSTE du:
-1. Presentera en tydlig sammanfattning
-2. Visa vilka alternativ som finns
-3. VÄNTA på att läraren väljer
-4. GÅ INTE automatiskt vidare till nästa steg
+After EACH step you MUST:
+1. Present a clear summary
+2. Show available options
+3. WAIT for the teacher to choose
+4. DO NOT proceed automatically to the next step
 
 ```
-STOP 1: Efter M3
-  → "Här är N frågor genererade. Godkänn?"
-  → Vänta på: godkänn / visa / ändra / avbryt
+STOP 1: After M3
+  → "Here are N generated questions. Approve?"
+  → Wait for: approve / show / change / cancel
 
-STOP 2: Under M5 (varje fråga)
-  → "Fråga 1 av 5: [titel]. QFMD ser ut så här..."
-  → Vänta på: godkänn / ändra / hoppa / radera
+STOP 2: During M5 (each question)
+  → "Question 1 of 5: [title]. QFMD looks like this..."
+  → Wait for: approve / change / skip / delete
 
-STOP 3: Efter M5
-  → "Alla frågor bearbetade. Fortsätt till validering?"
-  → Vänta på: fortsätt / granska fil
+STOP 3: After M5
+  → "All questions processed. Continue to validation?"
+  → Wait for: continue / review file
 
-STOP 4: Efter Step 2
-  → "Validering klar. N fel hittade."
-  → Vänta på: fortsätt / fixa fel
+STOP 4: After Step 2
+  → "Validation complete. N errors found."
+  → Wait for: continue / fix errors
 
-STOP 5: Efter Step 3
-  → "Router rekommenderar: Question Set"
-  → Vänta på: godkänn / ändra val
+STOP 5: After Step 3
+  → "Router recommends: Question Set"
+  → Wait for: approve / change selection
 
-STOP 6: Efter Step 4
-  → "Export klar! Fil: output/xxx.zip"
-  → Klart!
+STOP 6: After Step 4
+  → "Export complete! File: output/xxx.zip"
+  → Done!
 ```
 
-**Om läraren säger:**
-- "kör" / "continue" → gå till nästa steg
-- "visa" / "show" → visa detaljer
-- "ändra" / "change" → tillåt redigering
+**If the teacher says:**
+- "run" / "continue" → go to next step
+- "show" / "view" → show details
+- "change" / "edit" → allow editing
 
 ## Key Commands
 

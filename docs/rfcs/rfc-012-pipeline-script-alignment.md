@@ -10,25 +10,25 @@
 
 ## Executive Summary
 
-**BESLUT: Hybrid Approach**
+**DECISION: Hybrid Approach**
 
-- **Phase 1 (NU):** Subprocess - Fixa kritiska buggar med minimal risk (1 dag)
-- **Phase 2 (SENARE):** Refactor - Ren arkitektur för långsiktig underhåll (3-5 dagar)
+- **Phase 1 (NOW):** Subprocess - Fix critical bugs with minimal risk (1 day)
+- **Phase 2 (LATER):** Refactor - Clean architecture for long-term maintenance (3-5 days)
 
 ---
 
 ## Problem Statement
 
-### Identifierade buggar (2026-01-22)
+### Identified Bugs (2026-01-22)
 
-| Steg | Problem | Allvarlighet |
+| Step | Problem | Severity |
 |------|---------|--------------|
-| 1 | Validering skippad i step4_export | ⚠️ Medium |
-| 6 | `apply_resource_mapping()` saknas helt | 🔴 Kritisk |
+| 1 | Validation skipped in step4_export | ⚠️ Medium |
+| 6 | `apply_resource_mapping()` missing entirely | 🔴 Critical |
 
-### Grundorsak
+### Root Cause
 
-Wrappers **reimplementerar** logiken istället för att **återanvända** scripts.
+Wrappers **re-implement** the logic instead of **reusing** scripts.
 
 ---
 
@@ -46,7 +46,7 @@ Wrappers **reimplementerar** logiken istället för att **återanvända** script
 
 ```python
 async def handle_step2_validate(arguments: dict):
-    """Kör step1_validate.py via subprocess."""
+    """Run step1_validate.py via subprocess."""
     import subprocess
     
     session = get_current_session()
@@ -76,7 +76,7 @@ async def handle_step2_validate(arguments: dict):
 
 ```python
 async def handle_step4_export(arguments: dict):
-    """Kör ALLA 5 scripts sekventiellt."""
+    """Run ALL 5 scripts sequentially."""
     import subprocess
     
     session = get_current_session()
@@ -97,7 +97,7 @@ async def handle_step4_export(arguments: dict):
     
     for i, script in enumerate(scripts, 1):
         all_output.append(f"\n{'='*70}")
-        all_output.append(f"STEG {i}/5: {script['name']}")
+        all_output.append(f"STEP {i}/5: {script['name']}")
         all_output.append(f"{'='*70}\n")
         
         result = subprocess.run(
@@ -109,7 +109,7 @@ async def handle_step4_export(arguments: dict):
         )
         
         if result.returncode != 0:
-            all_output.append(f"\n❌ FEL i {script['name']}!")
+            all_output.append(f"\n❌ ERROR in {script['name']}!")
             all_output.append(result.stderr)
             return [TextContent(type="text", text="\n".join(all_output))]
         
@@ -122,20 +122,20 @@ async def handle_step4_export(arguments: dict):
 
 ## Migration Plan
 
-### ✅ Phase 1: Subprocess (KLAR - 2026-01-24)
+### ✅ Phase 1: Subprocess (COMPLETE - 2026-01-24)
 
-- [x] Implementera subprocess i server.py
-- [x] Testa alla 5 steg (syntax + import + simulated calls)
-- [x] Verifiera att bilder fungerar (se rfc-012-image-path-verification.md)
-- [x] Dokumentera i WORKFLOW.md (Appendix A.1.2)
+- [x] Implement subprocess in server.py
+- [x] Test all 5 steps (syntax + import + simulated calls)
+- [x] Verify that images work (see rfc-012-image-path-verification.md)
+- [x] Document in WORKFLOW.md (Appendix A.1.2)
 - [x] Commit: `ac866ab` - feat(rfc-012): Replace wrappers with subprocess calls
 
-### 🔄 Phase 2: Refactor (SENARE - 3-5 dagar)
+### 🔄 Phase 2: Refactor (LATER - 3-5 days)
 
-- [ ] Refactor scripts → importerbara funktioner
-- [ ] Uppdatera server.py
+- [ ] Refactor scripts → importable functions
+- [ ] Update server.py
 - [ ] Unit tests
-- [ ] Ta bort subprocess
+- [ ] Remove subprocess
 
 ---
 

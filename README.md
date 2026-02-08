@@ -7,9 +7,9 @@
 
 ## What is QuestionForge?
 
-QuestionForge helps educators create pedagogically sound assessment questions through a structured, AI-assisted process. It bridges the gap between what was actually taught (conducted instruction) and fair assessment by analyzing teaching materials and guiding question development.
+QuestionForge helps educators create pedagogically sound assessment questions through a structured, AI-assisted process. It bridges the gap between what was actually taught (conducted instruction) and fair assessment by analysing teaching materials and guiding question development.
 
-**Key Innovation:** Most assessment tools work from curriculum documents. QuestionForge analyzes your actual teaching materials (lectures, slides, recordings) to ensure assessments match what students experienced.
+**Key Innovation:** Most assessment tools work from curriculum documents. QuestionForge analyses your actual teaching materials (lectures, slides, recordings) to ensure assessments match what students experienced.
 
 ## Features
 
@@ -64,7 +64,7 @@ QuestionForge consists of two MCP (Model Context Protocol) servers:
 
 ## Workflow Overview
 
-1. **M1: Content Analysis** - Analyze instructional materials, identify emphasis patterns
+1. **M1: Content Analysis** - Analyse instructional materials, identify emphasis patterns
 2. **M2: Assessment Design** - Define objectives, Bloom's distribution, question types
 3. **M3: Question Generation** - Create questions aligned with conducted instruction
 4. **M4: Quality Assurance** - Review, validate, refine

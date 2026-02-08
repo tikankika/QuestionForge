@@ -84,10 +84,10 @@ async def handle_step4_export(arguments: dict):
     # Include resource info in response
     return [TextContent(
         type="text",
-        text=f"QTI-paket skapat!\n"
+        text=f"QTI package created!\n"
              f"  ZIP: {result.get('zip_path')}\n"
-             f"  Frågor: {len(questions)}\n"
-             f"  Resurser: {copy_result.get('count', 0)} filer kopierade"
+             f"  Questions: {len(questions)}\n"
+             f"  Resources: {copy_result.get('count', 0)} files copied"
     )]
 ```
 

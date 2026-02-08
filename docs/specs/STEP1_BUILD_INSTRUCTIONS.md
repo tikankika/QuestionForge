@@ -1,21 +1,21 @@
 # STEP 1: GUIDED BUILD - IMPLEMENTATION INSTRUCTIONS
 
-**För:** Code/Developer  
+**For:** Code/Developer  
 **Version:** 1.0  
-**Datum:** 2026-01-07  
-**Språk:** Python 3.11+  
+**Date:** 2026-01-07  
+**Language:** Python 3.11+  
 **Location:** `/packages/qf-pipeline/src/qf_pipeline/step1/`
 
 ---
 
 ## OVERVIEW
 
-Bygg ett MCP-verktyg som hjälper lärare transformera quiz-frågor från olika input-format till valid v6.5 markdown-format genom interaktiv dialog.
+Build an MCP tool that helps teachers transform quiz questions from various input formats to valid v6.5 markdown format through interactive dialogue.
 
 ```
-INPUT:  Markdown-fil med frågor (varierade format)
-OUTPUT: Markdown-fil i valid v6.5 format
-METHOD: Fråga-för-fråga genomgång med lärar-verifikation
+INPUT:  Markdown file with questions (varied formats)
+OUTPUT: Markdown file in valid v6.5 format
+METHOD: Question-by-question walkthrough with teacher verification
 ```
 
 ---
@@ -220,7 +220,7 @@ def parse_file(content: str) -> List[ParsedQuestion]:
                 q_id = match.group(1)
                 title = match.group(2).strip() if match.group(2) else None
                 
-                # Normalize question ID
+                # Normalise question ID
                 if q_id.isdigit():
                     q_id = f"Q{int(q_id):03d}"
                 
@@ -264,7 +264,7 @@ def detect_question_type(content: str) -> Optional[str]:
     # Explicit type declaration
     type_match = re.search(r'(?:\^type|@type:|type:)\s*(\w+)', content, re.IGNORECASE)
     if type_match:
-        return normalize_type(type_match.group(1))
+        return normalise_type(type_match.group(1))
     
     # Infer from content patterns
     if '{{blank' in content_lower or '{{blank-' in content_lower:
@@ -281,7 +281,7 @@ def detect_question_type(content: str) -> Optional[str]:
     if re.search(r'^[A-F][.)]\s', content, re.MULTILINE) or \
        re.search(r'^\d+[.)]\s', content, re.MULTILINE):
         # Has options - but single or multiple?
-        answer_match = re.search(r'(?:answer|svar|rätt).*?([A-F](?:\s*,\s*[A-F])*)', content, re.IGNORECASE)
+        answer_match = re.search(r'(?:answer|svar|correct).*?([A-F](?:\s*,\s*[A-F])*)', content, re.IGNORECASE)
         if answer_match:
             answer = answer_match.group(1)
             if ',' in answer:
@@ -297,8 +297,8 @@ def detect_question_type(content: str) -> Optional[str]:
     
     return None
 
-def normalize_type(type_str: str) -> str:
-    """Normalize type string to standard format."""
+def normalise_type(type_str: str) -> str:
+    """Normalise type string to standard format."""
     type_map = {
         'mc': 'multiple_choice_single',
         'mcq': 'multiple_choice_single',
@@ -318,8 +318,8 @@ def normalize_type(type_str: str) -> str:
         'shortresponse': 'text_area',
         'textarea': 'text_area',
     }
-    normalized = type_str.lower().replace(' ', '_').replace('-', '_')
-    return type_map.get(normalized, normalized)
+    normalised = type_str.lower().replace(' ', '_').replace('-', '_')
+    return type_map.get(normalised, normalised)
 ```
 
 ---
@@ -374,7 +374,7 @@ def detect_format(content: str) -> FormatLevel:
         return FormatLevel.SEMI_STRUCTURED
     
     # Check for raw Swedish format
-    has_raw_swedish = bool(re.search(r'\*\*(FRÅGA|RÄTT SVAR|FELAKTIGA):', content, re.IGNORECASE))
+    has_raw_swedish = bool(re.search(r'\*\*(QUESTION|CORRECT ANSWER|INCORRECT):', content, re.IGNORECASE))
     
     if has_raw_swedish:
         return FormatLevel.RAW
@@ -390,13 +390,13 @@ def detect_format(content: str) -> FormatLevel:
 def get_format_description(level: FormatLevel) -> str:
     """Get human-readable description of format level."""
     descriptions = {
-        FormatLevel.VALID_V65: "Valid v6.5 format - redo för Step 2",
-        FormatLevel.OLD_SYNTAX_V63: "Gammal syntax (v6.3) - behöver syntax-uppgradering",
-        FormatLevel.SEMI_STRUCTURED: "Semi-strukturerat - behöver omformatering",
-        FormatLevel.RAW: "Ostrukturerat - behöver qf-scaffolding först",
-        FormatLevel.UNKNOWN: "Okänt format - behöver manuell granskning"
+        FormatLevel.VALID_V65: "Valid v6.5 format - ready for Step 2",
+        FormatLevel.OLD_SYNTAX_V63: "Old syntax (v6.3) - needs syntax upgrade",
+        FormatLevel.SEMI_STRUCTURED: "Semi-structured - needs reformatting",
+        FormatLevel.RAW: "Unstructured - needs qf-scaffolding first",
+        FormatLevel.UNKNOWN: "Unknown format - needs manual review"
     }
-    return descriptions.get(level, "Okänt")
+    return descriptions.get(level, "Unknown")
 ```
 
 ---
@@ -405,7 +405,7 @@ def get_format_description(level: FormatLevel) -> str:
 
 ```python
 """
-Analyze questions and find issues.
+Analyse questions and find issues.
 """
 
 import re
@@ -433,11 +433,11 @@ class Issue:
 
 # Required metadata for ALL question types
 REQUIRED_METADATA = [
-    ('^question', r'^\^question\s+Q\d{3}', 'Fråge-ID (Q001, Q002, etc.)'),
-    ('^type', r'^\^type\s+\w+', 'Frågetyp'),
-    ('^identifier', r'^\^identifier\s+\w+', 'Unik identifierare'),
-    ('^points', r'^\^points\s+\d+', 'Poäng'),
-    ('^labels', r'^\^labels\s+.+', 'Etiketter med Bloom och Difficulty'),
+    ('^question', r'^\^question\s+Q\d{3}', 'Question ID (Q001, Q002, etc.)'),
+    ('^type', r'^\^type\s+\w+', 'Question type'),
+    ('^identifier', r'^\^identifier\s+\w+', 'Unique identifier'),
+    ('^points', r'^\^points\s+\d+', 'Points'),
+    ('^labels', r'^\^labels\s+.+', 'Labels with Bloom and Difficulty'),
 ]
 
 # Required fields per question type
@@ -455,9 +455,9 @@ TYPE_REQUIRED_FIELDS = {
 BLOOM_LEVELS = ['Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create']
 DIFFICULTY_LEVELS = ['Easy', 'Medium', 'Hard']
 
-def analyze_question(content: str, question_type: Optional[str] = None) -> List[Issue]:
+def analyse_question(content: str, question_type: Optional[str] = None) -> List[Issue]:
     """
-    Analyze a question and return list of issues.
+    Analyse a question and return list of issues.
     
     Args:
         content: Question content (single question)
@@ -508,7 +508,7 @@ def _check_metadata(content: str) -> List[Issue]:
                     severity=Severity.CRITICAL,
                     category='old_syntax',
                     field=field,
-                    message=f"Gammal syntax '{old_field}' → '{field}'",
+                    message=f"Old syntax '{old_field}' → '{field}'",
                     auto_fixable=True,
                     transform_id='metadata_syntax'
                 ))
@@ -528,7 +528,7 @@ def _check_metadata(content: str) -> List[Issue]:
                     severity=Severity.CRITICAL,
                     category='missing_metadata',
                     field=field,
-                    message=f"Saknar {field} ({description})",
+                    message=f"Missing {field} ({description})",
                     auto_fixable=auto_fix,
                     prompt_key=prompt_key
                 ))
@@ -556,7 +556,7 @@ def _check_old_syntax(content: str) -> List[Issue]:
                 severity=Severity.CRITICAL,
                 category='old_syntax',
                 field=new_syntax,
-                message=f"Gammal syntax: {old_pattern.replace('^', '').replace(':', '')} → {new_syntax}",
+                message=f"Old syntax: {old_pattern.replace('^', '').replace(':', '')} → {new_syntax}",
                 auto_fixable=True,
                 transform_id=transform_id
             ))
@@ -564,9 +564,9 @@ def _check_old_syntax(content: str) -> List[Issue]:
     # Old in-field patterns
     infield_patterns = [
         (r'\*\*Correct Answers?:\*\*', '^Correct_Answers', 'infield_syntax'),
-        (r'\*\*Case Sensitive:\*\*', '^Case_Sensitive', 'infield_syntax'),
+        (r'\*\*Case Sensitive:\*\*\s*(Yes|No|True|False)', r'^Case_Sensitive \1', 'infield_syntax'),
         (r'\*\*Options:\*\*', '^Options', 'infield_syntax'),
-        (r'\*\*Correct:\*\*', '^Correct', 'infield_syntax'),
+        (r'\*\*Correct:\*\*\s*(.+)', r'^Correct \1', 'infield_syntax'),
     ]
     
     for old_pattern, new_syntax, transform_id in infield_patterns:
@@ -575,7 +575,7 @@ def _check_old_syntax(content: str) -> List[Issue]:
                 severity=Severity.CRITICAL,
                 category='old_syntax',
                 field=new_syntax,
-                message=f"Gammal in-field syntax → {new_syntax}",
+                message=f"Old in-field syntax → {new_syntax}",
                 auto_fixable=True,
                 transform_id=transform_id
             ))
@@ -598,7 +598,7 @@ def _check_labels(content: str) -> List[Issue]:
                 severity=Severity.CRITICAL,
                 category='incomplete_labels',
                 field='^labels',
-                message="Labels saknar Bloom-nivå (Remember/Understand/Apply/Analyze)",
+                message="Labels missing Bloom level (Remember/Understand/Apply/Analyze)",
                 current_value=labels,
                 prompt_key='select_bloom'
             ))
@@ -608,7 +608,7 @@ def _check_labels(content: str) -> List[Issue]:
                 severity=Severity.CRITICAL,
                 category='incomplete_labels',
                 field='^labels',
-                message="Labels saknar svårighetsgrad (Easy/Medium/Hard)",
+                message="Labels missing difficulty (Easy/Medium/Hard)",
                 current_value=labels,
                 prompt_key='select_difficulty'
             ))
@@ -631,7 +631,7 @@ def _check_required_fields(content: str, question_type: str) -> List[Issue]:
                     severity=Severity.CRITICAL,
                     category='wrong_format',
                     field=field_name,
-                    message=f"Field '{field_name}' har fel format (## header → @field:)",
+                    message=f"Field '{field_name}' has wrong format (## header → @field:)",
                     auto_fixable=True,
                     transform_id='header_to_field'
                 ))
@@ -640,7 +640,7 @@ def _check_required_fields(content: str, question_type: str) -> List[Issue]:
                     severity=Severity.CRITICAL,
                     category='missing_field',
                     field=field_name,
-                    message=f"Saknar @field: {field_name}",
+                    message=f"Missing @field: {field_name}",
                     prompt_key=f'add_{field_name}'
                 ))
     
@@ -659,7 +659,7 @@ def _check_options_format(content: str) -> List[Issue]:
                 severity=Severity.CRITICAL,
                 category='wrong_format',
                 field='options',
-                message="Alternativ numrerade (1. 2. 3.) → ska vara bokstäver (A. B. C.)",
+                message="Options numbered (1. 2. 3.) → should be letters (A. B. C.)",
                 auto_fixable=True,
                 transform_id='numbered_to_letter_options'
             ))
@@ -672,7 +672,7 @@ def _check_options_format(content: str) -> List[Issue]:
                 severity=Severity.WARNING,
                 category='wrong_format',
                 field='options',
-                message="Alternativ med små bokstäver (a. b. c.) → stora (A. B. C.)",
+                message="Options with lowercase letters (a. b. c.) → uppercase (A. B. C.)",
                 auto_fixable=True,
                 transform_id='lowercase_to_upper_options'
             ))
@@ -689,7 +689,7 @@ def _check_placeholders(content: str) -> List[Issue]:
             severity=Severity.CRITICAL,
             category='old_syntax',
             field='placeholders',
-            message="Gammal syntax {{BLANK-1}} → {{blank_1}}",
+            message="Old syntax {{BLANK-1}} → {{blank_1}}",
             auto_fixable=True,
             transform_id='placeholder_syntax'
         ))
@@ -700,7 +700,7 @@ def _check_placeholders(content: str) -> List[Issue]:
             severity=Severity.CRITICAL,
             category='old_syntax',
             field='placeholders',
-            message="Gammal syntax {{DROPDOWN-1}} → {{dropdown_1}}",
+            message="Old syntax {{DROPDOWN-1}} → {{dropdown_1}}",
             auto_fixable=True,
             transform_id='placeholder_syntax'
         ))
@@ -719,7 +719,7 @@ def _check_field_structure(content: str) -> List[Issue]:
             severity=Severity.CRITICAL,
             category='structure',
             field='@end_field',
-            message=f"Saknar {field_starts - field_ends} st @end_field",
+            message=f"Missing {field_starts - field_ends} @end_field marker(s)",
             auto_fixable=True,
             transform_id='add_end_fields'
         ))
@@ -749,7 +749,7 @@ def _check_feedback(content: str) -> List[Issue]:
                     severity=Severity.WARNING,
                     category='missing_feedback',
                     field=subfield,
-                    message=f"Saknar {subfield}",
+                    message=f"Missing {subfield}",
                     prompt_key='suggest_feedback'
                 ))
     
@@ -873,7 +873,7 @@ class Transformer:
             content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
         
         if content != original:
-            return content, "Konverterade metadata-syntax (@key: → ^key)"
+            return content, "Converted metadata syntax (@key: → ^key)"
         return content, ""
     
     def _transform_infield_syntax(self, content: str) -> Tuple[str, str]:
@@ -892,7 +892,7 @@ class Transformer:
             content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
         
         if content != original:
-            return content, "Konverterade in-field syntax (**Key:** → ^Key)"
+            return content, "Converted in-field syntax (**Key:** → ^Key)"
         return content, ""
     
     def _transform_placeholder_syntax(self, content: str) -> Tuple[str, str]:
@@ -909,7 +909,7 @@ class Transformer:
             content = re.sub(pattern, replacement, content, flags=re.IGNORECASE)
         
         if content != original:
-            return content, "Konverterade placeholder-syntax"
+            return content, "Converted placeholder syntax"
         return content, ""
     
     def _transform_numbered_options(self, content: str) -> Tuple[str, str]:
@@ -939,7 +939,7 @@ class Transformer:
         )
         
         if content != original:
-            return content, "Konverterade numrerade alternativ till bokstäver"
+            return content, "Converted numbered options to letters"
         return content, ""
     
     def _transform_lowercase_options(self, content: str) -> Tuple[str, str]:
@@ -967,7 +967,7 @@ class Transformer:
         )
         
         if content != original:
-            return content, "Konverterade små bokstäver till stora i alternativ"
+            return content, "Converted lowercase letters to uppercase in options"
         return content, ""
     
     def _transform_header_to_field(self, content: str) -> Tuple[str, str]:
@@ -992,7 +992,7 @@ class Transformer:
             content = re.sub(pattern, replacement, content, flags=re.MULTILINE | re.IGNORECASE)
         
         if content != original:
-            return content, "Konverterade markdown headers till @field: format"
+            return content, "Converted markdown headers to @field: format"
         return content, ""
     
     def _transform_add_end_fields(self, content: str) -> Tuple[str, str]:
@@ -1038,7 +1038,7 @@ class Transformer:
         
         new_content = '\n'.join(result)
         if new_content != content:
-            return new_content, "La till saknade @end_field"
+            return new_content, "Added missing @end_field markers"
         return content, ""
 
 # Global transformer instance
@@ -1058,93 +1058,93 @@ from typing import Dict, List, Any, Optional
 
 # Bloom taxonomy levels with descriptions
 BLOOM_LEVELS = [
-    ('Remember', 'Minnas fakta, definitioner, termer'),
-    ('Understand', 'Förklara, sammanfatta, tolka'),
-    ('Apply', 'Använda kunskap i ny situation'),
-    ('Analyze', 'Bryta ner, jämföra, identifiera mönster'),
-    ('Evaluate', 'Bedöma, kritisera, motivera'),
-    ('Create', 'Skapa, designa, konstruera'),
+    ('Remember', 'Recall facts, definitions, terms'),
+    ('Understand', 'Explain, summarise, interpret'),
+    ('Apply', 'Use knowledge in new situation'),
+    ('Analyze', 'Break down, compare, identify patterns'),
+    ('Evaluate', 'Assess, critique, justify'),
+    ('Create', 'Create, design, construct'),
 ]
 
 DIFFICULTY_LEVELS = [
-    ('Easy', 'Grundläggande - de flesta klarar'),
-    ('Medium', 'Medel - kräver god förståelse'),
-    ('Hard', 'Svår - kräver djup förståelse'),
+    ('Easy', 'Basic - most students will manage'),
+    ('Medium', 'Medium - requires good understanding'),
+    ('Hard', 'Difficult - requires deep understanding'),
 ]
 
 PROMPTS = {
     'select_bloom': {
         'type': 'single_choice',
-        'question': 'Vilken Bloom-nivå har denna fråga?',
+        'question': 'Which Bloom level does this question have?',
         'options': BLOOM_LEVELS,
-        'help': 'Välj den kognitiva nivå som bäst beskriver vad frågan testar.'
+        'help': 'Choose the cognitive level that best describes what the question tests.'
     },
     
     'select_difficulty': {
         'type': 'single_choice',
-        'question': 'Vilken svårighetsgrad har denna fråga?',
+        'question': 'Which difficulty level does this question have?',
         'options': DIFFICULTY_LEVELS,
-        'help': 'Uppskatta hur svår frågan är för en typisk student.'
+        'help': 'Estimate how difficult the question is for a typical student.'
     },
     
     'confirm_identifier': {
         'type': 'confirm_or_edit',
-        'question': 'Genererad identifier: {identifier}. Godkänn eller ändra:',
+        'question': 'Generated identifier: {identifier}. Approve or edit:',
         'default': '{identifier}',
-        'help': 'Identifier måste vara unik. Format: KURS_TYP_NUMMER'
+        'help': 'Identifier must be unique. Format: COURSE_TYPE_NUMBER'
     },
     
     'missing_labels': {
         'type': 'text_input',
-        'question': 'Ange labels för frågan:',
-        'placeholder': '#KURS #Ämne #Bloom #Difficulty',
-        'help': 'Labels måste innehålla minst Bloom-nivå och svårighetsgrad.'
+        'question': 'Enter labels for the question:',
+        'placeholder': '#COURSE #Topic #Bloom #Difficulty',
+        'help': 'Labels must contain at least Bloom level and difficulty.'
     },
     
     'suggest_feedback': {
         'type': 'confirm_suggestion',
-        'question': 'Saknar {field}. Vill du att jag föreslår?',
+        'question': 'Missing {field}. Would you like me to suggest?',
         'options': [
-            ('yes', 'Ja, föreslå'),
-            ('manual', 'Nej, jag skriver själv'),
-            ('skip', 'Hoppa över')
+            ('yes', 'Yes, suggest'),
+            ('manual', 'No, I will write myself'),
+            ('skip', 'Skip')
         ]
     },
     
     'ambiguous_type': {
         'type': 'single_choice',
-        'question': 'Kan inte avgöra frågetyp. Vilken är det?',
+        'question': 'Cannot determine question type. Which is it?',
         'options': [
-            ('multiple_choice_single', 'Flerval (ett svar)'),
-            ('multiple_response', 'Flerval (flera svar)'),
-            ('text_entry', 'Fyll i lucka'),
+            ('multiple_choice_single', 'Multiple choice (one answer)'),
+            ('multiple_response', 'Multiple choice (multiple answers)'),
+            ('text_entry', 'Fill in the blank'),
             ('inline_choice', 'Dropdown'),
-            ('match', 'Matchning'),
-            ('text_area', 'Fritext/Essä'),
+            ('match', 'Matching'),
+            ('text_area', 'Free text/Essay'),
         ]
     },
     
     'batch_apply': {
         'type': 'batch_confirm',
-        'question': 'Samma fix kan appliceras på {count} liknande frågor:',
+        'question': 'Same fix can be applied to {count} similar questions:',
         'preview_count': 3,  # Show first 3 as preview
         'options': [
-            ('all', 'Applicera på alla {count}'),
-            ('select', 'Låt mig välja'),
-            ('skip', 'Bara denna fråga')
+            ('all', 'Apply to all {count}'),
+            ('select', 'Let me choose'),
+            ('skip', 'This question only')
         ]
     },
     
     'image_missing': {
         'type': 'path_input',
-        'question': 'Bildfil "{filename}" hittades inte. Var finns den?',
+        'question': 'Image file "{filename}" not found. Where is it?',
         'allow_skip': True,
-        'skip_warning': 'Frågan exporteras utan bild.'
+        'skip_warning': 'Question will be exported without image.'
     },
     
     'confirm_changes': {
         'type': 'confirm',
-        'question': 'Applicera dessa ändringar?',
+        'question': 'Apply these changes?',
         'show_diff': True
     }
 }
@@ -1190,19 +1190,19 @@ def format_issue_summary(issues: List[Any]) -> str:
     info = [i for i in issues if i.severity.value == 'info']
     
     if critical:
-        lines.append(f"❌ **{len(critical)} kritiska problem** (måste fixas):")
+        lines.append(f"❌ **{len(critical)} critical problems** (must be fixed):")
         for issue in critical:
             auto = " [AUTO]" if issue.auto_fixable else ""
             lines.append(f"   - {issue.message}{auto}")
     
     if warning:
-        lines.append(f"⚠️ **{len(warning)} varningar** (rekommenderas):")
+        lines.append(f"⚠️ **{len(warning)} warnings** (recommended):")
         for issue in warning:
             auto = " [AUTO]" if issue.auto_fixable else ""
             lines.append(f"   - {issue.message}{auto}")
     
     if info:
-        lines.append(f"ℹ️ **{len(info)} förslag:**")
+        lines.append(f"ℹ️ **{len(info)} suggestions:**")
         for issue in info:
             lines.append(f"   - {issue.message}")
     
@@ -1226,7 +1226,7 @@ import json
 from ..step1.session import Session
 from ..step1.parser import parse_file, ParsedQuestion
 from ..step1.detector import detect_format, FormatLevel, get_format_description
-from ..step1.analyzer import analyze_question, Issue
+from ..step1.analyzer import analyse_question, Issue
 from ..step1.transformer import transformer
 from ..step1.prompts import get_prompt, format_issue_summary
 
@@ -1275,16 +1275,16 @@ def step1_start(
     
     if format_level == FormatLevel.RAW:
         return {
-            "error": "Filen är för ostrukturerad för Step 1",
-            "recommendation": "Använd qf-scaffolding först",
+            "error": "File is too unstructured for Step 1",
+            "recommendation": "Use qf-scaffolding first",
             "format": format_level.value,
             "format_description": get_format_description(format_level)
         }
     
     if format_level == FormatLevel.VALID_V65:
         return {
-            "message": "Filen är redan i valid v6.5 format",
-            "recommendation": "Gå direkt till Step 2 (validate)",
+            "message": "File is already in valid v6.5 format",
+            "recommendation": "Go directly to Step 2 (validate)",
             "format": format_level.value
         }
     
@@ -1292,14 +1292,14 @@ def step1_start(
     questions = parse_file(content)
     
     if not questions:
-        return {"error": "Inga frågor hittades i filen"}
+        return {"error": "No questions found in file"}
     
     # Create session
     _current_session = Session.create_new(source_file, output_folder)
     _current_session.total_questions = len(questions)
     _current_session.detected_format = format_level.value
     
-    # Initialize question status
+    # Initialise question status
     from ..step1.session import QuestionStatus
     _current_session.questions = [
         QuestionStatus(question_id=q.question_id, status='pending')
@@ -1314,9 +1314,9 @@ def step1_start(
     session_file = output_path / f"session_{_current_session.session_id}.json"
     _current_session.save(session_file)
     
-    # Analyze first question
+    # Analyse first question
     first_question = questions[0]
-    issues = analyze_question(first_question.raw_content, first_question.detected_type)
+    issues = analyse_question(first_question.raw_content, first_question.detected_type)
     
     return {
         "session_id": _current_session.session_id,
@@ -1356,12 +1356,12 @@ def step1_status() -> Dict[str, Any]:
         "changes_made": len(_current_session.changes)
     }
 
-def step1_analyze(question_id: Optional[str] = None) -> Dict[str, Any]:
+def step1_analyse(question_id: Optional[str] = None) -> Dict[str, Any]:
     """
-    Analyze a question and return issues.
+    Analyse a question and return issues.
     
     Args:
-        question_id: Question to analyze (default: current)
+        question_id: Question to analyse (default: current)
         
     Returns:
         List of issues with suggested fixes
@@ -1382,8 +1382,8 @@ def step1_analyze(question_id: Optional[str] = None) -> Dict[str, Any]:
     if not question:
         return {"error": f"Question not found: {target_id}"}
     
-    # Analyze
-    issues = analyze_question(question.raw_content, question.detected_type)
+    # Analyse
+    issues = analyse_question(question.raw_content, question.detected_type)
     
     # Separate auto-fixable and manual
     auto_fixable = [i for i in issues if i.auto_fixable]
@@ -1444,7 +1444,7 @@ def step1_fix_auto(question_id: Optional[str] = None) -> Dict[str, Any]:
         return {
             "question_id": target_id,
             "changes": [],
-            "message": "Inga automatiska fixar att applicera"
+            "message": "No automatic fixes to apply"
         }
     
     # Update file
@@ -1464,7 +1464,7 @@ def step1_fix_auto(question_id: Optional[str] = None) -> Dict[str, Any]:
     return {
         "question_id": target_id,
         "changes": changes,
-        "message": f"Applicerade {len(changes)} automatiska fixar"
+        "message": f"Applied {len(changes)} automatic fixes"
     }
 
 def step1_fix_manual(
@@ -1507,7 +1507,7 @@ def step1_fix_manual(
         "question_id": question_id,
         "field": field,
         "new_value": value,
-        "message": f"Uppdaterade {field}"
+        "message": f"Updated {field}"
     }
 
 def step1_next(direction: str = "forward") -> Dict[str, Any]:
@@ -1541,7 +1541,7 @@ def step1_next(direction: str = "forward") -> Dict[str, Any]:
     
     return {
         "current_question": current.question_id,
-        "position": f"{progress['current']} av {progress['total']}",
+        "position": f"{progress['current']} of {progress['total']}",
         "progress": progress
     }
 
@@ -1608,7 +1608,7 @@ def step1_finish() -> Dict[str, Any]:
         "skipped_questions": [q.question_id for q in skipped],
         "warning_questions": [q.question_id for q in warnings],
         "ready_for_step2": len(skipped) == 0 and len(warnings) == 0,
-        "next_action": "Kör step2_validate på working_file" if len(skipped) == 0 else "Fixa skippade frågor först"
+        "next_action": "Run step2_validate on working_file" if len(skipped) == 0 else "Fix skipped questions first"
     }
 
 # ════════════════════════════════════════════════════════════════════
@@ -1618,58 +1618,58 @@ def step1_finish() -> Dict[str, Any]:
 TOOLS = [
     {
         "name": "step1_start",
-        "description": "Starta Step 1 Guided Build session. Analyserar fil och förbereder för fråga-för-fråga genomgång.",
+        "description": "Start Step 1 Guided Build session. Analyses file and prepares for question-by-question walkthrough.",
         "parameters": {
-            "source_file": {"type": "string", "description": "Sökväg till markdown-fil"},
-            "output_folder": {"type": "string", "description": "Mapp för output"},
-            "project_name": {"type": "string", "description": "Valfritt projektnamn"}
+            "source_file": {"type": "string", "description": "Path to markdown file"},
+            "output_folder": {"type": "string", "description": "Folder for output"},
+            "project_name": {"type": "string", "description": "Optional project name"}
         }
     },
     {
         "name": "step1_status",
-        "description": "Visa status för aktiv session.",
+        "description": "Show status for active session.",
         "parameters": {}
     },
     {
-        "name": "step1_analyze",
-        "description": "Analysera en fråga och visa problem som behöver fixas.",
+        "name": "step1_analyse",
+        "description": "Analyse a question and show problems that need fixing.",
         "parameters": {
-            "question_id": {"type": "string", "description": "Fråge-ID (default: aktuell)"}
+            "question_id": {"type": "string", "description": "Question ID (default: current)"}
         }
     },
     {
         "name": "step1_fix_auto",
-        "description": "Applicera alla automatiska fixar på en fråga.",
+        "description": "Apply all automatic fixes to a question.",
         "parameters": {
-            "question_id": {"type": "string", "description": "Fråge-ID (default: aktuell)"}
+            "question_id": {"type": "string", "description": "Question ID (default: current)"}
         }
     },
     {
         "name": "step1_fix_manual",
-        "description": "Applicera manuell fix från användarinput.",
+        "description": "Apply manual fix from user input.",
         "parameters": {
-            "question_id": {"type": "string", "description": "Fråge-ID"},
-            "field": {"type": "string", "description": "Fält att uppdatera"},
-            "value": {"type": "string", "description": "Nytt värde"}
+            "question_id": {"type": "string", "description": "Question ID"},
+            "field": {"type": "string", "description": "Field to update"},
+            "value": {"type": "string", "description": "New value"}
         }
     },
     {
         "name": "step1_next",
-        "description": "Gå till nästa/föregående fråga.",
+        "description": "Go to next/previous question.",
         "parameters": {
-            "direction": {"type": "string", "description": "'forward', 'back', eller fråge-ID"}
+            "direction": {"type": "string", "description": "'forward', 'back', or question ID"}
         }
     },
     {
         "name": "step1_skip",
-        "description": "Hoppa över aktuell fråga.",
+        "description": "Skip current question.",
         "parameters": {
-            "reason": {"type": "string", "description": "Anledning (valfritt)"}
+            "reason": {"type": "string", "description": "Reason (optional)"}
         }
     },
     {
         "name": "step1_finish",
-        "description": "Avsluta Step 1 och generera rapport.",
+        "description": "End Step 1 and generate report.",
         "parameters": {}
     }
 ]
@@ -1679,14 +1679,14 @@ TOOLS = [
 
 ## TESTING
 
-### Test File: EXAMPLE_COURSE_Fys_v63.md (verklig fil)
+### Test File: EXAMPLE_COURSE_Fys_v63.md (real file)
 
 ```bash
-# Kör test
+# Run test
 cd /packages/qf-pipeline
 python -m pytest tests/test_step1.py -v
 
-# Eller manuellt
+# Or manually
 python -c "
 from qf_pipeline.step1.detector import detect_format
 from qf_pipeline.step1.parser import parse_file
@@ -1705,26 +1705,26 @@ for q in questions[:3]:
 
 ## KNOWN LIMITATIONS
 
-1. **Batch apply** - Förenklad implementation, behöver mer testning
-2. **Nested fields** - @@field: detektion är komplex
-3. **Semi-structured** - ## Header → @field: konvertering behöver mer arbete
-4. **Image handling** - Inte implementerat i denna version
-5. **Feedback generation** - Kräver AI, inte inkluderat
+1. **Batch apply** - Simplified implementation, needs more testing
+2. **Nested fields** - @@field: detection is complex
+3. **Semi-structured** - ## Header → @field: conversion needs more work
+4. **Image handling** - Not implemented in this version
+5. **Feedback generation** - Requires AI, not included
 
 ---
 
 ## NEXT STEPS FOR CODE
 
-1. ✅ Skapa filstruktur
-2. ⏳ Implementera session.py
-3. ⏳ Implementera parser.py
-4. ⏳ Implementera detector.py
-5. ⏳ Implementera analyzer.py
-6. ⏳ Implementera transformer.py
-7. ⏳ Implementera prompts.py
-8. ⏳ Implementera step1_tools.py
-9. ⏳ Skriva tester
-10. ⏳ Testa på verklig fil
+1. ✅ Create file structure
+2. ⏳ Implement session.py
+3. ⏳ Implement parser.py
+4. ⏳ Implement detector.py
+5. ⏳ Implement analyzer.py
+6. ⏳ Implement transformer.py
+7. ⏳ Implement prompts.py
+8. ⏳ Implement step1_tools.py
+9. ⏳ Write tests
+10. ⏳ Test on real file
 
 ---
 
